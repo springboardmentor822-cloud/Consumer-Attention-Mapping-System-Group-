@@ -20,7 +20,7 @@ const registerSchema = z
     email: z.string().email('Enter a valid email address'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(8, 'Confirm your password'),
-    role: z.enum(['SuperAdmin', 'StoreManager', 'Analyst']),
+    role: z.enum(['Administrator', 'Store Manager', 'Retail Analyst', 'Marketing Manager']),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -29,7 +29,7 @@ const registerSchema = z
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-const roleOptions: RoleName[] = ['StoreManager', 'Analyst'];
+const roleOptions: RoleName[] = ['Store Manager', 'Retail Analyst', 'Marketing Manager'];
 
 export function RegisterPage(): JSX.Element {
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ export function RegisterPage(): JSX.Element {
 
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '', role: 'StoreManager' },
+    defaultValues: { email: '', password: '', confirmPassword: '', role: 'Store Manager' },
   });
 
   const { mutate: handleRegister, isPending: submitting } = useMutation({

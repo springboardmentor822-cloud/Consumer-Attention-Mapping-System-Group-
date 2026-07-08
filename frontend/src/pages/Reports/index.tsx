@@ -60,7 +60,7 @@ export function ReportsPage(): JSX.Element {
                   </TableCell>
                   <TableCell>{report.date}</TableCell>
                   <TableCell className="text-right">
-                    {user?.role === 'Analyst' || user?.role === 'SuperAdmin' ? (
+                    {user?.role === 'Retail Analyst' || user?.role === 'Administrator' || user?.role === 'Marketing Manager' ? (
                       <Button variant="outline" size="sm" onClick={() => handleExport(report.name)}>
                         <Download className="h-4 w-4 mr-1" />
                         Export

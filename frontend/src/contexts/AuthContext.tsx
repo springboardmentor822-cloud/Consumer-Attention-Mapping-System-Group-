@@ -13,6 +13,7 @@ interface AuthContextValue {
   register: (payload: RegisterPayload) => Promise<AuthUser>;
   logout: () => void;
   setSession: (token: string, user: AuthUser) => void;
+  refreshUser?: () => Promise<AuthUser | undefined>;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -67,6 +68,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     return response.user;
   }, []);
 
+  const refreshUser = React.useCallback(async () => {
+    try {
+      const freshUser = await fetchCurrentUser();
+      authStorage.setUser(freshUser);
+      setUser(freshUser);
+      return freshUser;
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const logout = React.useCallback(() => {
     authStorage.clear();
     setToken(null);
@@ -84,8 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       register,
       logout,
       setSession,
+      refreshUser,
     }),
-    [loading, login, logout, register, setSession, token, user],
+    [loading, login, logout, register, setSession, token, user, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

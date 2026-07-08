@@ -1,21 +1,24 @@
 import * as React from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useAuth } from '../../contexts/AuthContext';
-import { SuperAdminDashboard } from './components/SuperAdminDashboard';
+import { AdministratorDashboard } from './components/AdministratorDashboard';
 import { StoreManagerDashboard } from './components/StoreManagerDashboard';
-import { AnalystDashboard } from './components/AnalystDashboard';
+import { RetailAnalystDashboard } from './components/RetailAnalystDashboard';
+import { MarketingManagerDashboard } from './components/MarketingManagerDashboard';
 
 export function DashboardPage(): JSX.Element {
   const { user } = useAuth();
 
   const renderDashboard = () => {
     switch (user?.role) {
-      case 'SuperAdmin':
-        return <SuperAdminDashboard />;
-      case 'StoreManager':
+      case 'Administrator':
+        return <AdministratorDashboard />;
+      case 'Store Manager':
         return <StoreManagerDashboard />;
-      case 'Analyst':
-        return <AnalystDashboard />;
+      case 'Retail Analyst':
+        return <RetailAnalystDashboard />;
+      case 'Marketing Manager':
+        return <MarketingManagerDashboard />;
       default:
         return (
           <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed rounded-2xl p-6">

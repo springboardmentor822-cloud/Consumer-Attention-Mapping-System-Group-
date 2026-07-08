@@ -34,7 +34,7 @@ type CameraFormValues = z.infer<typeof cameraSchema>;
 export function CamerasPage(): JSX.Element {
   const { user } = useAuth();
   const { toast } = useToast();
-  const canMutate = user?.role === 'SuperAdmin' || user?.role === 'StoreManager';
+  const canMutate = user?.role === 'Store Manager';
   const [stores, setStores] = React.useState<Store[]>([]);
   const [cameras, setCameras] = React.useState<Camera[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -44,21 +44,27 @@ export function CamerasPage(): JSX.Element {
 
   const { register, handleSubmit, reset } = useForm<CameraFormValues>({
     resolver: zodResolver(cameraSchema),
-    defaultValues: { store_id: '', camera_name: '', camera_source: '0', status: 'active' },
+    defaultValues: { store_id: user?.store_id || '', camera_name: '', camera_source: '0', status: 'active' },
   });
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
       const [storeData, cameraData] = await Promise.all([listStores(), listCameras()]);
-      setStores(storeData);
-      setCameras(cameraData);
+      if (user?.role === 'Store Manager') {
+        const assigned = storeData.filter((s) => s.id === user.store_id);
+        setStores(assigned);
+        setCameras(cameraData.filter((c) => c.store_id === user.store_id));
+      } else {
+        setStores(storeData);
+        setCameras(cameraData);
+      }
     } catch {
       toast({ title: 'Failed to load cameras', type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [user, toast]);
 
   React.useEffect(() => {
     void loadData();
@@ -66,7 +72,7 @@ export function CamerasPage(): JSX.Element {
 
   const openCreateDialog = (): void => {
     setEditingCamera(null);
-    reset({ store_id: stores[0]?.id ?? '', camera_name: '', camera_source: '0', status: 'active' });
+    reset({ store_id: user?.store_id || stores[0]?.id || '', camera_name: '', camera_source: '0', status: 'active' });
     setDialogOpen(true);
   };
 

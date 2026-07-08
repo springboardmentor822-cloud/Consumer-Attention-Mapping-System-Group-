@@ -3,6 +3,7 @@ export interface Store {
   store_name: string;
   location: string;
   metadata: Record<string, unknown>;
+  is_approved: boolean;
   created_at: string;
 }
 

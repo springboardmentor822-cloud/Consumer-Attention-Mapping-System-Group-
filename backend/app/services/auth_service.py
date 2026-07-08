@@ -22,10 +22,10 @@ class AuthService:
         return db.scalar(select(Role).where(Role.role_name == role_name))
 
     def register(self, db: Session, payload: RegisterRequest) -> User:
-        if payload.role == "SuperAdmin":
+        if payload.role == "Administrator":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Super Admin accounts cannot be created via public registration.",
+                detail="Administrator accounts cannot be created via public registration.",
             )
         existing_user = self.get_user_by_email(db, payload.email)
         if existing_user is not None:

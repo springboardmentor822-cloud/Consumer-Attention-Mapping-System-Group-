@@ -1,10 +1,11 @@
-export type RoleName = 'SuperAdmin' | 'StoreManager' | 'Analyst';
+export type RoleName = 'Administrator' | 'Store Manager' | 'Retail Analyst' | 'Marketing Manager';
 
 export interface AuthUser {
   id: string;
   email: string;
   role: RoleName;
   is_active: boolean;
+  store_id?: string | null;
 }
 
 export interface BackendRole {
@@ -17,6 +18,7 @@ export interface BackendUser {
   email: string;
   role: BackendRole;
   is_active: boolean;
+  store_id?: string | null;
   created_at?: string;
 }
 

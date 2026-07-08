@@ -30,7 +30,7 @@ from backend.app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Seeding default Super Admin
+    # Seeding default Administrator
     from backend.app.core.database import SessionLocal
     from backend.app.models.user import User
     from backend.app.models.role import Role
@@ -43,22 +43,22 @@ async def lifespan(app: FastAPI):
         statement = select(User).where(User.email == admin_email)
         admin_user = db.scalar(statement)
         if admin_user is None:
-            role_statement = select(Role).where(Role.role_name == "SuperAdmin")
-            superadmin_role = db.scalar(role_statement)
-            if superadmin_role:
+            role_statement = select(Role).where(Role.role_name == "Administrator")
+            admin_role = db.scalar(role_statement)
+            if admin_role:
                 new_admin = User(
                     email=admin_email,
                     hashed_password=get_password_hash("Admin@123"),
-                    role_id=superadmin_role.id,
+                    role_id=admin_role.id,
                     is_active=True
                 )
                 db.add(new_admin)
                 db.commit()
-                print("Default Super Admin seeded successfully!")
+                print("Default Administrator seeded successfully!")
             else:
-                print("Error: SuperAdmin role not found. Run migrations/seeding first.")
+                print("Error: Administrator role not found. Run migrations/seeding first.")
     except Exception as e:
-        print(f"Error seeding default Super Admin: {e}")
+        print(f"Error seeding default Administrator: {e}")
     finally:
         db.close()
     yield

@@ -12,6 +12,15 @@ import {
   Bell,
   BarChart3,
   Map,
+  Megaphone,
+  Percent,
+  Sparkles,
+  Zap,
+  Package,
+  Compass,
+  Eye,
+  GitCommit,
+  Shield,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
@@ -30,34 +39,47 @@ export function Sidebar({ open, onClose }: SidebarProps): JSX.Element {
   const role = user?.role;
 
   let links = [];
-  if (role === 'SuperAdmin') {
+  if (role === 'Administrator') {
     links = [
       { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/users', label: 'Users', icon: Users },
+      { to: '/users?tab=roles', label: 'Roles', icon: Shield },
       { to: '/stores', label: 'Stores', icon: Store },
-      { to: '/shelves', label: 'Shelves', icon: ShoppingBag },
       { to: '/cameras', label: 'Cameras', icon: Camera },
       { to: '/reports', label: 'Reports', icon: FileText },
       { to: '/audit-logs', label: 'Audit Logs', icon: ClipboardList },
+      { to: '/settings?tab=notifications', label: 'Notifications', icon: Bell },
       { to: '/settings', label: 'Settings', icon: Settings },
     ];
-  } else if (role === 'StoreManager') {
+  } else if (role === 'Store Manager') {
     links = [
       { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/stores', label: 'Store', icon: Store },
-      { to: '/shelves', label: 'Shelves', icon: ShoppingBag },
+      { to: '/shelves?tab=shelves', label: 'Shelves', icon: ShoppingBag },
+      { to: '/shelves?tab=products', label: 'Products', icon: Package },
+      { to: '/shelves?tab=zones', label: 'Zones', icon: Map },
       { to: '/cameras', label: 'Cameras', icon: Camera },
       { to: '/reports', label: 'Reports', icon: FileText },
-      { to: '/alerts', label: 'Alerts', icon: Bell },
-      { to: '/profile', label: 'Profile', icon: UserRound },
     ];
-  } else if (role === 'Analyst') {
+  } else if (role === 'Retail Analyst') {
     links = [
       { to: '/analyst/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+      { to: '/analytics', label: 'Consumer Tracking', icon: Compass },
+      { to: '/analytics', label: 'Attention Analysis', icon: Eye },
       { to: '/heatmaps', label: 'Heatmaps', icon: Map },
+      { to: '/heatmaps', label: 'Journey Analytics', icon: GitCommit },
       { to: '/reports', label: 'Reports', icon: FileText },
-      { to: '/profile', label: 'Profile', icon: UserRound },
+    ];
+  } else if (role === 'Marketing Manager') {
+    links = [
+      { to: '/marketing/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/marketing/campaign-analytics', label: 'Campaign Analytics', icon: Megaphone },
+      { to: '/marketing/product-visibility', label: 'Product Visibility', icon: Eye },
+      { to: '/marketing/promotions', label: 'Promotion Performance', icon: Percent },
+      { to: '/marketing/customer-engagement', label: 'Customer Engagement', icon: Sparkles },
+      { to: '/marketing/recommendations', label: 'Recommendations', icon: Zap },
+      { to: '/reports', label: 'Reports', icon: FileText },
     ];
   } else {
     links = [
@@ -88,7 +110,7 @@ export function Sidebar({ open, onClose }: SidebarProps): JSX.Element {
             const Icon = item.icon;
             return (
               <NavLink
-                key={item.to}
+                key={item.label}
                 to={item.to}
                 className={({ isActive }) =>
                   cn(

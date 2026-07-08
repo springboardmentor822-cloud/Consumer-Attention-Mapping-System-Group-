@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, JSON, String, func
+from sqlalchemy import Boolean, DateTime, JSON, String, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,7 @@ class Store(Base):
     store_name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     location: Mapped[str] = mapped_column(String(255), nullable=False)
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict, nullable=False)
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     shelves = relationship("Shelf", back_populates="store", cascade="all, delete-orphan", passive_deletes=True)

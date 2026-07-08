@@ -40,14 +40,17 @@ export function LoginPage(): JSX.Element {
       let dest = from;
       if (from === '/dashboard' || from === '/') {
         switch (user.role) {
-          case 'SuperAdmin':
+          case 'Administrator':
             dest = '/admin/dashboard';
             break;
-          case 'StoreManager':
+          case 'Store Manager':
             dest = '/manager/dashboard';
             break;
-          case 'Analyst':
+          case 'Retail Analyst':
             dest = '/analyst/dashboard';
+            break;
+          case 'Marketing Manager':
+            dest = '/marketing/dashboard';
             break;
           default:
             dest = '/dashboard';

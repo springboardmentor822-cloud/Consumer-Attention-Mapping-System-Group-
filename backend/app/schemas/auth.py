@@ -6,7 +6,7 @@ from backend.app.schemas.user import UserRead
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    role: str = Field(default="Analyst")
+    role: str
 
 
 class LoginRequest(BaseModel):

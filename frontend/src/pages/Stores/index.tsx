@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +16,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { LoadingState } from '../../components/common/LoadingState';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useAuth } from '../../contexts/AuthContext';
-import { createStore, deleteStore, listStores, updateStore } from '../../services/store';
+import { createStore, deleteStore, listStores, updateStore, approveStore } from '../../services/store';
 import type { Store } from '../../types/store';
 import { useToast } from '../../components/ui/toast';
 import { parseJsonOrThrow } from '../../utils/json';
@@ -32,7 +32,7 @@ type StoreFormValues = z.infer<typeof storeSchema>;
 const pageSize = 5;
 
 export function StoresPage(): JSX.Element {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const [stores, setStores] = React.useState<Store[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -42,7 +42,7 @@ export function StoresPage(): JSX.Element {
   const [editingStore, setEditingStore] = React.useState<Store | null>(null);
   const [deletingStore, setDeletingStore] = React.useState<Store | null>(null);
 
-  const canMutate = user?.role === 'SuperAdmin' || user?.role === 'StoreManager';
+  const canMutate = user?.role === 'Administrator' || user?.role === 'Store Manager';
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<StoreFormValues>({
     resolver: zodResolver(storeSchema),
@@ -55,7 +55,7 @@ export function StoresPage(): JSX.Element {
       const data = await listStores();
       setStores(data);
     } catch {
-      toast({ title: 'Failed to load stores', description: 'Please try again.', type: 'error' });
+      toast({ title: 'Failed to load stores', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -91,11 +91,24 @@ export function StoresPage(): JSX.Element {
       } else {
         await createStore(payload);
         toast({ title: 'Store created', type: 'success' });
+        if (refreshUser) {
+          await refreshUser();
+        }
       }
       setDialogOpen(false);
       await loadStores();
     } catch (error) {
       toast({ title: 'Store save failed', description: error instanceof Error ? error.message : 'Please retry.', type: 'error' });
+    }
+  };
+
+  const handleApprove = async (storeId: string, isApproved: boolean): Promise<void> => {
+    try {
+      await approveStore(storeId, isApproved);
+      toast({ title: isApproved ? 'Store approved successfully' : 'Store status revoked', type: 'success' });
+      await loadStores();
+    } catch (error) {
+      toast({ title: 'Operation failed', description: error instanceof Error ? error.message : 'Please retry.', type: 'error' });
     }
   };
 
@@ -140,23 +153,55 @@ export function StoresPage(): JSX.Element {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedStores.map((store) => (
-                <TableRow key={store.id}>
-                  <TableCell className="font-medium">{store.store_name}</TableCell>
-                  <TableCell>{store.location}</TableCell>
-                  <TableCell><Badge>Active</Badge></TableCell>
-                  <TableCell className="text-right">
-                    {canMutate ? (
+              {paginatedStores.map((store) => {
+                const isAssignedToUser = user?.role === 'Store Manager' && user?.store_id === store.id;
+                const isAdmin = user?.role === 'Administrator';
+                return (
+                  <TableRow key={store.id}>
+                    <TableCell className="font-medium">{store.store_name}</TableCell>
+                    <TableCell>{store.location}</TableCell>
+                    <TableCell>
+                      <Badge variant={store.is_approved ? 'default' : 'secondary'}>
+                        {store.is_approved ? 'Approved' : 'Pending Approval'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditDialog(store)}><Pencil className="h-4 w-4" />Edit</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setDeletingStore(store)}><Trash2 className="h-4 w-4" />Delete</Button>
+                        {isAdmin ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={store.is_approved ? 'text-amber-600 border-amber-600/20 bg-amber-500/5' : 'text-emerald-600 border-emerald-600/20 bg-emerald-500/5'}
+                              onClick={() => handleApprove(store.id, !store.is_approved)}
+                            >
+                              {store.is_approved ? <XCircle className="h-4 w-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+                              {store.is_approved ? 'Revoke' : 'Approve'}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeletingStore(store)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          </>
+                        ) : isAssignedToUser ? (
+                          <>
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(store)}>
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Read-only access</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Read only</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           <div className="flex items-center justify-between border-t border-border px-4 py-4 text-sm text-muted-foreground">

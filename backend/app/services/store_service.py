@@ -47,5 +47,12 @@ class StoreService:
         db.delete(store)
         db.commit()
 
+    def approve_store(self, db: Session, store_id: UUID, is_approved: bool) -> Store:
+        store = self.get_store(db, store_id)
+        store.is_approved = is_approved
+        db.commit()
+        db.refresh(store)
+        return store
+
 
 store_service = StoreService()

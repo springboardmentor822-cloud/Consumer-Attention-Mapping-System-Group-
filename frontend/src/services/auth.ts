@@ -7,6 +7,7 @@ function mapUser(user: AuthResponse['user']): AuthUser {
     email: user.email,
     role: user.role.role_name,
     is_active: user.is_active,
+    store_id: user.store_id,
   };
 }
 

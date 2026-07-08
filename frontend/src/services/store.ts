@@ -24,3 +24,8 @@ export async function updateStore(storeId: string, payload: Partial<StorePayload
 export async function deleteStore(storeId: string): Promise<void> {
   await api.delete(`/stores/${storeId}`);
 }
+
+export async function approveStore(storeId: string, isApproved: boolean): Promise<Store> {
+  const response = await api.put<Store>(`/stores/${storeId}/approve`, null, { params: { is_approved: isApproved } });
+  return response.data;
+}

@@ -16,6 +16,11 @@ import { ReportsPage } from './pages/Reports';
 import { AlertsPage } from './pages/Alerts';
 import { AnalyticsPage } from './pages/Analytics';
 import { HeatmapsPage } from './pages/Heatmaps';
+import { CampaignAnalyticsPage } from './pages/Marketing/CampaignAnalytics';
+import { ProductVisibilityPage } from './pages/Marketing/ProductVisibility';
+import { PromotionsPage } from './pages/Marketing/Promotions';
+import { CustomerEngagementPage } from './pages/Marketing/CustomerEngagement';
+import { RecommendationsPage } from './pages/Marketing/Recommendations';
 import { useAuth } from './contexts/AuthContext';
 
 function RootRedirect(): JSX.Element {
@@ -24,12 +29,14 @@ function RootRedirect(): JSX.Element {
     return <Navigate to="/login" replace />;
   }
   switch (user?.role) {
-    case 'SuperAdmin':
+    case 'Administrator':
       return <Navigate to="/admin/dashboard" replace />;
-    case 'StoreManager':
+    case 'Store Manager':
       return <Navigate to="/manager/dashboard" replace />;
-    case 'Analyst':
+    case 'Retail Analyst':
       return <Navigate to="/analyst/dashboard" replace />;
+    case 'Marketing Manager':
+      return <Navigate to="/marketing/dashboard" replace />;
     default:
       return <Navigate to="/login" replace />;
   }
@@ -38,12 +45,14 @@ function RootRedirect(): JSX.Element {
 function DashboardRedirect(): JSX.Element {
   const { user } = useAuth();
   switch (user?.role) {
-    case 'SuperAdmin':
+    case 'Administrator':
       return <Navigate to="/admin/dashboard" replace />;
-    case 'StoreManager':
+    case 'Store Manager':
       return <Navigate to="/manager/dashboard" replace />;
-    case 'Analyst':
+    case 'Retail Analyst':
       return <Navigate to="/analyst/dashboard" replace />;
+    case 'Marketing Manager':
+      return <Navigate to="/marketing/dashboard" replace />;
     default:
       return <Navigate to="/login" replace />;
   }
@@ -63,32 +72,42 @@ export default function App(): JSX.Element {
           {/* Shared Access Reports */}
           <Route path="/reports" element={<ReportsPage />} />
 
-          {/* Super Admin Restricted Pages & Dashboard */}
-          <Route element={<ProtectedRoute allowedRoles={['SuperAdmin']} />}>
+          {/* Administrator Restricted Pages & Dashboard */}
+          <Route element={<ProtectedRoute allowedRoles={['Administrator']} />}>
             <Route path="/admin/dashboard" element={<DashboardPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
           </Route>
 
-          {/* Super Admin & Store Manager Restricted Pages */}
-          <Route element={<ProtectedRoute allowedRoles={['SuperAdmin', 'StoreManager']} />}>
+          {/* Administrator & Store Manager Restricted Pages */}
+          <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Store Manager']} />}>
             <Route path="/stores" element={<StoresPage />} />
-            <Route path="/shelves" element={<ShelvesPage />} />
-            <Route path="/cameras" element={<CamerasPage />} />
           </Route>
 
           {/* Store Manager Restricted Pages & Dashboard */}
-          <Route element={<ProtectedRoute allowedRoles={['StoreManager']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['Store Manager']} />}>
             <Route path="/manager/dashboard" element={<DashboardPage />} />
+            <Route path="/shelves" element={<ShelvesPage />} />
+            <Route path="/cameras" element={<CamerasPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
           </Route>
 
-          {/* Analyst Restricted Pages & Dashboard */}
-          <Route element={<ProtectedRoute allowedRoles={['Analyst']} />}>
+          {/* Retail Analyst Restricted Pages & Dashboard */}
+          <Route element={<ProtectedRoute allowedRoles={['Retail Analyst']} />}>
             <Route path="/analyst/dashboard" element={<DashboardPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/heatmaps" element={<HeatmapsPage />} />
+          </Route>
+
+          {/* Marketing Manager Restricted Pages & Dashboard */}
+          <Route element={<ProtectedRoute allowedRoles={['Marketing Manager']} />}>
+            <Route path="/marketing/dashboard" element={<DashboardPage />} />
+            <Route path="/marketing/campaign-analytics" element={<CampaignAnalyticsPage />} />
+            <Route path="/marketing/product-visibility" element={<ProductVisibilityPage />} />
+            <Route path="/marketing/promotions" element={<PromotionsPage />} />
+            <Route path="/marketing/customer-engagement" element={<CustomerEngagementPage />} />
+            <Route path="/marketing/recommendations" element={<RecommendationsPage />} />
           </Route>
         </Route>
       </Route>
