@@ -1,0 +1,38 @@
+# Environments and Virtual Envs
+.venv/
+venv/
+ENV/
+env/
+python/
+
+# Private Secrets
+.env
+.env.local
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Production / Build outputs
+dist/
+build/
+out/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / Editor configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
