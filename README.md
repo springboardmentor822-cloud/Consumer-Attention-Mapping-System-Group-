@@ -1,6 +1,6 @@
 # Consumer Attention Mapping System
 
-Week 1 backend foundation for the Infosys Springboard Virtual Internship project. The platform prepares a production-ready FastAPI backend for future retail analytics features without implementing any AI models yet.
+The platform prepares a production-ready FastAPI backend for future retail analytics features without implementing any AI models yet.
 
 ## Project Overview
 
