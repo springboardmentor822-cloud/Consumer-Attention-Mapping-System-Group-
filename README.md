@@ -29,7 +29,7 @@ AI-powered retail intelligence platform that tracks customer attention, heatmaps
 # Backend
 cd backend
 venv\Scripts\activate
-uvicorn main:app --reload --port 8001
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8001
 
 # Frontend
 cd frontend
