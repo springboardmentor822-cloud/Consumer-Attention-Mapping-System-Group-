@@ -1,0 +1,131 @@
+name: attention-mapping
+
+x-database-environment: &database-environment
+  POSTGRES_USER: ${POSTGRES_USER:-retail_admin}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-for-local-development}
+  POSTGRES_DB: ${POSTGRES_DB:-attention_mapping_db}
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:2.16.1-pg16
+    restart: unless-stopped
+    environment:
+      <<: *database-environment
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./infra/timescaledb/init/001-enable-timescaledb.sql:/docker-entrypoint-initdb.d/001-enable-timescaledb.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        INSTALL_ML: ${INSTALL_ML:-false}
+    restart: unless-stopped
+    environment:
+      PROJECT_NAME: Consumer Attention Mapping API
+      DATABASE_URL: postgresql://${POSTGRES_USER:-retail_admin}:${POSTGRES_PASSWORD:-change-me-for-local-development}@timescaledb:5432/${POSTGRES_DB:-attention_mapping_db}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_STREAM_KEY: ${REDIS_STREAM_KEY:-attention:tracking}
+      REDIS_CONSUMER_GROUP: ${REDIS_CONSUMER_GROUP:-attention-api}
+      TRACKING_BATCH_SIZE: ${TRACKING_BATCH_SIZE:-100}
+      TRACKING_FLUSH_SECONDS: ${TRACKING_FLUSH_SECONDS:-2.0}
+      ALLOW_MEMORY_STREAM_FALLBACK: "false"
+      MODEL_ARTIFACT_DIR: /app/artifacts/models
+      SECRET_KEY: ${SECRET_KEY:-replace-this-before-sharing-or-deploying}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-240}
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"]'
+    ports:
+      # The current frontend build targets http://localhost:8000/api.
+      - "8000:8000"
+    volumes:
+      - ./backend/artifacts:/app/artifacts
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  timescale-bootstrap:
+    image: timescale/timescaledb:2.16.1-pg16
+    restart: "no"
+    environment:
+      <<: *database-environment
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change-me-for-local-development}
+    volumes:
+      - ./infra/timescaledb/promote-tracking-observations.sql:/opt/attention/promote-tracking-observations.sql:ro
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    command:
+      - sh
+      - -ec
+      - >-
+        psql
+        --host=timescaledb
+        --username="$${POSTGRES_USER}"
+        --dbname="$${POSTGRES_DB}"
+        --set=ON_ERROR_STOP=1
+        --file=/opt/attention/promote-tracking-observations.sql
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # Port 3000 is included in the backend's explicit CORS allow-list.
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  timescale_data:
+  redis_data:

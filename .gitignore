@@ -1,0 +1,51 @@
+# Environment variables & secrets
+.env
+backend/.env
+*.env
+
+# Python / Pycache
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# Databases & Models
+*.db
+*.sqlite
+*.sqlite3
+*.pt
+*.onnx
+*.engine
+
+# Archives & Temporary files
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+
+# PDF Reports & Generated Outputs
+*.pdf
+output/
+tmp/
+backend/tmp/
+backend/ml_runs/
+backend/artifacts/models/
+
+# Virtual Environments
+backend/venv/
+backend/.venv*/
+venv/
+.venv/
+env/
+
+# Node / Frontend Build
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS / IDE generated files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
