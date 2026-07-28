@@ -20,3 +20,4 @@ class Store(Base):
 
     shelves = relationship("Shelf", back_populates="store", cascade="all, delete-orphan", passive_deletes=True)
     cameras = relationship("Camera", back_populates="store", cascade="all, delete-orphan", passive_deletes=True)
+    zones = relationship("Zone", back_populates="store", cascade="all, delete-orphan", passive_deletes=True)

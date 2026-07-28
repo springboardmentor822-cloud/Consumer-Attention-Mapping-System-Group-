@@ -1,20 +1,20 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { Link } from 'react-router-dom';
-import {
-  Map,
-  BarChart3,
-  FileSpreadsheet,
-  ArrowUpRight,
-  TrendingDown,
-  TrendingUp
-} from 'lucide-react';
+import Plot from 'react-plotly.js';
 
 export function RetailAnalystDashboard(): JSX.Element {
+  const chartLayout = {
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    font: { color: '#94a3b8' },
+    margin: { t: 30, r: 20, l: 40, b: 40 },
+    xaxis: { gridcolor: '#334155' },
+    yaxis: { gridcolor: '#334155' }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
           <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-widest">Analytics Studio</span>
@@ -25,113 +25,190 @@ export function RetailAnalystDashboard(): JSX.Element {
         </Badge>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-border/60 bg-card/50 shadow-sm backdrop-blur">
-          <CardContent className="flex items-center justify-between p-6">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">High Attention Zones</p>
-              <p className="text-3xl font-bold mt-1">03</p>
-              <p className="text-xs text-emerald-500 mt-1">🔥 Area density positive</p>
-            </div>
-            <div className="rounded-2xl bg-rose-500/10 p-3 text-rose-500">
-              <TrendingUp className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* SECTION 1: Consumer Attention Analytics */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 1 - Consumer Attention Analytics</h3>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Avg Attention Duration (Line)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ x: ['10AM', '12PM', '2PM', '4PM'], y: [12, 18, 14, 22], type: 'scatter', mode: 'lines+markers', marker: { color: '#0ea5e9' } }]}
+                layout={{ ...chartLayout, height: 200, margin: { t: 10, r: 10, l: 30, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Attention Trend (Area)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ x: ['Mon', 'Tue', 'Wed', 'Thu'], y: [40, 60, 50, 75], fill: 'tozeroy', type: 'scatter', marker: { color: '#8b5cf6' } }]}
+                layout={{ ...chartLayout, height: 200, margin: { t: 10, r: 10, l: 30, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Time Distribution (Box)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ y: [4, 5, 5, 6, 8, 9, 12, 14, 15, 20], type: 'box', name: 'Attention (s)', marker: { color: '#10b981' } }]}
+                layout={{ ...chartLayout, height: 200, margin: { t: 10, r: 10, l: 40, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
-        <Card className="border-border/60 bg-card/50 shadow-sm backdrop-blur">
-          <CardContent className="flex items-center justify-between p-6">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Cold Zones</p>
-              <p className="text-3xl font-bold mt-1">02</p>
-              <p className="text-xs text-rose-500 mt-1">❄️ Layout review suggested</p>
-            </div>
-            <div className="rounded-2xl bg-sky-500/10 p-3 text-sky-500">
-              <TrendingDown className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 bg-card/50 shadow-sm backdrop-blur">
-          <CardContent className="flex items-center justify-between p-6">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Attention conversion</p>
-              <p className="text-3xl font-bold mt-1">44.8%</p>
-              <p className="text-xs text-muted-foreground mt-1">Interaction relative index</p>
-            </div>
-            <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-500">
-              <BarChart3 className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-border/60 bg-card/50 shadow-sm backdrop-blur">
-          <CardHeader>
-            <CardTitle>Top Performing Shelf Zones</CardTitle>
-            <CardDescription>Highest dwell times and product interaction counts.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              { rank: '1', zone: 'Cosmetics Sector A', index: '94.2' },
-              { rank: '2', zone: 'Weekly Specials Display', index: '82.5' },
-              { rank: '3', zone: 'Organic Produce Cooler', index: '78.1' },
-            ].map((item) => (
-              <div key={item.rank} className="flex items-center justify-between border-b border-border pb-3 text-sm">
-                <span className="font-semibold text-muted-foreground">#{item.rank} {item.zone}</span>
-                <Badge variant="secondary" className="font-bold">{item.index} score</Badge>
+      {/* SECTION 2: Consumer Journey */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 2 - Consumer Journey</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Customer Journey (Sankey Diagram)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{
+                  type: 'sankey',
+                  orientation: 'h',
+                  node: { pad: 15, thickness: 20, line: { color: 'black', width: 0.5 }, label: ['Entrance', 'Beverages', 'Snacks', 'Billing', 'Exit'], color: ['blue', 'orange', 'green', 'red', 'purple'] },
+                  link: { source: [0, 0, 1, 2, 3], target: [1, 2, 3, 3, 4], value: [80, 20, 60, 40, 100] }
+                }]}
+                layout={{ ...chartLayout, height: 300, margin: { t: 10, r: 10, l: 10, b: 10 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Movement Flow</CardTitle></CardHeader>
+            <CardContent className="flex items-center justify-center p-6 text-muted-foreground h-[300px]">
+              <div>
+                <p>Entrance &rarr; Aisle 1 &rarr; Shelf B &rarr; Checkout</p>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
-        <Card className="border-border/60 bg-card/50 shadow-sm backdrop-blur">
-          <CardHeader>
-            <CardTitle>Least Visited Shelves</CardTitle>
-            <CardDescription>Lowest visitor engagement rates indicating layout review required.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              { rank: '1', zone: 'Bakery Bottom Shelf', index: '15.4' },
-              { rank: '2', zone: 'Cleaning Supplies Row 4', index: '22.8' },
-              { rank: '3', zone: 'Stationery Side panel', index: '28.1' },
-            ].map((item) => (
-              <div key={item.rank} className="flex items-center justify-between border-b border-border pb-3 text-sm">
-                <span className="font-semibold text-muted-foreground text-rose-500">#{item.rank} {item.zone}</span>
-                <Badge variant="destructive" className="font-bold">{item.index} score</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {/* SECTION 3: Customer Segmentation */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 3 - Customer Segmentation</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Customer Segments (Pie)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ values: [35, 25, 20, 15, 5], labels: ['Explorers', 'Quick Buyers', 'Comparison Buyers', 'Impulse Buyer', 'Brand Loyal'], type: 'pie', hole: 0 }]}
+                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 10, b: 10 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Segment Distribution (Donut)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ values: [60, 40], labels: ['New Customers', 'Repeat Customers'], type: 'pie', hole: 0.6 }]}
+                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 10, b: 10 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
-        <Card className="border-border/60 bg-card/50 shadow-sm backdrop-blur">
-          <CardHeader>
-            <CardTitle>Behavior Analysis Quick Actions</CardTitle>
-            <CardDescription>Direct navigation shortcuts to compiler workspaces.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <Link to="/analytics" className="block w-full">
-              <Button variant="outline" className="justify-between w-full">
-                <span className="flex items-center"><BarChart3 className="h-4 w-4 mr-2" /> Traffic Charts</span>
-                <ArrowUpRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/heatmaps" className="block w-full">
-              <Button variant="outline" className="justify-between w-full">
-                <span className="flex items-center"><Map className="h-4 w-4 mr-2" /> Heatmaps Overlay</span>
-                <ArrowUpRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/reports" className="block w-full">
-              <Button variant="outline" className="justify-between w-full">
-                <span className="flex items-center"><FileSpreadsheet className="h-4 w-4 mr-2" /> Compilations & Exports</span>
-                <ArrowUpRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      {/* SECTION 4: Shopping Behaviour */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 4 - Shopping Behaviour</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Most Viewed</CardTitle></CardHeader><CardContent><Plot data={[{ y: ['Prod A', 'Prod B'], x: [500, 300], type: 'bar', orientation: 'h', marker: { color: '#0ea5e9'} }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:50,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Most Ignored</CardTitle></CardHeader><CardContent><Plot data={[{ y: ['Prod X', 'Prod Y'], x: [450, 400], type: 'bar', orientation: 'h', marker: { color: '#ef4444'} }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:50,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Most Compared</CardTitle></CardHeader><CardContent><Plot data={[{ y: ['TV A', 'TV B'], x: [200, 150], type: 'bar', orientation: 'h', marker: { color: '#8b5cf6'} }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:50,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Category Interest</CardTitle></CardHeader><CardContent>
+            <Plot 
+              data={[{ type: 'treemap', labels: ['Electronics', 'Snacks', 'Beverages'], parents: ['', '', ''], values: [50, 30, 20] }]} 
+              layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:0,b:0}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} 
+            />
+          </CardContent></Card>
+        </div>
+      </section>
+
+      {/* SECTION 5: Heatmaps */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 5 - Heatmaps</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Traffic</CardTitle></CardHeader><CardContent><Plot data={[{ z: [[1, 2], [3, 4]], type: 'heatmap', colorscale: 'Hot' }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Attention</CardTitle></CardHeader><CardContent><Plot data={[{ z: [[4, 1], [2, 3]], type: 'heatmap', colorscale: 'Viridis' }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Shelf</CardTitle></CardHeader><CardContent><Plot data={[{ z: [[2, 2], [2, 5]], type: 'heatmap', colorscale: 'Plasma' }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Zone</CardTitle></CardHeader><CardContent><Plot data={[{ z: [[5, 2], [1, 1]], type: 'heatmap', colorscale: 'Inferno' }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
+        </div>
+      </section>
+
+      {/* SECTION 6: Dwell Time Analysis */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 6 - Dwell Time Analysis</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Dwell Time Distribution (Violin Plot)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ type: 'violin', y: [1, 2, 2.5, 3, 3, 4, 4.5, 5, 8], box: { visible: true }, line: { color: '#ec4899' }, meanline: { visible: true } }]}
+                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 30, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Avg Dwell Time by Hour (Line)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ x: ['10AM', '12PM', '2PM', '4PM'], y: [3.5, 4.2, 5.1, 3.8], type: 'scatter', mode: 'lines+markers', marker: { color: '#8b5cf6' } }]}
+                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 30, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* SECTION 7: Behavioral Analytics */}
+      <section>
+        <h3 className="text-xl font-bold mb-4">Section 7 - Behavioral Analytics</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Attention vs Purchase (Scatter)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ x: [10, 20, 30, 40, 50], y: [1, 2, 4, 8, 16], mode: 'markers', type: 'scatter', marker: { size: 12, color: '#0ea5e9' } }]}
+                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 30, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><CardTitle>Attention vs Dwell vs Conversion (Bubble)</CardTitle></CardHeader>
+            <CardContent>
+              <Plot
+                data={[{ x: [5, 10, 15, 20], y: [2, 4, 6, 8], mode: 'markers', marker: { size: [10, 20, 30, 40], color: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'] } }]}
+                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 30, b: 30 } }}
+                config={{ displayModeBar: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }

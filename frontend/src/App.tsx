@@ -76,28 +76,36 @@ export default function App(): JSX.Element {
           <Route element={<ProtectedRoute allowedRoles={['Administrator']} />}>
             <Route path="/admin/dashboard" element={<DashboardPage />} />
             <Route path="/users" element={<UsersPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
           </Route>
 
-          {/* Administrator & Store Manager Restricted Pages */}
+          {/* Administrator & Store Manager Shared Pages */}
           <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Store Manager']} />}>
             <Route path="/stores" element={<StoresPage />} />
+            <Route path="/cameras" element={<CamerasPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Store Manager & Retail Analyst Shared Pages */}
+          <Route element={<ProtectedRoute allowedRoles={['Store Manager', 'Retail Analyst']} />}>
+            <Route path="/shelves" element={<ShelvesPage />} />
+            <Route path="/heatmaps" element={<HeatmapsPage />} />
+          </Route>
+
+          {/* Retail Analyst & Marketing Manager Shared Pages */}
+          <Route element={<ProtectedRoute allowedRoles={['Retail Analyst', 'Marketing Manager']} />}>
+            <Route path="/analytics" element={<AnalyticsPage />} />
           </Route>
 
           {/* Store Manager Restricted Pages & Dashboard */}
           <Route element={<ProtectedRoute allowedRoles={['Store Manager']} />}>
             <Route path="/manager/dashboard" element={<DashboardPage />} />
-            <Route path="/shelves" element={<ShelvesPage />} />
-            <Route path="/cameras" element={<CamerasPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
           </Route>
 
           {/* Retail Analyst Restricted Pages & Dashboard */}
           <Route element={<ProtectedRoute allowedRoles={['Retail Analyst']} />}>
             <Route path="/analyst/dashboard" element={<DashboardPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/heatmaps" element={<HeatmapsPage />} />
           </Route>
 
           {/* Marketing Manager Restricted Pages & Dashboard */}

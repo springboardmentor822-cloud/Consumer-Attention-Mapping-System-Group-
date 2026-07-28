@@ -50,13 +50,9 @@ def get_store(
 def create_store(
     payload: StoreCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("Administrator", "Store Manager")),
+    current_user: User = Depends(require_roles("Administrator")),
 ) -> StoreRead:
     store = store_service.create_store(db, payload)
-    # If the user is a Store Manager, link their profile to the new store automatically
-    if current_user.role.role_name == "Store Manager":
-        current_user.store_id = store.id
-        db.commit()
     return store
 
 

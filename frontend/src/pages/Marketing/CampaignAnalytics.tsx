@@ -3,6 +3,8 @@ import { BarChart3, TrendingUp, Users, Percent, ArrowUpRight, Megaphone } from '
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 
+import { exportReportAsPDF } from '../../utils/export';
+
 export function CampaignAnalyticsPage(): JSX.Element {
   return (
     <div className="space-y-6">
@@ -11,7 +13,12 @@ export function CampaignAnalyticsPage(): JSX.Element {
           <h1 className="text-3xl font-semibold tracking-tight">Campaign Analytics</h1>
           <p className="text-muted-foreground">Monitor real-time customer engagement and sales conversion of live campaigns.</p>
         </div>
-        <Button className="w-full sm:w-auto">Export PDF Report</Button>
+        <Button 
+          className="w-full sm:w-auto" 
+          onClick={() => exportReportAsPDF('Campaign Analytics Overview', 'Marketing', new Date().toISOString().split('T')[0])}
+        >
+          Export PDF Report
+        </Button>
       </div>
 
       {/* Overview Cards */}

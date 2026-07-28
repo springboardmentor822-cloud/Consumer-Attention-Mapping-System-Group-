@@ -28,6 +28,15 @@ from backend.app.api.users import router as users_router
 from backend.app.core.config import settings
 
 
+from backend.app.api.zones import router as zones_router
+from backend.app.api.products import router as products_router
+from backend.app.api.tracking import router as tracking_router
+from backend.app.api.stream import router as stream_router
+from backend.app.api.websockets import router as websockets_router
+from backend.app.api.websockets import listen_to_redis_stream
+from backend.app.workers.db_worker import db_worker_task
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Seeding default Administrator
@@ -59,9 +68,37 @@ async def lifespan(app: FastAPI):
                 print("Error: Administrator role not found. Run migrations/seeding first.")
     except Exception as e:
         print(f"Error seeding default Administrator: {e}")
+        
+    try:
+        from backend.app.models.store import Store
+        import uuid
+        default_store_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+        store = db.scalar(select(Store).where(Store.id == default_store_id))
+        if not store:
+            new_store = Store(
+                id=default_store_id,
+                store_name="Default Store",
+                location="Virtual Store"
+            )
+            db.add(new_store)
+            db.commit()
+            print("Default Store seeded successfully!")
+    except Exception as e:
+        print(f"Error seeding Default Store: {e}")
     finally:
         db.close()
+        
+    # Start Redis WebSocket listener
+    ws_task = asyncio.create_task(listen_to_redis_stream())
+    
+    # Start DB Worker for saving coordinates
+    db_task = asyncio.create_task(db_worker_task())
+    
     yield
+    
+    # Cancel the tasks on shutdown
+    ws_task.cancel()
+    db_task.cancel()
 
 
 app = FastAPI(
@@ -84,3 +121,8 @@ app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(stores_router, prefix=settings.api_v1_prefix)
 app.include_router(shelves_router, prefix=settings.api_v1_prefix)
 app.include_router(cameras_router, prefix=settings.api_v1_prefix)
+app.include_router(zones_router, prefix=settings.api_v1_prefix)
+app.include_router(products_router, prefix=settings.api_v1_prefix)
+app.include_router(tracking_router, prefix=settings.api_v1_prefix)
+app.include_router(stream_router, prefix=settings.api_v1_prefix)
+app.include_router(websockets_router)

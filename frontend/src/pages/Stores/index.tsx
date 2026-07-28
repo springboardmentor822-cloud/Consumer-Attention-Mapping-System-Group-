@@ -193,6 +193,9 @@ export function StoresPage(): JSX.Element {
                               <Pencil className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
+                            <Button variant="outline" size="sm" onClick={() => console.log('Navigate to zones')}>
+                              Zones
+                            </Button>
                           </>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">Read-only access</span>
@@ -238,11 +241,6 @@ export function StoresPage(): JSX.Element {
             <Label htmlFor="location">Location</Label>
             <Input id="location" {...register('location')} />
             {errors.location ? <p className="text-sm text-destructive">{errors.location.message}</p> : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="metadata">Metadata JSON</Label>
-            <textarea id="metadata" rows={5} className="w-full rounded-xl border border-border bg-background p-3 text-sm" {...register('metadata')} />
-            {errors.metadata ? <p className="text-sm text-destructive">{errors.metadata.message}</p> : null}
           </div>
         </form>
       </Dialog>

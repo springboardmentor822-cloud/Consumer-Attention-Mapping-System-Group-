@@ -36,3 +36,11 @@ __pycache__/
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Large ML Datasets and Weights (CRITICAL FOR GITHUB LIMITS)
+dataset/
+ml_engine/weights/
+*.pt
+*.pth
+*.mp4
+*.mp3

@@ -11,7 +11,7 @@ if str(BASE_DIR) not in sys.path:
 
 from backend.app.core.config import settings  # noqa: E402
 from backend.app.core.database import Base  # noqa: E402
-from backend.app.models import camera, role, shelf, store, user  # noqa: F401,E402
+from backend.app.models import camera, role, shelf, store, user, zone, product, tracking, coordinate  # noqa: F401,E402
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))

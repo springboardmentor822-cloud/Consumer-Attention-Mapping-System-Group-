@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { Button } from '../../components/ui/button';
-import { Card, CardContent } from '../../components/ui/card';
+import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
@@ -21,6 +21,7 @@ import { listStores } from '../../services/store';
 import type { Camera } from '../../types/camera';
 import type { Store } from '../../types/store';
 import { useToast } from '../../components/ui/toast';
+import { LiveStoreHeatmap } from '../Dashboard/components/LiveStoreHeatmap';
 
 const cameraSchema = z.object({
   store_id: z.string().uuid('Select a store'),
@@ -107,7 +108,39 @@ export function CamerasPage(): JSX.Element {
       />
 
       {loading ? <LoadingState /> : cameras.length === 0 ? <EmptyState title="No cameras found" description="Register a camera stream and link it to an active store configuration." actionLabel={canMutate ? 'Create Camera' : undefined} onAction={canMutate ? openCreateDialog : undefined} /> : (
-        <Card>
+        <div className="space-y-6">
+          <div className="mb-6">
+            <LiveStoreHeatmap />
+          </div>
+
+          <Card className="bg-card/50 backdrop-blur border-border/60">
+            <CardHeader><h3 className="text-lg font-semibold leading-none tracking-tight">Camera Grid View (Live Feed)</h3></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {cameras.map((camera, i) => (
+                  <div key={`feed-${camera.id}`} className="aspect-video bg-slate-900 rounded border border-slate-700 flex flex-col items-center justify-center relative overflow-hidden group">
+                    <div className="absolute top-2 left-2 flex items-center gap-2 text-xs font-bold text-white z-10">
+                      <span className={`w-2 h-2 rounded-full animate-pulse ${camera.status === 'active' ? 'bg-rose-500' : camera.status === 'maintenance' ? 'bg-amber-500' : 'bg-slate-500'}`}></span> 
+                      LIVE - {camera.camera_name}
+                    </div>
+                    {camera.status === 'active' ? (
+                        <>
+                          <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors"></div>
+                          <div className="text-white/20 font-mono text-sm tracking-widest">{camera.camera_source}</div>
+                        </>
+                    ) : (
+                        <div className="text-white/40 text-sm font-medium italic">Signal Lost</div>
+                    )}
+                    <div className="absolute bottom-2 left-2 text-[10px] text-white/70 bg-black/50 px-2 py-1 rounded backdrop-blur">
+                      Store ID: {camera.store_id.substring(0,8)}...
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
           <Table>
             <TableHeader>
               <TableRow>
@@ -138,6 +171,7 @@ export function CamerasPage(): JSX.Element {
             </TableBody>
           </Table>
         </Card>
+        </div>
       )}
 
       <Dialog

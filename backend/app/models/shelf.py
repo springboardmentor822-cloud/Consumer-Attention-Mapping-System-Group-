@@ -18,3 +18,4 @@ class Shelf(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     store = relationship("Store", back_populates="shelves")
+    products = relationship("Product", back_populates="shelf", cascade="all, delete-orphan", passive_deletes=True)

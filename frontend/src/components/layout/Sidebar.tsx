@@ -41,45 +41,48 @@ export function Sidebar({ open, onClose }: SidebarProps): JSX.Element {
   let links = [];
   if (role === 'Administrator') {
     links = [
-      { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/users', label: 'Users', icon: Users },
-      { to: '/users?tab=roles', label: 'Roles', icon: Shield },
-      { to: '/stores', label: 'Stores', icon: Store },
-      { to: '/cameras', label: 'Cameras', icon: Camera },
-      { to: '/reports', label: 'Reports', icon: FileText },
-      { to: '/audit-logs', label: 'Audit Logs', icon: ClipboardList },
-      { to: '/settings?tab=notifications', label: 'Notifications', icon: Bell },
-      { to: '/settings', label: 'Settings', icon: Settings },
+      { to: '/admin/dashboard', label: 'System Dashboard', icon: LayoutDashboard },
+      { to: '/users', label: 'User Management', icon: Users },
+      { to: '/users?tab=roles', label: 'Role & Permission Management', icon: Shield },
+      { to: '/stores', label: 'Store Management', icon: Store },
+      { to: '/cameras', label: 'Camera Management', icon: Camera },
+      { to: '/reports', label: 'System Reports', icon: FileText },
+      { to: '/audit-logs', label: 'Security & Audit Logs', icon: ClipboardList },
+      { to: '/settings?tab=notifications', label: 'Alert Management', icon: Bell },
+      { to: '/settings', label: 'System Configuration', icon: Settings },
     ];
   } else if (role === 'Store Manager') {
     links = [
-      { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/stores', label: 'Store', icon: Store },
-      { to: '/shelves?tab=shelves', label: 'Shelves', icon: ShoppingBag },
-      { to: '/shelves?tab=products', label: 'Products', icon: Package },
-      { to: '/shelves?tab=zones', label: 'Zones', icon: Map },
-      { to: '/cameras', label: 'Cameras', icon: Camera },
-      { to: '/reports', label: 'Reports', icon: FileText },
+      { to: '/manager/dashboard', label: 'Store Overview', icon: LayoutDashboard },
+      { to: '/stores', label: 'Store Settings', icon: Store },
+      { to: '/shelves?tab=shelves', label: 'Shelf Performance', icon: ShoppingBag },
+      { to: '/shelves?tab=products', label: 'Product Interaction', icon: Package },
+      { to: '/cameras', label: 'Live Camera Monitoring', icon: Camera },
+      { to: '/heatmaps', label: 'Store Heatmaps', icon: Map },
+      { to: '/reports', label: 'Store Analytics Report', icon: FileText },
+      { to: '/settings?tab=notifications', label: 'Store Alerts', icon: Bell },
     ];
   } else if (role === 'Retail Analyst') {
     links = [
-      { to: '/analyst/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-      { to: '/analytics', label: 'Consumer Tracking', icon: Compass },
-      { to: '/analytics', label: 'Attention Analysis', icon: Eye },
-      { to: '/heatmaps', label: 'Heatmaps', icon: Map },
-      { to: '/heatmaps', label: 'Journey Analytics', icon: GitCommit },
-      { to: '/reports', label: 'Reports', icon: FileText },
+      { to: '/analyst/dashboard', label: 'Retail KPIs', icon: LayoutDashboard },
+      { to: '/analytics', label: 'Consumer Journey Analysis', icon: Compass },
+      { to: '/analytics?tab=attention', label: 'Attention Analytics', icon: Eye },
+      { to: '/analytics?tab=shopping', label: 'Shopping Behaviour', icon: ShoppingBag },
+      { to: '/heatmaps', label: 'Traffic Flow Analysis', icon: GitCommit },
+      { to: '/shelves?tab=zones', label: 'Zone Performance', icon: Map },
+      { to: '/shelves?tab=products', label: 'Product Analytics', icon: Package },
+      { to: '/reports', label: 'Consumer Reports', icon: FileText },
     ];
   } else if (role === 'Marketing Manager') {
     links = [
-      { to: '/marketing/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/marketing/campaign-analytics', label: 'Campaign Analytics', icon: Megaphone },
+      { to: '/marketing/dashboard', label: 'Campaign KPIs', icon: LayoutDashboard },
+      { to: '/marketing/campaign-analytics', label: 'Campaign Performance', icon: Megaphone },
+      { to: '/marketing/promotions', label: 'Promotion Effectiveness', icon: Percent },
       { to: '/marketing/product-visibility', label: 'Product Visibility', icon: Eye },
-      { to: '/marketing/promotions', label: 'Promotion Performance', icon: Percent },
       { to: '/marketing/customer-engagement', label: 'Customer Engagement', icon: Sparkles },
-      { to: '/marketing/recommendations', label: 'Recommendations', icon: Zap },
-      { to: '/reports', label: 'Reports', icon: FileText },
+      { to: '/analytics?tab=conversion', label: 'Conversion Analysis', icon: BarChart3 },
+      { to: '/marketing/recommendations', label: 'Marketing Recommendations', icon: Zap },
+      { to: '/reports', label: 'Marketing Analytics Reports', icon: FileText },
     ];
   } else {
     links = [

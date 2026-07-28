@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../components/ui/toast';
 import { FileText, Download } from 'lucide-react';
+import { exportReportAsPDF } from '../../utils/export';
 
 const mockReports = [
   { id: '1', name: 'Weekly Customer Engagement Summary', category: 'Attention Tracking', date: '2026-07-06' },
@@ -18,12 +19,13 @@ export function ReportsPage(): JSX.Element {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const handleExport = (reportName: string) => {
+  const handleExport = (report: typeof mockReports[0]) => {
     toast({
-      title: 'Export initiated',
-      description: `Downloading "${reportName}" as PDF...`,
+      title: 'Preparing PDF',
+      description: `Generating "${report.name}" for download...`,
       type: 'success',
     });
+    exportReportAsPDF(report.name, report.category, report.date);
   };
 
   return (
@@ -61,7 +63,7 @@ export function ReportsPage(): JSX.Element {
                   <TableCell>{report.date}</TableCell>
                   <TableCell className="text-right">
                     {user?.role === 'Retail Analyst' || user?.role === 'Administrator' || user?.role === 'Marketing Manager' ? (
-                      <Button variant="outline" size="sm" onClick={() => handleExport(report.name)}>
+                      <Button variant="outline" size="sm" onClick={() => handleExport(report)}>
                         <Download className="h-4 w-4 mr-1" />
                         Export
                       </Button>
