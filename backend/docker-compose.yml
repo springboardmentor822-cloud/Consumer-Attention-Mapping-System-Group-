@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: camsystem-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: camsystem
+      POSTGRES_PASSWORD: camsystem
+      POSTGRES_DB: camsystem
+    ports:
+      - "5432:5432"
+    volumes:
+      - camsystem_pgdata:/var/lib/postgresql/data
+
+  # NEW: Redis Streams - the fast ingest "waiting room" queue per the
+  # Milestone 2 Step 5 spec. Detection/tracking code will push raw
+  # coordinates here; a separate background worker drains it into
+  # TimescaleDB in batches, so nothing writes directly to a DB per-frame.
+  redis:
+    image: redis:7
+    container_name: camsystem-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - camsystem_redisdata:/data
+
+  # NEW: TimescaleDB - a SEPARATE container from camsystem-postgres
+  # above, on a different port (5433, not 5432), so it doesn't touch or
+  # risk your existing Store/Zone/Camera/Shelf/ShelfCameraView data at
+  # all. This one is dedicated to time-series tracking coordinates only.
+  # Different image (timescale/timescaledb, not plain postgres) because
+  # TimescaleDB is a Postgres EXTENSION, not a separate DB engine - this
+  # image is Postgres with that extension preinstalled and enabled.
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: camsystem-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: camsystem
+      POSTGRES_PASSWORD: camsystem
+      POSTGRES_DB: camsystem_timeseries
+    ports:
+      - "5433:5432"
+    volumes:
+      - camsystem_timescaledata:/var/lib/postgresql/data
+
+volumes:
+  camsystem_pgdata:
+  camsystem_redisdata:
+  camsystem_timescaledata:
