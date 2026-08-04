@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+.git
+__pycache__
+.pytest_cache
+.venv
+datasets
+logs
+.DS_Store
+*.db
+*.log
+yolov8n.pt
