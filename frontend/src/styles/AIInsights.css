@@ -1,0 +1,68 @@
+.insights-card{
+    width:100%;
+    margin-top:40px;
+    padding:30px;
+    border-radius:24px;
+
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(18px);
+
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 10px 35px rgba(0,0,0,.35);
+}
+
+.insights-card h2{
+    color:white;
+    font-size:30px;
+    margin-bottom:30px;
+
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.insight{
+
+    display:flex;
+    align-items:center;
+    gap:18px;
+
+    padding:18px 20px;
+    margin-bottom:18px;
+
+    border-radius:15px;
+
+    background:rgba(255,255,255,.04);
+
+    transition:.3s;
+}
+
+.insight:hover{
+    background:rgba(255,255,255,.08);
+    transform:translateX(8px);
+}
+
+.insight span{
+    color:white;
+    font-size:18px;
+}
+
+.green{
+    color:#22c55e;
+    font-size:22px;
+}
+
+.orange{
+    color:#f59e0b;
+    font-size:22px;
+}
+
+.red{
+    color:#ef4444;
+    font-size:22px;
+}
+
+.blue{
+    color:#38bdf8;
+    font-size:22px;
+}

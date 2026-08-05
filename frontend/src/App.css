@@ -1,0 +1,132 @@
+/* ==========================================
+   GLOBAL RESET
+========================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+
+  background: #09111f;
+
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+/* ==========================================
+   APP LAYOUT
+========================================== */
+
+.app-layout {
+  display: flex;
+
+  min-height: 100vh;
+
+  background: #09111f;
+}
+
+/* ==========================================
+   MAIN SECTION
+========================================== */
+
+.main-section {
+  margin-left: 270px;
+
+  width: calc(100% - 270px);
+
+  min-height: 100vh;
+
+  background: #09111f;
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+/* ==========================================
+   PAGE CONTENT
+========================================== */
+
+.page-content {
+  flex: 1;
+
+  padding-top: 105px;
+
+  padding-left: 30px;
+
+  padding-right: 30px;
+
+  padding-bottom: 35px;
+
+  background: #09111f;
+
+  transition: all 0.3s ease;
+}
+
+/* ==========================================
+   PAGE HEADINGS
+========================================== */
+
+.page-content h1,
+.page-content h2 {
+  margin-top: 10px;
+
+  margin-bottom: 25px;
+
+  line-height: 1.25;
+}
+
+/* ==========================================
+   TABLES / CARDS
+========================================== */
+
+.page-content table,
+.page-content .table-container,
+.page-content .card,
+.page-content .dashboard-card,
+.page-content .dashboard-grid {
+  margin-top: 18px;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1024px) {
+  .main-section {
+    margin-left: 240px;
+
+    width: calc(100% - 240px);
+  }
+
+  .page-content {
+    padding-top: 100px;
+
+    padding-left: 24px;
+
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-section {
+    margin-left: 90px;
+
+    width: calc(100% - 90px);
+  }
+
+  .page-content {
+    padding-top: 95px;
+
+    padding-left: 18px;
+
+    padding-right: 18px;
+  }
+}

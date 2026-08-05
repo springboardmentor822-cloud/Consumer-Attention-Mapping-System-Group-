@@ -1,0 +1,776 @@
+/* ==========================================================
+   CUSTOMER JOURNEY - DARK AI DASHBOARD
+========================================================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+.customerJourney{
+
+    min-height:100vh;
+
+    padding:30px;
+
+    background:#0f172a;
+
+    color:#ffffff;
+
+}
+
+/* ==========================================
+   PAGE HEADER
+========================================== */
+
+.pageHeader{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:8px;
+
+    margin-bottom:28px;
+
+}
+
+.pageHeader h2{
+
+    font-size:34px;
+
+    font-weight:700;
+
+    color:#ffffff;
+
+    letter-spacing:.5px;
+
+}
+
+.pageHeader p{
+
+    font-size:15px;
+
+    color:#94a3b8;
+
+}
+
+/* ==========================================
+   DASHBOARD CARDS
+========================================== */
+
+.journeyCards{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+
+    gap:20px;
+
+    margin-bottom:30px;
+
+}
+
+.journeyCard{
+
+    background:#1e293b;
+
+    border:1px solid #334155;
+
+    border-radius:18px;
+
+    padding:24px;
+
+    transition:.35s;
+
+    box-shadow:0 8px 25px rgba(0,0,0,.35);
+
+}
+
+.journeyCard:hover{
+
+    transform:translateY(-6px);
+
+    border-color:#3b82f6;
+
+    box-shadow:0 0 18px rgba(59,130,246,.35);
+
+}
+
+.journeyCard h3{
+
+    color:#94a3b8;
+
+    font-size:15px;
+
+    margin-bottom:14px;
+
+    font-weight:500;
+
+}
+
+.journeyCard h1{
+
+    color:#38bdf8;
+
+    font-size:34px;
+
+    font-weight:700;
+
+}
+
+/* ==========================================
+   TOOLBAR
+========================================== */
+
+.toolbar{
+
+    display:flex;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+    gap:16px;
+
+    margin-bottom:18px;
+
+}
+
+/* Search */
+
+.toolbar input{
+
+    flex:1;
+
+    min-width:280px;
+
+    padding:13px 16px;
+
+    background:#1e293b;
+
+    border:1px solid #334155;
+
+    border-radius:10px;
+
+    color:#ffffff;
+
+    font-size:15px;
+
+    outline:none;
+
+    transition:.3s;
+
+}
+
+.toolbar input::placeholder{
+
+    color:#94a3b8;
+
+}
+
+.toolbar input:focus{
+
+    border-color:#3b82f6;
+
+    box-shadow:0 0 12px rgba(59,130,246,.4);
+
+}
+
+/* Dropdown */
+
+.toolbar select{
+
+    padding:13px 18px;
+
+    background:#1e293b;
+
+    color:white;
+
+    border:1px solid #334155;
+
+    border-radius:10px;
+
+    outline:none;
+
+    cursor:pointer;
+
+}
+
+.toolbar select:focus{
+
+    border-color:#3b82f6;
+
+}
+
+/* Buttons */
+
+.toolbar button{
+
+    padding:13px 22px;
+
+    border:none;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    transition:.3s;
+
+}
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.refreshBtn{
+
+    background:#2563eb;
+
+    color:#ffffff;
+
+}
+
+.refreshBtn:hover{
+
+    background:#3b82f6;
+
+    transform:translateY(-2px);
+
+    box-shadow:0 0 15px rgba(37,99,235,.45);
+
+}
+
+.resetBtn{
+
+    background:#dc2626;
+
+    color:#ffffff;
+
+}
+
+.resetBtn:hover{
+
+    background:#ef4444;
+
+    transform:translateY(-2px);
+
+    box-shadow:0 0 15px rgba(239,68,68,.45);
+
+}
+
+/* ==========================================
+   LAST UPDATED
+========================================== */
+
+.lastUpdated{
+
+    margin:18px 0;
+
+    color:#94a3b8;
+
+    font-size:14px;
+
+    font-weight:500;
+
+}
+
+/* ==========================================
+   LOADING / ERROR
+========================================== */
+
+.loading{
+
+    padding:25px;
+
+    text-align:center;
+
+    color:#38bdf8;
+
+    font-size:18px;
+
+}
+
+.error{
+
+    background:#451a1a;
+
+    border:1px solid #dc2626;
+
+    color:#fecaca;
+
+    padding:16px;
+
+    border-radius:12px;
+
+    margin-bottom:20px;
+
+}
+
+/* ==========================================
+   TABLE CONTAINER
+========================================== */
+
+.tableContainer{
+
+    width:100%;
+
+    overflow-x:auto;
+
+    background:#1e293b;
+
+    border-radius:18px;
+
+    border:1px solid #334155;
+
+    box-shadow:0 8px 25px rgba(0,0,0,.35);
+
+}
+
+/* ==========================================
+   TABLE
+========================================== */
+
+.journeyTable{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+    color:#ffffff;
+
+}
+
+.journeyTable thead{
+
+    background:#111827;
+
+}
+
+.journeyTable th{
+
+    padding:18px;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    color:#38bdf8;
+
+    border-bottom:1px solid #334155;
+
+    text-align:center;
+
+}
+
+.journeyTable td{
+
+    padding:16px;
+
+    text-align:center;
+
+    background:#1e293b;
+
+    border-bottom:1px solid #334155;
+
+    color:#e2e8f0;
+
+    font-size:14px;
+
+}
+
+/* Alternate Row */
+
+.journeyTable tbody tr:nth-child(even){
+
+    background:#172033;
+
+}
+
+.journeyTable tbody tr:nth-child(even) td{
+
+    background:#172033;
+
+}
+
+/* Hover */
+
+.journeyTable tbody tr:hover td{
+
+    background:#263449;
+
+    transition:.25s;
+
+}
+
+/* ==========================================
+   STATUS BADGES
+========================================== */
+
+.status{
+
+    display:inline-block;
+
+    padding:6px 14px;
+
+    border-radius:20px;
+
+    font-size:13px;
+
+    font-weight:600;
+
+}
+
+.active{
+
+    background:#14532d;
+
+    color:#4ade80;
+
+    border:1px solid #22c55e;
+
+}
+
+.exited{
+
+    background:#450a0a;
+
+    color:#f87171;
+
+    border:1px solid #ef4444;
+
+}
+
+/* ==========================================
+   ATTENTION BADGE
+========================================== */
+
+.attentionBadge{
+
+    display:inline-block;
+
+    padding:6px 12px;
+
+    background:#1d4ed8;
+
+    color:#ffffff;
+
+    border-radius:16px;
+
+    font-weight:600;
+
+    min-width:60px;
+
+}
+
+/* ==========================================
+   EMPTY DATA
+========================================== */
+
+.noData{
+
+    text-align:center;
+
+    padding:35px;
+
+    color:#94a3b8;
+
+    font-size:16px;
+
+    background:#1e293b;
+
+}
+/* ==========================================
+   FOOTER
+========================================== */
+
+.journeyFooter{
+
+    margin-top:20px;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+    gap:15px;
+
+    background:#1e293b;
+
+    border:1px solid #334155;
+
+    border-radius:15px;
+
+    padding:18px 22px;
+
+    color:#cbd5e1;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.25);
+
+}
+
+.footerLeft strong,
+.footerRight strong{
+
+    color:#38bdf8;
+
+    font-weight:700;
+
+}
+
+/* ==========================================
+   SCROLLBAR
+========================================== */
+
+.tableContainer::-webkit-scrollbar{
+
+    height:10px;
+
+}
+
+.tableContainer::-webkit-scrollbar-track{
+
+    background:#0f172a;
+
+    border-radius:20px;
+
+}
+
+.tableContainer::-webkit-scrollbar-thumb{
+
+    background:#3b82f6;
+
+    border-radius:20px;
+
+}
+
+.tableContainer::-webkit-scrollbar-thumb:hover{
+
+    background:#60a5fa;
+
+}
+
+/* ==========================================
+   ANIMATIONS
+========================================== */
+
+@keyframes fadeIn{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(15px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+.customerJourney{
+
+    animation:fadeIn .6s ease;
+
+}
+
+.journeyCard{
+
+    animation:fadeIn .5s ease;
+
+}
+
+.tableContainer{
+
+    animation:fadeIn .8s ease;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width:1200px){
+
+    .journeyCards{
+
+        grid-template-columns:repeat(3,1fr);
+
+    }
+
+}
+
+@media (max-width:992px){
+
+    .journeyCards{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+    .toolbar{
+
+        flex-direction:column;
+
+        align-items:stretch;
+
+    }
+
+    .toolbar input{
+
+        min-width:100%;
+
+    }
+
+    .toolbar select,
+    .toolbar button{
+
+        width:100%;
+
+    }
+
+    .journeyFooter{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+    }
+
+}
+
+@media (max-width:768px){
+
+    .customerJourney{
+
+        padding:20px;
+
+    }
+
+    .pageHeader h2{
+
+        font-size:28px;
+
+    }
+
+    .journeyCards{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .journeyCard{
+
+        padding:20px;
+
+    }
+
+    .journeyCard h1{
+
+        font-size:28px;
+
+    }
+
+    .journeyTable th,
+    .journeyTable td{
+
+        padding:12px;
+
+        font-size:13px;
+
+    }
+
+}
+
+@media (max-width:576px){
+
+    .customerJourney{
+
+        padding:15px;
+
+    }
+
+    .pageHeader h2{
+
+        font-size:24px;
+
+    }
+
+    .pageHeader p{
+
+        font-size:13px;
+
+    }
+
+    .journeyTable{
+
+        min-width:900px;
+
+    }
+
+}
+
+/* ==========================================
+   GLASS EFFECT
+========================================== */
+
+.journeyCard,
+.tableContainer,
+.journeyFooter{
+
+    backdrop-filter:blur(12px);
+
+}
+
+/* ==========================================
+   GLOW EFFECTS
+========================================== */
+
+.journeyCard:hover{
+
+    border-color:#38bdf8;
+
+}
+
+.refreshBtn:hover{
+
+    box-shadow:0 0 18px rgba(59,130,246,.6);
+
+}
+
+.resetBtn:hover{
+
+    box-shadow:0 0 18px rgba(239,68,68,.6);
+
+}
+
+.attentionBadge{
+
+    box-shadow:0 0 10px rgba(37,99,235,.4);
+
+}
+
+.active{
+
+    box-shadow:0 0 8px rgba(34,197,94,.35);
+
+}
+
+.exited{
+
+    box-shadow:0 0 8px rgba(239,68,68,.35);
+
+}

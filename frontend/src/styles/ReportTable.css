@@ -1,0 +1,169 @@
+.report-container{
+
+    background:rgba(20,30,45,.75);
+
+    border-radius:22px;
+
+    padding:30px;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+
+}
+
+.report-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:25px;
+
+}
+
+.report-header h2{
+
+    color:white;
+
+}
+
+.export-btn{
+
+    background:linear-gradient(90deg,#8b5cf6,#06b6d4);
+
+    color:white;
+
+    border:none;
+
+    padding:12px 22px;
+
+    border-radius:12px;
+
+    cursor:pointer;
+
+    display:flex;
+
+    gap:10px;
+
+    align-items:center;
+
+}
+
+.report-search{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    background:#1b2738;
+
+    padding:14px;
+
+    border-radius:12px;
+
+    margin-bottom:25px;
+
+    color:#94a3b8;
+
+}
+
+.report-search input{
+
+    width:100%;
+
+    background:transparent;
+
+    border:none;
+
+    outline:none;
+
+    color:white;
+
+}
+
+.report-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.report-table th{
+
+    background:#202d41;
+
+    color:#5ee9ff;
+
+    padding:15px;
+
+    text-align:left;
+
+}
+
+.report-table td{
+
+    padding:16px;
+
+    color:white;
+
+    border-bottom:1px solid rgba(255,255,255,.08);
+
+}
+
+.report-table tr:hover{
+
+    background:rgba(255,255,255,.04);
+
+}
+
+.pdf{
+
+    color:#ef4444;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+}
+
+.excel{
+
+    color:#22c55e;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+}
+
+.download-btn{
+
+    background:#3b82f6;
+
+    color:white;
+
+    border:none;
+
+    padding:10px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+}
+
+.download-btn:hover{
+
+    transform:scale(1.08);
+
+}

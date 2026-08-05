@@ -1,0 +1,97 @@
+/* ==========================================
+   CAMERA MODAL
+========================================== */
+
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.65);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+}
+
+.modal{
+    width:600px;
+    max-width:95%;
+    background:#111827;
+    padding:30px;
+    border-radius:15px;
+}
+
+.modal h2{
+    color:#fff;
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.modal form{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+
+.modal input,
+.modal select{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:1px solid #374151;
+    background:#1f2937;
+    color:#fff;
+}
+
+.modal input:focus,
+.modal select:focus{
+    outline:none;
+    border-color:#2563eb;
+}
+
+.modal-buttons{
+    grid-column:1/-1;
+    display:flex;
+    justify-content:flex-end;
+    gap:15px;
+    margin-top:15px;
+}
+
+.cancel-btn,
+.save-btn{
+    padding:12px 24px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.cancel-btn{
+    background:#374151;
+    color:#fff;
+}
+
+.save-btn{
+    background:#2563eb;
+    color:#fff;
+}
+
+.save-btn:hover{
+    background:#1d4ed8;
+}
+
+@media(max-width:768px){
+
+    .modal form{
+        grid-template-columns:1fr;
+    }
+
+    .modal-buttons{
+        flex-direction:column;
+    }
+
+    .cancel-btn,
+    .save-btn{
+        width:100%;
+    }
+
+}

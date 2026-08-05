@@ -1,0 +1,818 @@
+/* ==========================================================
+   AI HEATMAP DASHBOARD
+========================================================== */
+
+.heatmap-page{
+    min-height:100vh;
+    background:#07111f;
+    color:#ffffff;
+    padding:35px;
+}
+
+/* ==========================================================
+   HEADER
+========================================================== */
+
+.heatmap-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:20px;
+    margin-bottom:30px;
+}
+
+.heatmap-title{
+    font-size:42px;
+    font-weight:700;
+    margin-bottom:8px;
+    color:#ffffff;
+}
+
+.heatmap-subtitle{
+    font-size:17px;
+    color:#94a3b8;
+}
+
+/* ==========================================================
+   STATUS
+========================================================== */
+
+.heatmap-status{
+    display:flex;
+    gap:15px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.status-online,
+.status-running{
+    padding:10px 18px;
+    border-radius:30px;
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:.4px;
+}
+
+.status-online{
+    background:#14532d;
+    color:#4ade80;
+    border:1px solid rgba(74,222,128,.35);
+}
+
+.status-running{
+    background:#1e3a8a;
+    color:#60a5fa;
+    border:1px solid rgba(96,165,250,.35);
+}
+
+/* ==========================================================
+   CAMERA SELECTOR
+========================================================== */
+
+.camera-selector{
+    display:flex;
+    align-items:center;
+    gap:15px;
+    margin-bottom:30px;
+    flex-wrap:wrap;
+}
+
+.camera-selector label{
+    font-size:16px;
+    font-weight:600;
+    color:#cbd5e1;
+}
+
+.camera-selector select{
+    background:#1c2433;
+    color:#ffffff;
+    border:1px solid #334155;
+    border-radius:10px;
+    padding:10px 16px;
+    font-size:15px;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.camera-selector select:hover{
+    border-color:#3b82f6;
+}
+
+.camera-selector select:focus{
+    outline:none;
+    border-color:#3b82f6;
+    box-shadow:0 0 0 3px rgba(59,130,246,.25);
+}
+
+/* ==========================================================
+   LIVE ANALYTICS CARDS
+========================================================== */
+
+.heatmap-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:24px;
+    margin-bottom:35px;
+}
+
+.heat-card{
+    background:#1c2433;
+    border-radius:18px;
+    padding:28px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    transition:.3s;
+    box-shadow:0 15px 35px rgba(0,0,0,.28);
+}
+
+.heat-card:hover{
+    transform:translateY(-6px);
+    box-shadow:0 22px 45px rgba(0,0,0,.40);
+}
+
+.heat-icon{
+    font-size:42px;
+    color:#ff6b35;
+    margin-bottom:12px;
+}
+
+.heat-card h2{
+    font-size:36px;
+    margin:10px 0;
+    color:#ffffff;
+}
+
+.heat-card p{
+    color:#cbd5e1;
+    font-size:15px;
+}
+/* ==========================================================
+   LIVE STATUS BAR
+========================================================== */
+
+.heatmap-live-bar{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px;
+    margin-bottom:35px;
+}
+
+.live-item{
+    background:#1c2433;
+    border-radius:16px;
+    padding:18px 22px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:0 12px 30px rgba(0,0,0,.28);
+    transition:.3s;
+}
+
+.live-item:hover{
+    transform:translateY(-4px);
+    box-shadow:0 18px 35px rgba(0,0,0,.38);
+}
+
+.live-item span{
+    color:#94a3b8;
+    font-size:14px;
+}
+
+.live-item strong{
+    color:#ffffff;
+    font-size:16px;
+    font-weight:700;
+}
+
+/* ==========================================================
+   LIVE HEATMAP CONTAINER
+========================================================== */
+
+.live-heatmap-container{
+    margin-bottom:35px;
+}
+
+.live-heatmap-card{
+    background:#1c2433;
+    border-radius:22px;
+    overflow:hidden;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+}
+
+/* ==========================================================
+   HEATMAP HEADER
+========================================================== */
+
+.live-heatmap-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:15px;
+    padding:22px 28px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.live-heatmap-header h2{
+    font-size:26px;
+    margin:0 0 6px;
+    color:#ffffff;
+}
+
+.live-heatmap-header p{
+    margin:0;
+    color:#94a3b8;
+    font-size:15px;
+}
+
+/* ==========================================================
+   LIVE BADGE
+========================================================== */
+
+.heatmap-live-status{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 18px;
+    border-radius:999px;
+    background:#14532d;
+    color:#4ade80;
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:.5px;
+}
+
+.live-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#22c55e;
+    animation:livePulse 1.5s infinite;
+}
+
+@keyframes livePulse{
+
+    0%{
+        transform:scale(1);
+        opacity:1;
+    }
+
+    50%{
+        transform:scale(1.6);
+        opacity:.45;
+    }
+
+    100%{
+        transform:scale(1);
+        opacity:1;
+    }
+
+}
+
+/* ==========================================================
+   VIDEO WRAPPER
+========================================================== */
+
+.heatmap-video-wrapper{
+    width:100%;
+    background:#000000;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:24px;
+}
+
+.heatmap-video{
+    width:100%;
+    max-width:1100px;
+    height:auto;
+    border-radius:18px;
+    border:3px solid #0f172a;
+    background:#000;
+    object-fit:contain;
+    box-shadow:0 15px 35px rgba(0,0,0,.45);
+}
+/* ==========================================================
+   LOADING STATE
+========================================================== */
+
+.heatmap-loading{
+    min-height:520px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:20px;
+    color:#cbd5e1;
+    background:#0f172a;
+}
+
+.heatmap-loading h3{
+    margin:0;
+    font-size:20px;
+    font-weight:600;
+    color:#e2e8f0;
+}
+
+.loader{
+    width:70px;
+    height:70px;
+    border:6px solid rgba(255,255,255,.12);
+    border-top:6px solid #3b82f6;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+
+    from{
+        transform:rotate(0deg);
+    }
+
+    to{
+        transform:rotate(360deg);
+    }
+
+}
+
+/* ==========================================================
+   SUMMARY SECTION
+========================================================== */
+
+.heatmap-summary{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:24px;
+    margin-top:35px;
+}
+
+.summary-card{
+    background:#1c2433;
+    border-radius:18px;
+    padding:28px 24px;
+    text-align:center;
+    box-shadow:0 15px 35px rgba(0,0,0,.28);
+    transition:all .3s ease;
+    border:1px solid rgba(255,255,255,.05);
+}
+
+.summary-card:hover{
+    transform:translateY(-6px);
+    box-shadow:0 22px 45px rgba(0,0,0,.42);
+    border-color:rgba(59,130,246,.35);
+}
+
+.summary-card h4{
+    margin:0 0 12px;
+    font-size:15px;
+    font-weight:600;
+    color:#94a3b8;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+}
+
+.summary-card h2{
+    margin:0;
+    font-size:30px;
+    font-weight:700;
+    color:#ffffff;
+    word-break:break-word;
+}
+
+/* ==========================================================
+   SUBTLE FADE-IN ANIMATIONS
+========================================================== */
+
+.heat-card,
+.live-item,
+.live-heatmap-card,
+.summary-card{
+    animation:fadeUp .45s ease;
+}
+
+@keyframes fadeUp{
+
+    from{
+        opacity:0;
+        transform:translateY(16px);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+
+}
+
+/* ==========================================================
+   CUSTOM SCROLLBAR
+========================================================== */
+
+::-webkit-scrollbar{
+    width:10px;
+}
+
+::-webkit-scrollbar-track{
+    background:#0b1220;
+}
+
+::-webkit-scrollbar-thumb{
+    background:#334155;
+    border-radius:999px;
+}
+
+::-webkit-scrollbar-thumb:hover{
+    background:#475569;
+}
+/* ==========================================================
+   RESPONSIVE DESIGN
+========================================================== */
+
+@media (max-width:1200px){
+
+    .heatmap-page{
+        padding:28px;
+    }
+
+    .heatmap-title{
+        font-size:38px;
+    }
+
+    .live-heatmap-header{
+        padding:20px;
+    }
+
+}
+
+@media (max-width:992px){
+
+    .heatmap-header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .heatmap-status{
+        width:100%;
+        justify-content:flex-start;
+    }
+
+    .heatmap-title{
+        font-size:34px;
+    }
+
+    .live-heatmap-header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .heatmap-video-wrapper{
+        padding:18px;
+    }
+
+}
+
+@media (max-width:768px){
+
+    .heatmap-page{
+        padding:20px;
+    }
+
+    .heatmap-title{
+        font-size:30px;
+    }
+
+    .heatmap-subtitle{
+        font-size:15px;
+    }
+
+    .heatmap-cards{
+        grid-template-columns:1fr;
+    }
+
+    .heatmap-live-bar{
+        grid-template-columns:1fr;
+    }
+
+    .heatmap-summary{
+        grid-template-columns:1fr;
+    }
+
+    .camera-selector{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .camera-selector select{
+        width:100%;
+    }
+
+    .live-item{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:8px;
+    }
+
+    .heat-card{
+        padding:24px;
+    }
+
+    .heat-card h2{
+        font-size:30px;
+    }
+
+    .summary-card h2{
+        font-size:26px;
+    }
+
+    .live-heatmap-header h2{
+        font-size:22px;
+    }
+
+    .heatmap-video-wrapper{
+        padding:12px;
+    }
+
+}
+
+@media (max-width:480px){
+
+    .heatmap-page{
+        padding:15px;
+    }
+
+    .heatmap-title{
+        font-size:26px;
+    }
+
+    .heatmap-subtitle{
+        font-size:14px;
+    }
+
+    .status-online,
+    .status-running{
+        width:100%;
+        justify-content:center;
+        text-align:center;
+    }
+
+    .heat-card{
+        padding:20px;
+    }
+
+    .heat-icon{
+        font-size:36px;
+    }
+
+    .heat-card h2{
+        font-size:28px;
+    }
+
+    .summary-card{
+        padding:22px 18px;
+    }
+
+    .summary-card h2{
+        font-size:22px;
+    }
+
+    .live-heatmap-header{
+        padding:16px;
+    }
+
+    .heatmap-live-status{
+        width:100%;
+        justify-content:center;
+    }
+
+    .heatmap-video{
+        border-radius:12px;
+    }
+
+}
+
+/* ==========================================================
+   IMAGE QUALITY
+========================================================== */
+
+.heatmap-video img,
+.heatmap-video{
+    image-rendering:auto;
+    display:block;
+}
+
+/* ==========================================================
+   ACCESSIBILITY
+========================================================== */
+
+.heat-card:focus-within,
+.summary-card:focus-within,
+.camera-selector select:focus{
+    outline:none;
+}
+/* ==========================================================
+   TWO CAMERA GRID
+========================================================== */
+
+.heatmap-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(520px,1fr));
+    gap:25px;
+    margin-top:35px;
+}
+
+/* ==========================================================
+   CAMERA CARD
+========================================================== */
+
+.heatmap-box{
+    background:#1c2433;
+    border-radius:22px;
+    padding:22px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+    transition:.3s;
+    border:1px solid rgba(255,255,255,.05);
+}
+
+.heatmap-box:hover{
+    transform:translateY(-5px);
+    border-color:#3b82f6;
+}
+
+.camera-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+    gap:15px;
+    flex-wrap:wrap;
+}
+
+.camera-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:24px;
+    font-weight:700;
+    color:#ffffff;
+}
+
+.camera-status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:#14532d;
+    color:#4ade80;
+    padding:8px 15px;
+    border-radius:30px;
+    font-weight:600;
+    font-size:14px;
+}
+
+.camera-image{
+    width:100%;
+    height:350px;
+    object-fit:cover;
+    border-radius:16px;
+    border:2px solid #374151;
+    background:#000;
+}
+
+.camera-loading{
+    height:350px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:#0f172a;
+    border-radius:16px;
+    color:#cbd5e1;
+    font-size:18px;
+}
+
+.camera-error{
+    height:350px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:#111827;
+    border-radius:16px;
+    color:#ef4444;
+    font-size:18px;
+    font-weight:600;
+}
+
+/* ==========================================================
+   CAMERA ANALYTICS
+========================================================== */
+
+.camera-summary{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:15px;
+    margin-top:20px;
+}
+
+/* ==========================================================
+   LEGEND
+========================================================== */
+
+.heatmap-legend{
+    background:#1c2433;
+    border-radius:20px;
+    padding:25px;
+    margin-top:35px;
+}
+
+.legend-title{
+    color:#ffffff;
+    margin-bottom:20px;
+    font-size:24px;
+    font-weight:700;
+}
+
+.legend-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:18px;
+}
+
+.legend-item{
+    padding:16px;
+    border-radius:14px;
+    color:#ffffff;
+    text-align:center;
+    font-weight:700;
+}
+
+.legend-low{
+    background:#2563eb;
+}
+
+.legend-medium{
+    background:#22c55e;
+}
+
+.legend-high{
+    background:#f59e0b;
+}
+
+.legend-critical{
+    background:#ef4444;
+}
+
+/* ==========================================================
+   FOOTER
+========================================================== */
+
+.heatmap-footer{
+    margin-top:40px;
+    padding:25px 0;
+    border-top:1px solid rgba(255,255,255,.08);
+    text-align:center;
+    color:#9ca3af;
+}
+
+.heatmap-footer h3{
+    color:#ffffff;
+    margin-bottom:8px;
+}
+
+.heatmap-footer p{
+    margin:6px 0;
+}
+
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
+
+@media(max-width:900px){
+
+    .heatmap-grid{
+        grid-template-columns:1fr;
+    }
+
+    .camera-summary{
+        grid-template-columns:1fr;
+    }
+
+}
+
+@media(max-width:600px){
+
+    .camera-header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .camera-image{
+        height:260px;
+    }
+
+}
+
+/* ==========================================================
+   END OF FILE
+========================================================== */

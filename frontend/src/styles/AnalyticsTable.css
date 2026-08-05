@@ -1,0 +1,46 @@
+.analytics-table-container {
+  margin-top: 30px;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.08);
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.table-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-search input {
+  padding: 8px 12px;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analytics-table th,
+.analytics-table td {
+  border-bottom: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+}
+
+.analytics-table th {
+  background: #f5f5f5;
+}
+
+.emotion-badge {
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: #e5e7eb;
+}

@@ -1,0 +1,35 @@
+.product-card{
+
+    background:#111827;
+
+    border-radius:20px;
+
+    padding:25px;
+
+    height:100%;
+
+}
+
+.product-card h2{
+
+    color:white;
+
+    margin-bottom:20px;
+
+}
+
+.recharts-legend-item{
+
+    color:white !important;
+
+    font-size:15px;
+
+    margin-bottom:10px;
+
+}
+
+.recharts-default-tooltip{
+
+    border-radius:12px !important;
+
+}

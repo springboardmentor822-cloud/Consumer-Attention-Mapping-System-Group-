@@ -1,0 +1,145 @@
+.notification-container{
+
+    background:rgba(20,30,45,.75);
+
+    border-radius:22px;
+
+    padding:30px;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+
+}
+
+.notification-header{
+
+    margin-bottom:30px;
+
+}
+
+.notification-header h2{
+
+    color:white;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+}
+
+.notification-list{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:18px;
+
+}
+
+.notification-card{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:20px;
+
+    border-radius:15px;
+
+    background:#1b2738;
+
+    transition:.3s;
+
+}
+
+.notification-card:hover{
+
+    transform:translateY(-3px);
+
+}
+
+.notification-icon{
+
+    width:55px;
+
+    height:55px;
+
+    border-radius:50%;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:white;
+
+    font-size:22px;
+
+}
+
+.notification-content{
+
+    flex:1;
+
+    margin-left:20px;
+
+}
+
+.notification-content h3{
+
+    color:white;
+
+    margin-bottom:5px;
+
+}
+
+.notification-content p{
+
+    color:#94a3b8;
+
+}
+
+.notification-time{
+
+    color:#cbd5e1;
+
+    font-size:14px;
+
+}
+
+.danger .notification-icon{
+
+    background:#ef4444;
+
+}
+
+.warning .notification-icon{
+
+    background:#f59e0b;
+
+}
+
+.success .notification-icon{
+
+    background:#22c55e;
+
+}
+
+.info .notification-icon{
+
+    background:#3b82f6;
+
+}
+
+.purple .notification-icon{
+
+    background:#8b5cf6;
+
+}

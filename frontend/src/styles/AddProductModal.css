@@ -1,0 +1,163 @@
+/* ==========================================================
+   ADD PRODUCT MODAL
+========================================================== */
+
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.65);
+    backdrop-filter:blur(5px);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+    animation:fadeIn .3s ease;
+}
+
+@keyframes fadeIn{
+    from{
+        opacity:0;
+    }
+    to{
+        opacity:1;
+    }
+}
+
+.modal{
+    width:650px;
+    max-width:95%;
+    background:#111827;
+    border:1px solid #374151;
+    border-radius:18px;
+    padding:30px;
+    box-shadow:0 20px 45px rgba(0,0,0,.45);
+    animation:popup .35s ease;
+}
+
+@keyframes popup{
+    from{
+        opacity:0;
+        transform:translateY(25px) scale(.95);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+    }
+}
+
+.modal h2{
+    color:#fff;
+    text-align:center;
+    margin-bottom:25px;
+    font-size:28px;
+    font-weight:700;
+}
+
+/* ==========================================================
+   FORM
+========================================================== */
+
+.modal form{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+}
+
+.modal input,
+.modal select{
+    width:100%;
+    padding:14px 16px;
+    border-radius:10px;
+    border:1px solid #374151;
+    background:#1f2937;
+    color:#fff;
+    font-size:15px;
+    transition:.25s;
+}
+
+.modal input::placeholder{
+    color:#9ca3af;
+}
+
+.modal input:focus,
+.modal select:focus{
+    outline:none;
+    border-color:#2563eb;
+    box-shadow:0 0 0 3px rgba(37,99,235,.2);
+}
+
+/* Full-width field (optional class) */
+.full-width{
+    grid-column:1 / -1;
+}
+
+/* ==========================================================
+   BUTTONS
+========================================================== */
+
+.modal-buttons{
+    grid-column:1 / -1;
+    display:flex;
+    justify-content:flex-end;
+    gap:15px;
+    margin-top:15px;
+}
+
+.cancel-btn,
+.save-btn{
+    padding:12px 28px;
+    border:none;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.25s;
+}
+
+.cancel-btn{
+    background:#374151;
+    color:#fff;
+}
+
+.cancel-btn:hover{
+    background:#4b5563;
+}
+
+.save-btn{
+    color:#fff;
+    background:linear-gradient(135deg,#2563eb,#7c3aed);
+}
+
+.save-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 24px rgba(37,99,235,.35);
+}
+
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
+
+@media(max-width:768px){
+
+    .modal{
+        width:95%;
+        padding:20px;
+    }
+
+    .modal form{
+        grid-template-columns:1fr;
+    }
+
+    .modal-buttons{
+        flex-direction:column;
+    }
+
+    .cancel-btn,
+    .save-btn{
+        width:100%;
+    }
+
+    .modal h2{
+        font-size:24px;
+    }
+}

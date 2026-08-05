@@ -1,0 +1,13 @@
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 20
+names: ['Bingo Mad Angles', 'Bottle', 'Cinthol', 'Coconut water', 'Colin', 'Dark Fantasy', 'Exo Soap', 'Fanta', 'Harpic', 'India Gate: Feast Rozzana', 'Lays', 'Lotte Chocopie', 'Mixed Fruit', 'Moms magic', 'Odonil', 'Parle-G', 'Quaker Oats', 'Savlon Herbal', 'Sprit', 'Thums-up']
+
+roboflow:
+  workspace: mansi-p0wov
+  project: retail-products-qqw05-pf9rl
+  version: dataset
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/mansi-p0wov/retail-products-qqw05-pf9rl/dataset/dataset

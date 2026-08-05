@@ -1,0 +1,115 @@
+.performance-card{
+
+    margin-top:35px;
+
+    background:rgba(20,30,45,.75);
+
+    border-radius:22px;
+
+    padding:30px;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+
+}
+
+.performance-card h2{
+
+    color:white;
+
+    margin-bottom:30px;
+
+}
+
+.performance-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(4,1fr);
+
+    gap:20px;
+
+}
+
+.performance-box{
+
+    background:#1b2738;
+
+    border-radius:18px;
+
+    padding:25px;
+
+    text-align:center;
+
+    transition:.3s;
+
+}
+
+.performance-box:hover{
+
+    transform:translateY(-5px);
+
+    box-shadow:0 0 20px rgba(94,233,255,.25);
+
+}
+
+.performance-icon{
+
+    width:65px;
+
+    height:65px;
+
+    border-radius:50%;
+
+    margin:auto;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    color:white;
+
+    font-size:26px;
+
+}
+
+.performance-box h3{
+
+    color:white;
+
+    margin-top:20px;
+
+    font-size:26px;
+
+}
+
+.performance-box p{
+
+    color:#94a3b8;
+
+    margin-top:10px;
+
+}
+
+@media(max-width:1000px){
+
+.performance-grid{
+
+grid-template-columns:repeat(2,1fr);
+
+}
+
+}
+
+@media(max-width:650px){
+
+.performance-grid{
+
+grid-template-columns:1fr;
+
+}
+
+}

@@ -1,0 +1,237 @@
+/* =====================================================
+   CUSTOMER BEHAVIOUR ANALYTICS
+===================================================== */
+
+.behaviour-page{
+    padding:24px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+}
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.behaviour-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:20px;
+}
+
+.behaviour-header h1{
+    color:#ffffff;
+    font-size:30px;
+    margin-bottom:6px;
+    font-weight:700;
+}
+
+.behaviour-header p{
+    color:#94A3B8;
+    font-size:15px;
+}
+
+/* =====================================================
+   SUMMARY CARDS
+===================================================== */
+
+.behaviour-summary{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px;
+}
+
+.summary-card{
+    background:#162133;
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:18px;
+    padding:22px;
+    transition:.25s;
+    box-shadow:0 8px 20px rgba(0,0,0,.20);
+}
+
+.summary-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 16px 30px rgba(0,0,0,.35);
+}
+
+.summary-title{
+    color:#94A3B8;
+    font-size:15px;
+    margin-bottom:10px;
+}
+
+.summary-value{
+    color:#ffffff;
+    font-size:32px;
+    font-weight:700;
+}
+
+/* =====================================================
+   GRID
+===================================================== */
+
+.behaviour-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+}
+
+/* =====================================================
+   CARD
+===================================================== */
+
+.behaviour-card{
+    background:#162133;
+    border-radius:18px;
+    padding:22px;
+    border:1px solid rgba(255,255,255,.05);
+    box-shadow:0 10px 25px rgba(0,0,0,.25);
+    transition:.25s;
+}
+
+.behaviour-card:hover{
+    transform:translateY(-3px);
+}
+
+.behaviour-card h3{
+    color:white;
+    font-size:22px;
+    margin-bottom:18px;
+}
+
+/* =====================================================
+   TABLE
+===================================================== */
+
+.behaviour-table{
+    overflow-x:auto;
+}
+
+.behaviour-table table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.behaviour-table th{
+    background:#101827;
+    color:white;
+    padding:14px;
+    text-align:left;
+    font-size:14px;
+}
+
+.behaviour-table td{
+    padding:14px;
+    color:#CBD5E1;
+    border-top:1px solid rgba(255,255,255,.05);
+}
+
+.behaviour-table tr:hover{
+    background:#1B2940;
+}
+
+/* =====================================================
+   INSIGHTS
+===================================================== */
+
+.insight-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+}
+
+.insight-list li{
+    background:#101827;
+    border-left:5px solid #3B82F6;
+    color:white;
+    padding:14px 18px;
+    border-radius:12px;
+    margin-bottom:14px;
+    transition:.25s;
+}
+
+.insight-list li:hover{
+    transform:translateX(6px);
+}
+
+.insight-list strong{
+    color:#22C55E;
+}
+
+/* =====================================================
+   LOADING
+===================================================== */
+
+.behaviour-loading{
+    height:80vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    color:white;
+    font-size:22px;
+}
+
+/* =====================================================
+   RECHARTS
+===================================================== */
+
+.recharts-default-tooltip{
+    border:none !important;
+    border-radius:12px !important;
+}
+
+.recharts-tooltip-wrapper{
+    outline:none;
+}
+
+/* =====================================================
+   SCROLLBAR
+===================================================== */
+
+.behaviour-table::-webkit-scrollbar{
+    height:8px;
+}
+
+.behaviour-table::-webkit-scrollbar-thumb{
+    background:#3B82F6;
+    border-radius:20px;
+}
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media(max-width:1000px){
+
+    .behaviour-grid{
+        grid-template-columns:1fr;
+    }
+
+}
+
+@media(max-width:700px){
+
+    .behaviour-page{
+        padding:18px;
+    }
+
+    .summary-card{
+        padding:18px;
+    }
+
+    .summary-value{
+        font-size:28px;
+    }
+
+    .behaviour-card{
+        padding:18px;
+    }
+
+    .behaviour-header h1{
+        font-size:26px;
+    }
+
+}

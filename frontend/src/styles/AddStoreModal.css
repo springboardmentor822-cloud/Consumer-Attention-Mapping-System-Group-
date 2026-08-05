@@ -1,0 +1,168 @@
+/* ===========================
+        MODAL OVERLAY
+=========================== */
+
+.modal-overlay{
+
+    position:fixed;
+
+    top:0;
+    left:0;
+
+    width:100%;
+    height:100%;
+
+    background:rgba(0,0,0,.65);
+
+    display:flex;
+
+    justify-content:center;
+    align-items:center;
+
+    z-index:999;
+}
+
+/* ===========================
+          MODAL
+=========================== */
+
+.modal{
+
+    width:500px;
+
+    background:#111827;
+
+    border-radius:20px;
+
+    padding:35px;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    box-shadow:0 0 35px rgba(0,0,0,.5);
+
+    animation:popup .3s ease;
+}
+
+@keyframes popup{
+
+from{
+
+opacity:0;
+transform:scale(.9);
+
+}
+
+to{
+
+opacity:1;
+transform:scale(1);
+
+}
+
+}
+
+.modal h2{
+
+    color:white;
+
+    margin-bottom:30px;
+
+    text-align:center;
+}
+
+/* ===========================
+        FORM
+=========================== */
+
+.form-group{
+
+    display:flex;
+
+    flex-direction:column;
+
+    margin-bottom:18px;
+}
+
+.form-group label{
+
+    color:#cbd5e1;
+
+    margin-bottom:8px;
+
+    font-size:15px;
+}
+
+.form-group input,
+.form-group select{
+
+    padding:12px 15px;
+
+    border:none;
+
+    outline:none;
+
+    border-radius:10px;
+
+    background:#1f2937;
+
+    color:white;
+
+    font-size:15px;
+}
+
+/* ===========================
+      BUTTONS
+=========================== */
+
+.modal-buttons{
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    gap:15px;
+
+    margin-top:25px;
+}
+
+.cancel-btn{
+
+    padding:12px 22px;
+
+    border:none;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    background:#ef4444;
+
+    color:white;
+
+    font-weight:600;
+}
+
+.save-btn{
+
+    padding:12px 22px;
+
+    border:none;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    background:linear-gradient(90deg,#8b5cf6,#06b6d4);
+
+    color:white;
+
+    font-weight:600;
+}
+
+.cancel-btn:hover,
+.save-btn:hover{
+
+    opacity:.9;
+
+    transform:translateY(-2px);
+}

@@ -1,0 +1,292 @@
+/* ==========================================
+   NAVBAR
+========================================== */
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 270px;
+  right: 0;
+
+  height: 65px;
+
+  background: #0b1220;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 24px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+
+  z-index: 1000;
+}
+
+/* ==========================================
+   LEFT
+========================================== */
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+/* ==========================================
+   SEARCH BAR
+========================================== */
+
+.search-bar {
+  width: 360px;
+  max-width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 16px;
+
+  background: #1b2435;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 12px;
+
+  transition: 0.3s ease;
+}
+
+.search-bar:hover {
+  border-color: #3b82f6;
+}
+
+.search-bar:focus-within {
+  border-color: #3b82f6;
+
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.search-bar svg {
+  color: #cbd5e1;
+  font-size: 16px;
+}
+
+.search-bar input {
+  flex: 1;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: white;
+
+  font-size: 14px;
+}
+
+.search-bar input::placeholder {
+  color: #94a3b8;
+}
+
+/* ==========================================
+   RIGHT
+========================================== */
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ==========================================
+   AI STATUS
+========================================== */
+
+.status-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 8px 14px;
+
+  background: rgba(34, 197, 94, 0.15);
+
+  border: 1px solid rgba(34, 197, 94, 0.25);
+
+  border-radius: 12px;
+
+  color: #4ade80;
+
+  font-size: 14px;
+
+  font-weight: 600;
+}
+
+.status-box svg {
+  font-size: 15px;
+}
+
+/* ==========================================
+   DATE
+========================================== */
+
+.date-box {
+  padding: 9px 16px;
+
+  background: #1b2435;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 12px;
+
+  color: white;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+/* ==========================================
+   THEME BUTTON
+========================================== */
+
+.theme-btn {
+  width: 42px;
+  height: 42px;
+
+  border: none;
+
+  border-radius: 50%;
+
+  background: #1b2435;
+
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+
+  transition: 0.3s ease;
+}
+
+.theme-btn:hover {
+  background: #2c3953;
+
+  transform: rotate(20deg);
+}
+
+/* ==========================================
+   NOTIFICATION
+========================================== */
+
+.notification {
+  position: relative;
+
+  width: 42px;
+  height: 42px;
+
+  border: none;
+
+  border-radius: 50%;
+
+  background: #1b2435;
+
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+
+  transition: 0.3s ease;
+}
+
+.notification:hover {
+  background: #2c3953;
+}
+
+.notification svg {
+  font-size: 16px;
+}
+
+/* ==========================================
+   BADGE
+========================================== */
+
+.badge {
+  position: absolute;
+
+  top: 5px;
+  right: 5px;
+
+  width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+
+  background: #ef4444;
+
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 10px;
+
+  font-weight: bold;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1024px) {
+
+  .navbar {
+    left: 240px;
+    padding: 0 15px;
+  }
+
+  .search-bar {
+    width: 280px;
+  }
+
+  .date-box {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+
+  .navbar {
+    left: 90px;
+    padding: 0 12px;
+  }
+
+  .search-bar {
+    width: 180px;
+  }
+
+  .status-box span {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+
+  .search-bar {
+    width: 140px;
+  }
+
+  .status-box {
+    display: none;
+  }
+}

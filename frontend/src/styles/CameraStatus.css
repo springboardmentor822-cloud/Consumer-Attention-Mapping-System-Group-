@@ -1,0 +1,66 @@
+.camera-card{
+    width:100%;
+    margin-top:40px;
+    padding:30px;
+    border-radius:22px;
+
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(18px);
+
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 10px 35px rgba(0,0,0,.35);
+}
+
+.camera-card h2{
+    color:#fff;
+    margin-bottom:25px;
+    font-size:28px;
+}
+
+.camera-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:18px 22px;
+    margin-bottom:18px;
+
+    background:rgba(255,255,255,.04);
+
+    border-radius:16px;
+
+    transition:.3s;
+}
+
+.camera-row:hover{
+    transform:translateY(-3px);
+    background:rgba(255,255,255,.08);
+}
+
+.camera-row h3{
+    color:white;
+    margin:0;
+    font-size:20px;
+}
+
+.camera-row p{
+    margin-top:5px;
+    color:#bfc7d5;
+    font-size:14px;
+}
+
+.online{
+    padding:8px 18px;
+    border-radius:25px;
+    background:#22c55e;
+    color:white;
+    font-weight:bold;
+}
+
+.offline{
+    padding:8px 18px;
+    border-radius:25px;
+    background:#ef4444;
+    color:white;
+    font-weight:bold;
+}

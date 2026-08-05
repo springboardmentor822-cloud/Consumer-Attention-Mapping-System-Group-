@@ -1,0 +1,731 @@
+/* ==========================================================
+   DWELL TIME PAGE
+========================================================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+.dwell-page{
+    min-height:100vh;
+    background:#0f172a;
+    color:#fff;
+    padding:30px;
+}
+
+/* ==========================================================
+   HERO HEADER
+========================================================== */
+
+.dwell-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:30px;
+    background:#111827;
+    border:1px solid #293548;
+    border-radius:22px;
+    padding:32px;
+    margin-bottom:30px;
+    overflow:hidden;
+    position:relative;
+}
+
+.dwell-header::before{
+    content:"";
+    position:absolute;
+    width:350px;
+    height:350px;
+    right:-120px;
+    top:-120px;
+    background:radial-gradient(circle,#22c55e25,transparent 70%);
+}
+
+.hero-left{
+    z-index:2;
+}
+
+.live-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:#16a34a;
+    color:white;
+    padding:10px 18px;
+    border-radius:30px;
+    font-size:14px;
+    font-weight:700;
+    margin-bottom:18px;
+}
+
+.hero-left h1{
+    font-size:38px;
+    font-weight:700;
+    margin-bottom:12px;
+}
+
+.hero-left p{
+    color:#94a3b8;
+    max-width:650px;
+    line-height:1.8;
+    font-size:15px;
+}
+
+.hero-right{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:220px;
+}
+
+.hero-circle{
+    width:170px;
+    height:170px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#22c55e,#0ea5e9);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:58px;
+    color:white;
+    box-shadow:0 25px 45px rgba(0,0,0,.3);
+}
+
+/* ==========================================================
+   KPI CARDS
+========================================================== */
+
+.dwell-kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:22px;
+    margin-bottom:35px;
+}
+
+.dwell-kpi-card{
+    background:#111827;
+    border:1px solid #263446;
+    border-radius:18px;
+    padding:24px;
+    display:flex;
+    align-items:center;
+    gap:18px;
+    transition:.3s;
+    overflow:hidden;
+    position:relative;
+}
+
+.dwell-kpi-card:hover{
+    transform:translateY(-6px);
+    border-color:#22c55e;
+    box-shadow:0 20px 40px rgba(0,0,0,.25);
+}
+
+.dwell-kpi-card::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:4px;
+    background:#22c55e;
+}
+
+.dwell-kpi-icon{
+    width:70px;
+    height:70px;
+    border-radius:18px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:30px;
+}
+
+.dwell-kpi-content{
+    flex:1;
+}
+
+.dwell-kpi-content h2{
+    font-size:30px;
+    color:white;
+    margin-bottom:8px;
+}
+
+.dwell-kpi-content p{
+    color:#94a3b8;
+    font-size:15px;
+}
+
+/* ==========================================================
+   GRID
+========================================================== */
+
+.dwell-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:25px;
+    margin-top:30px;
+}
+
+.chart-card{
+    background:#111827;
+    border:1px solid #263446;
+    border-radius:18px;
+    padding:24px;
+    transition:.3s;
+}
+
+.chart-card:hover{
+    transform:translateY(-5px);
+    border-color:#22c55e;
+    box-shadow:0 20px 35px rgba(0,0,0,.25);
+}
+
+.full-width-card{
+    margin-top:30px;
+}
+
+/* ==========================================================
+   COMMON CHART STYLES
+========================================================== */
+
+.dwell-chart-container{
+    width:100%;
+}
+
+.chart-header{
+    margin-bottom:20px;
+}
+
+.chart-header h3{
+    font-size:22px;
+    margin-bottom:8px;
+    color:white;
+}
+
+.chart-header p{
+    color:#94a3b8;
+    font-size:14px;
+}
+
+.recharts-responsive-container{
+    width:100%!important;
+    height:320px!important;
+}
+/* ==========================================================
+   HISTOGRAM
+========================================================== */
+
+.histogram-summary{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:20px;
+    padding:18px;
+    background:#0F172A;
+    border:1px solid #334155;
+    border-radius:14px;
+}
+
+.histogram-summary div{
+    display:flex;
+    flex-direction:column;
+}
+
+.histogram-summary strong{
+    color:#ffffff;
+    font-size:14px;
+    margin-bottom:6px;
+}
+
+.histogram-summary p{
+    color:#22C55E;
+    font-size:22px;
+    font-weight:700;
+}
+
+/* ==========================================================
+   AREA CHART
+========================================================== */
+
+.area-summary{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:20px;
+    padding:18px;
+    background:#0F172A;
+    border:1px solid #334155;
+    border-radius:14px;
+}
+
+.area-summary div{
+    display:flex;
+    flex-direction:column;
+}
+
+.area-summary strong{
+    color:#ffffff;
+    font-size:14px;
+    margin-bottom:6px;
+}
+
+.area-summary p{
+    color:#38BDF8;
+    font-size:22px;
+    font-weight:700;
+}
+
+/* ==========================================================
+   HEAT TIMELINE
+========================================================== */
+
+.heat-timeline{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    margin-top:20px;
+}
+
+.heat-row{
+    display:grid;
+    grid-template-columns:70px 1fr 130px;
+    align-items:center;
+    gap:16px;
+}
+
+.heat-time{
+    color:#CBD5E1;
+    font-weight:600;
+    font-size:14px;
+}
+
+.heat-track{
+    width:100%;
+    height:18px;
+    background:#1E293B;
+    border-radius:30px;
+    overflow:hidden;
+}
+
+.heat-bar{
+    height:100%;
+    border-radius:30px;
+    transition:width .6s ease;
+}
+
+.heat-status{
+    text-align:right;
+    font-weight:600;
+    font-size:14px;
+}
+
+.heat-summary{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:24px;
+    padding:20px;
+    background:#0F172A;
+    border:1px solid #334155;
+    border-radius:14px;
+}
+
+.heat-summary-item{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.heat-summary-item svg{
+    font-size:26px;
+    color:#F97316;
+}
+
+.heat-summary-item strong{
+    display:block;
+    color:#ffffff;
+    font-size:14px;
+    margin-bottom:5px;
+}
+
+.heat-summary-item p{
+    color:#38BDF8;
+    font-size:20px;
+    font-weight:700;
+}
+
+/* ==========================================================
+   RECHART TOOLTIP
+========================================================== */
+
+.recharts-default-tooltip{
+    border-radius:12px!important;
+    border:none!important;
+    background:#111827!important;
+}
+
+.recharts-tooltip-label{
+    color:#ffffff!important;
+}
+
+.recharts-tooltip-item{
+    color:#CBD5E1!important;
+}
+
+/* ==========================================================
+   RECHART AXES
+========================================================== */
+
+.recharts-cartesian-axis-tick-value{
+    fill:#CBD5E1;
+    font-size:13px;
+}
+
+.recharts-cartesian-grid line{
+    stroke:#334155;
+}
+
+.recharts-cartesian-axis-line{
+    stroke:#334155;
+}
+
+.recharts-cartesian-axis-tick-line{
+    stroke:#334155;
+}
+
+/* ==========================================================
+   CHART ANIMATION
+========================================================== */
+
+.chart-card{
+    animation:fadeUp .5s ease;
+}
+
+@keyframes fadeUp{
+
+    from{
+        opacity:0;
+        transform:translateY(15px);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+
+}
+/* ==========================================================
+   BOX PLOT
+========================================================== */
+
+.boxplot-wrapper{
+    background:#0F172A;
+    border:1px solid #334155;
+    border-radius:16px;
+    padding:30px;
+    margin-top:20px;
+}
+
+.boxplot-axis{
+    position:relative;
+    height:80px;
+    width:100%;
+}
+
+.box-line{
+    position:absolute;
+    top:40px;
+    left:5%;
+    right:5%;
+    height:4px;
+    background:#64748B;
+    border-radius:20px;
+}
+
+.box-middle{
+    position:absolute;
+    top:22px;
+    height:40px;
+    background:rgba(34,197,94,.20);
+    border:2px solid #22C55E;
+    border-radius:8px;
+}
+
+.median-line{
+    position:absolute;
+    top:14px;
+    width:4px;
+    height:56px;
+    background:#22C55E;
+    border-radius:5px;
+}
+
+.box-whisker{
+    position:absolute;
+    top:14px;
+    width:4px;
+    height:56px;
+    background:#F59E0B;
+    border-radius:5px;
+}
+
+.boxplot-stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:20px;
+    margin-top:30px;
+}
+
+.box-card{
+    background:#1E293B;
+    border:1px solid #334155;
+    border-radius:16px;
+    padding:20px;
+    text-align:center;
+    transition:.3s;
+}
+
+.box-card:hover{
+    transform:translateY(-5px);
+    border-color:#22C55E;
+}
+
+.box-card.active{
+    border:2px solid #22C55E;
+    box-shadow:0 0 18px rgba(34,197,94,.25);
+}
+
+.box-card svg{
+    font-size:26px;
+    color:#22C55E;
+    margin-bottom:12px;
+}
+
+.box-card h4{
+    color:#CBD5E1;
+    margin-bottom:10px;
+    font-size:15px;
+}
+
+.box-card span{
+    color:#22C55E;
+    font-size:24px;
+    font-weight:700;
+}
+
+.boxplot-note{
+    margin-top:25px;
+    padding:20px;
+    background:#0F172A;
+    border-left:5px solid #22C55E;
+    border-radius:14px;
+}
+
+.boxplot-note strong{
+    display:block;
+    color:#22C55E;
+    margin-bottom:8px;
+}
+
+.boxplot-note p{
+    color:#CBD5E1;
+    line-height:1.8;
+}
+
+/* ==========================================================
+   AI INSIGHTS
+========================================================== */
+
+.ai-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:22px;
+    margin-top:25px;
+}
+
+.ai-card{
+    background:#111827;
+    border:1px solid #273549;
+    border-radius:18px;
+    padding:24px;
+    text-align:center;
+    transition:.3s;
+}
+
+.ai-card:hover{
+    transform:translateY(-6px);
+    border-color:#22C55E;
+    box-shadow:0 15px 30px rgba(0,0,0,.25);
+}
+
+.ai-icon{
+    font-size:34px;
+    color:#22C55E;
+    margin-bottom:18px;
+}
+
+.ai-card h4{
+    color:#CBD5E1;
+    margin-bottom:10px;
+    font-size:16px;
+}
+
+.ai-card h2{
+    color:white;
+    font-size:32px;
+    margin-bottom:10px;
+}
+
+.ai-card p{
+    color:#94A3B8;
+    font-size:14px;
+}
+
+/* ==========================================================
+   RECOMMENDATION PANEL
+========================================================== */
+
+.recommendation-card{
+    margin-top:30px;
+    background:#111827;
+    border-left:5px solid #22C55E;
+    border-radius:18px;
+    padding:24px;
+}
+
+.recommendation-title{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:16px;
+}
+
+.recommendation-title svg{
+    font-size:26px;
+    color:#22C55E;
+}
+
+.recommendation-title h3{
+    color:#ffffff;
+    font-size:22px;
+}
+
+.recommendation-card p{
+    color:#CBD5E1;
+    line-height:1.8;
+}
+
+/* ==========================================================
+   CUSTOM SCROLLBAR
+========================================================== */
+
+::-webkit-scrollbar{
+    width:10px;
+}
+
+::-webkit-scrollbar-track{
+    background:#0F172A;
+}
+
+::-webkit-scrollbar-thumb{
+    background:#334155;
+    border-radius:30px;
+}
+
+::-webkit-scrollbar-thumb:hover{
+    background:#22C55E;
+}
+
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
+
+@media (max-width:1200px){
+
+    .dwell-grid{
+        grid-template-columns:1fr;
+    }
+
+}
+
+@media (max-width:992px){
+
+    .dwell-header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .hero-right{
+        width:100%;
+        justify-content:center;
+    }
+
+    .hero-circle{
+        width:140px;
+        height:140px;
+        font-size:48px;
+    }
+
+}
+
+@media (max-width:768px){
+
+    .dwell-page{
+        padding:20px;
+    }
+
+    .hero-left h1{
+        font-size:30px;
+    }
+
+    .hero-left p{
+        font-size:14px;
+    }
+
+    .dwell-kpi-grid{
+        grid-template-columns:1fr;
+    }
+
+    .chart-card{
+        padding:18px;
+    }
+
+    .boxplot-stats{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .heat-row{
+        grid-template-columns:60px 1fr 90px;
+        gap:10px;
+    }
+
+    .heat-status{
+        font-size:12px;
+    }
+
+    .recharts-responsive-container{
+        height:260px !important;
+    }
+
+}
+
+@media (max-width:480px){
+
+    .hero-left h1{
+        font-size:26px;
+    }
+
+    .boxplot-stats{
+        grid-template-columns:1fr;
+    }
+
+    .hero-circle{
+        width:120px;
+        height:120px;
+        font-size:42px;
+    }
+
+}

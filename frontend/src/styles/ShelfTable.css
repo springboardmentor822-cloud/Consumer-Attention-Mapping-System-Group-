@@ -1,0 +1,1354 @@
+/* =====================================================
+   SHELF MANAGEMENT PAGE
+===================================================== */
+
+.shelf-container,
+.store-container {
+    min-height: 100vh;
+    padding: 30px;
+    background: linear-gradient(135deg, #071028 0%, #0d1b3d 100%);
+    color: #ffffff;
+    animation: fadePage .6s ease;
+}
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.store-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 25px;
+
+    margin-bottom: 30px;
+
+    padding: 28px 35px;
+
+    border-radius: 20px;
+
+    background: rgba(255,255,255,.06);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(18px);
+
+    -webkit-backdrop-filter: blur(18px);
+
+    box-shadow:
+        0 15px 35px rgba(0,0,0,.30);
+}
+
+.store-header h2 {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    margin: 0;
+
+    color: #fff;
+
+    font-size: 32px;
+
+    font-weight: 700;
+
+}
+
+.store-header p {
+
+    margin-top: 10px;
+
+    color: #b9c6e4;
+
+    font-size: 15px;
+
+    line-height: 1.6;
+
+}
+
+/* =====================================================
+   HEADER BUTTONS
+===================================================== */
+
+.header-actions {
+
+    display: flex;
+
+    gap: 15px;
+
+}
+
+.refresh-btn,
+.add-store-btn {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 10px;
+
+    border: none;
+
+    cursor: pointer;
+
+    padding: 14px 24px;
+
+    border-radius: 12px;
+
+    color: #fff;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+    transition: .35s;
+
+}
+
+.refresh-btn {
+
+    background: linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
+
+}
+
+.refresh-btn:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 12px 28px rgba(37,99,235,.40);
+
+}
+
+.add-store-btn {
+
+    background: linear-gradient(
+        135deg,
+        #059669,
+        #10b981
+    );
+
+}
+
+.add-store-btn:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 12px 28px rgba(16,185,129,.40);
+
+}
+
+/* =====================================================
+   SEARCH
+===================================================== */
+
+.search-box {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    padding: 16px 22px;
+
+    margin-bottom: 30px;
+
+    border-radius: 16px;
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(12px);
+
+}
+
+.search-box svg {
+
+    color: #60a5fa;
+
+    font-size: 18px;
+
+}
+
+.search-box input {
+
+    flex: 1;
+
+    border: none;
+
+    outline: none;
+
+    background: transparent;
+
+    color: white;
+
+    font-size: 15px;
+
+}
+
+.search-box input::placeholder {
+
+    color: #94a3b8;
+
+}
+
+/* =====================================================
+   KPI GRID
+===================================================== */
+
+.kpi-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(230px,1fr));
+
+    gap: 22px;
+
+    margin-bottom: 35px;
+
+}
+
+.kpi-card {
+
+    padding: 28px;
+
+    border-radius: 18px;
+
+    background: rgba(255,255,255,.06);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(16px);
+
+    text-align: center;
+
+    transition: .35s;
+
+    box-shadow:
+        0 10px 25px rgba(0,0,0,.25);
+
+}
+
+.kpi-card:hover {
+
+    transform: translateY(-6px);
+
+    box-shadow:
+        0 18px 40px rgba(37,99,235,.20);
+
+}
+
+.kpi-icon {
+
+    font-size: 42px;
+
+    color: #60a5fa;
+
+    margin-bottom: 16px;
+
+}
+
+.kpi-card h3 {
+
+    margin: 0;
+
+    color: #cbd5e1;
+
+    font-size: 17px;
+
+    font-weight: 500;
+
+}
+
+.kpi-card h1 {
+
+    margin-top: 18px;
+
+    margin-bottom: 0;
+
+    color: #fff;
+
+    font-size: 38px;
+
+    font-weight: 700;
+
+}
+
+/* =====================================================
+   LOADING / ERROR
+===================================================== */
+
+.loading-box,
+.error-box {
+
+    padding: 70px;
+
+    text-align: center;
+
+    border-radius: 20px;
+
+    background: rgba(255,255,255,.06);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(16px);
+
+}
+
+.loading-box h2 {
+
+    color: white;
+
+    margin: 0;
+
+}
+
+.error-box h2 {
+
+    color: #ff6b6b;
+
+    margin: 0;
+
+}
+/* =====================================================
+   SHELF OVERVIEW
+===================================================== */
+
+.store-overview-card {
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    border-radius: 22px;
+
+    padding: 30px;
+
+    margin-bottom: 35px;
+
+    backdrop-filter: blur(18px);
+
+    -webkit-backdrop-filter: blur(18px);
+
+    box-shadow:
+        0 15px 40px rgba(0,0,0,.30);
+
+}
+
+/* =====================================================
+   OVERVIEW GRID
+===================================================== */
+
+.overview-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit,minmax(420px,1fr));
+
+    gap: 25px;
+
+    margin-bottom: 30px;
+
+}
+
+/* =====================================================
+   INFORMATION CARDS
+===================================================== */
+
+.info-card {
+
+    background: linear-gradient(
+        135deg,
+        rgba(255,255,255,.07),
+        rgba(255,255,255,.04)
+    );
+
+    border-radius: 18px;
+
+    padding: 28px;
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    transition: .35s;
+
+    box-shadow:
+        0 10px 25px rgba(0,0,0,.25);
+
+}
+
+.info-card:hover {
+
+    transform: translateY(-5px);
+
+    box-shadow:
+        0 18px 35px rgba(0,0,0,.35);
+
+}
+
+.info-card h3 {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    margin-top: 0;
+
+    margin-bottom: 22px;
+
+    color: #60a5fa;
+
+    font-size: 22px;
+
+    font-weight: 600;
+
+}
+
+/* =====================================================
+   INFORMATION ROWS
+===================================================== */
+
+.info-row {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    padding: 14px 0;
+
+    border-bottom: 1px solid rgba(255,255,255,.08);
+
+}
+
+.info-row:last-child {
+
+    border-bottom: none;
+
+}
+
+.info-row span {
+
+    color: #cbd5e1;
+
+    font-size: 15px;
+
+}
+
+.info-row strong {
+
+    color: #ffffff;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+}
+
+/* =====================================================
+   STATUS BADGES
+===================================================== */
+
+.status {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 6px 14px;
+
+    border-radius: 999px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    letter-spacing: .5px;
+
+    text-transform: uppercase;
+
+}
+
+.status.active {
+
+    color: #22c55e;
+
+    background: rgba(34,197,94,.15);
+
+    border: 1px solid rgba(34,197,94,.35);
+
+}
+
+.status.inactive {
+
+    color: #ef4444;
+
+    background: rgba(239,68,68,.15);
+
+    border: 1px solid rgba(239,68,68,.35);
+
+}
+
+/* =====================================================
+   DESCRIPTION CARD
+===================================================== */
+
+.description-card {
+
+    margin-top: 30px;
+
+    padding: 30px;
+
+    border-radius: 18px;
+
+    background: linear-gradient(
+        135deg,
+        rgba(37,99,235,.12),
+        rgba(15,23,42,.55)
+    );
+
+    border: 1px solid rgba(96,165,250,.20);
+
+    box-shadow:
+        0 10px 28px rgba(0,0,0,.25);
+
+}
+
+.description-card h3 {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    margin-top: 0;
+
+    margin-bottom: 18px;
+
+    color: #60a5fa;
+
+    font-size: 22px;
+
+}
+
+.description-card p {
+
+    margin: 0;
+
+    color: #d6dbe8;
+
+    line-height: 1.9;
+
+    font-size: 15px;
+
+    text-align: justify;
+
+}
+
+/* =====================================================
+   EMPTY STATE
+===================================================== */
+
+.empty-store {
+
+    padding: 60px;
+
+    border-radius: 18px;
+
+    text-align: center;
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+}
+
+.empty-store h2 {
+
+    margin-bottom: 12px;
+
+    color: white;
+
+}
+
+.empty-store p {
+
+    margin: 0;
+
+    color: #94a3b8;
+
+}
+/* =====================================================
+   CONFIGURATION CARD
+===================================================== */
+
+.configuration-card {
+
+    margin-top: 35px;
+
+    padding: 30px;
+
+    border-radius: 20px;
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(16px);
+
+    -webkit-backdrop-filter: blur(16px);
+
+    box-shadow:
+        0 12px 28px rgba(0,0,0,.25);
+
+}
+
+.configuration-card h3 {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    margin-top: 0;
+
+    margin-bottom: 28px;
+
+    color: #60a5fa;
+
+    font-size: 22px;
+
+}
+
+.configuration-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit,minmax(250px,1fr));
+
+    gap: 20px;
+
+}
+
+.config-item {
+
+    padding: 20px;
+
+    border-radius: 16px;
+
+    background: rgba(255,255,255,.04);
+
+    border: 1px solid rgba(255,255,255,.06);
+
+    transition: .35s;
+
+}
+
+.config-item:hover {
+
+    transform: translateY(-4px);
+
+    background: rgba(37,99,235,.10);
+
+}
+
+.config-item span {
+
+    display: block;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+
+    margin-bottom: 8px;
+
+}
+
+.config-item strong {
+
+    color: white;
+
+    font-size: 17px;
+
+    font-weight: 600;
+
+}
+
+/* =====================================================
+   RECENT ACTIVITY
+===================================================== */
+
+.updates-card {
+
+    margin-top: 35px;
+
+    padding: 30px;
+
+    border-radius: 20px;
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(16px);
+
+    -webkit-backdrop-filter: blur(16px);
+
+    box-shadow:
+        0 12px 28px rgba(0,0,0,.25);
+
+}
+
+.updates-card h3 {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    margin-top: 0;
+
+    margin-bottom: 30px;
+
+    color: #60a5fa;
+
+    font-size: 22px;
+
+}
+
+/* =====================================================
+   TIMELINE
+===================================================== */
+
+.timeline {
+
+    position: relative;
+
+    padding-left: 30px;
+
+}
+
+.timeline::before {
+
+    content: "";
+
+    position: absolute;
+
+    left: 9px;
+
+    top: 0;
+
+    bottom: 0;
+
+    width: 2px;
+
+    background: rgba(96,165,250,.35);
+
+}
+
+.timeline-item {
+
+    position: relative;
+
+    margin-bottom: 28px;
+
+    padding-left: 12px;
+
+}
+
+.timeline-item:last-child {
+
+    margin-bottom: 0;
+
+}
+
+.timeline-dot {
+
+    position: absolute;
+
+    left: -29px;
+
+    top: 5px;
+
+    width: 16px;
+
+    height: 16px;
+
+    border-radius: 50%;
+
+    background: #3b82f6;
+
+    border: 4px solid #08111f;
+
+    box-shadow: 0 0 12px rgba(59,130,246,.70);
+
+}
+
+.timeline-item strong {
+
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: white;
+
+    font-size: 16px;
+
+}
+
+.timeline-item p {
+
+    margin: 0;
+
+    color: #cbd5e1;
+
+    line-height: 1.7;
+
+    font-size: 14px;
+
+}
+
+/* =====================================================
+   TABLE
+===================================================== */
+
+.store-table {
+
+    width: 100%;
+
+    margin-top: 35px;
+
+    border-collapse: collapse;
+
+    overflow: hidden;
+
+    border-radius: 18px;
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(14px);
+
+}
+
+.store-table thead {
+
+    background: rgba(37,99,235,.18);
+
+}
+
+.store-table th {
+
+    padding: 18px;
+
+    text-align: left;
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+}
+
+.store-table td {
+
+    padding: 18px;
+
+    color: #dbe4f3;
+
+    border-top: 1px solid rgba(255,255,255,.06);
+
+    font-size: 14px;
+
+}
+
+.store-table tbody tr {
+
+    transition: .3s;
+
+}
+
+.store-table tbody tr:hover {
+
+    background: rgba(255,255,255,.04);
+
+}
+
+/* =====================================================
+   ACTION BUTTONS
+===================================================== */
+
+.store-actions {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 12px;
+
+}
+
+.edit-btn,
+.delete-btn {
+
+    width: 40px;
+
+    height: 40px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    cursor: pointer;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    transition: .3s;
+
+    color: white;
+
+}
+
+.edit-btn {
+
+    background: linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
+
+}
+
+.edit-btn:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 10px 22px rgba(37,99,235,.40);
+
+}
+
+.delete-btn {
+
+    background: linear-gradient(
+        135deg,
+        #ef4444,
+        #dc2626
+    );
+
+}
+
+.delete-btn:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 10px 22px rgba(239,68,68,.40);
+
+}
+/* =====================================================
+   RESPONSIVE DESIGN
+===================================================== */
+
+@media (max-width:1200px){
+
+    .overview-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .configuration-grid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+}
+
+@media (max-width:992px){
+
+    .store-container,
+    .shelf-container{
+
+        padding:20px;
+
+    }
+
+    .store-header{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:20px;
+
+    }
+
+    .header-actions{
+
+        width:100%;
+
+        display:flex;
+
+        flex-wrap:wrap;
+
+        gap:15px;
+
+    }
+
+    .header-actions button{
+
+        flex:1;
+
+        min-width:180px;
+
+    }
+
+    .kpi-grid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+}
+
+@media (max-width:768px){
+
+    .store-header{
+
+        padding:22px;
+
+    }
+
+    .store-header h2{
+
+        font-size:26px;
+
+    }
+
+    .search-box{
+
+        padding:14px 18px;
+
+    }
+
+    .kpi-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .overview-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .configuration-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .store-table{
+
+        display:block;
+
+        overflow-x:auto;
+
+        white-space:nowrap;
+
+    }
+
+    .store-actions{
+
+        justify-content:flex-start;
+
+    }
+
+}
+
+@media (max-width:480px){
+
+    .store-container,
+    .shelf-container{
+
+        padding:15px;
+
+    }
+
+    .store-header{
+
+        padding:18px;
+
+    }
+
+    .store-header h2{
+
+        font-size:22px;
+
+    }
+
+    .store-header p{
+
+        font-size:13px;
+
+    }
+
+    .kpi-card{
+
+        padding:22px;
+
+    }
+
+    .kpi-card h1{
+
+        font-size:30px;
+
+    }
+
+    .info-card,
+    .configuration-card,
+    .description-card,
+    .updates-card{
+
+        padding:20px;
+
+    }
+
+}
+
+/* =====================================================
+   CARD HOVER EFFECTS
+===================================================== */
+
+.kpi-card,
+.info-card,
+.configuration-card,
+.description-card,
+.updates-card{
+
+    transition:
+        transform .35s ease,
+        box-shadow .35s ease,
+        background .35s ease;
+
+}
+
+.kpi-card:hover,
+.info-card:hover,
+.configuration-card:hover,
+.description-card:hover,
+.updates-card:hover{
+
+    transform:translateY(-6px);
+
+    box-shadow:
+        0 20px 45px rgba(37,99,235,.18);
+
+}
+
+/* =====================================================
+   BUTTON ANIMATION
+===================================================== */
+
+.refresh-btn,
+.add-store-btn,
+.edit-btn,
+.delete-btn{
+
+    transition:
+        transform .25s ease,
+        box-shadow .25s ease,
+        opacity .25s ease;
+
+}
+
+.refresh-btn:active,
+.add-store-btn:active,
+.edit-btn:active,
+.delete-btn:active{
+
+    transform:scale(.96);
+
+}
+
+/* =====================================================
+   TABLE ANIMATION
+===================================================== */
+
+.store-table tbody tr{
+
+    transition:
+        background .25s ease,
+        transform .25s ease;
+
+}
+
+.store-table tbody tr:hover{
+
+    transform:scale(1.01);
+
+}
+
+/* =====================================================
+   GLASSMORPHISM EFFECT
+===================================================== */
+
+.store-header,
+.kpi-card,
+.store-overview-card,
+.info-card,
+.configuration-card,
+.description-card,
+.updates-card,
+.store-table{
+
+    backdrop-filter:blur(18px);
+
+    -webkit-backdrop-filter:blur(18px);
+
+}
+
+/* =====================================================
+   PREMIUM SHADOWS
+===================================================== */
+
+.kpi-card,
+.info-card,
+.configuration-card,
+.description-card,
+.updates-card,
+.store-table{
+
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.25),
+        inset 0 1px 0 rgba(255,255,255,.05);
+
+}
+
+/* =====================================================
+   ICON EFFECTS
+===================================================== */
+
+.kpi-icon{
+
+    filter:drop-shadow(0 0 10px rgba(96,165,250,.45));
+
+}
+
+.info-card h3 svg,
+.configuration-card h3 svg,
+.description-card h3 svg,
+.updates-card h3 svg{
+
+    color:#60a5fa;
+
+}
+
+/* =====================================================
+   CUSTOM SCROLLBAR
+===================================================== */
+
+::-webkit-scrollbar{
+
+    width:10px;
+
+    height:10px;
+
+}
+
+::-webkit-scrollbar-track{
+
+    background:#08111f;
+
+}
+
+::-webkit-scrollbar-thumb{
+
+    background:#2563eb;
+
+    border-radius:20px;
+
+}
+
+::-webkit-scrollbar-thumb:hover{
+
+    background:#3b82f6;
+
+}
+
+/* =====================================================
+   TEXT SELECTION
+===================================================== */
+
+::selection{
+
+    background:#2563eb;
+
+    color:#ffffff;
+
+}
+
+/* =====================================================
+   PAGE ANIMATION
+===================================================== */
+
+@keyframes fadePage{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(20px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+.store-container,
+.shelf-container{
+
+    animation:fadePage .6s ease;
+
+}
+
+/* =====================================================
+   END OF FILE
+===================================================== */
