@@ -125,7 +125,7 @@ function App() {
             }
           >
             <Route path="/users" element={<Users />} />
-            <Route path="/stores" element={<Stores />} />
+            
             <Route path="/products" element={<Products />} />
             
           </Route>
@@ -143,6 +143,7 @@ function App() {
               />
             }
           >
+            <Route path="/stores" element={<Stores />} />
             <Route path="/shelves" element={<Shelves />} />
             
             <Route path="/cameras" element={<Cameras />} />
