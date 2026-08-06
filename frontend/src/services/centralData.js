@@ -424,3 +424,82 @@ export const severityColor = (level) => {
 export const formatNumber = (n) => n?.toLocaleString?.() ?? n;
 export const formatCurrency = (n) => `$${(n / 1000).toFixed(1)}K`;
 export const formatPct = (n) => `${n.toFixed(1)}%`;
+
+// ═══════════════════════════════════════════════════════════════════════
+// SINGLE SOURCE OF TRUTH FOR DATE-FILTERED TELEMETRY DATA
+// ═══════════════════════════════════════════════════════════════════════
+export function getCentralScaledData(period) {
+  let mult = 1.0;
+  if (period === "Yesterday") mult = 0.92;
+  else if (period === "Last 7 Days") mult = 6.4;
+  else if (period === "Last 30 Days") mult = 26.5;
+  else if (period === "Custom Date Range") mult = 1.8;
+
+  const totalVisitors = Math.round(1427 * mult);
+  const peakTraffic = Math.round(320 * mult);
+
+  return {
+    mult,
+    kpis: {
+      totalVisitors,
+      totalVisitorsChange: 12.4,
+      currentCustomers: 42,
+      avgDwellTime: 18.4,
+      avgDwellTimeChange: 8.2,
+      productsPicked: Math.round(2140 * mult),
+      productsPickedChange: 11.2,
+      conversionRate: 18.2,
+      conversionRateChange: 5.1,
+      cameraStatus: "3/4 Online",
+      salesRevenue: Math.round(14850 * mult),
+      salesRevenueChange: 22.3,
+      peakHourTraffic: peakTraffic,
+      peakHour: "5:00 PM – 7:00 PM",
+    },
+    visitorsByHour: [
+      { time: "9 AM", val: Math.round(peakTraffic * 0.25), visitors: Math.round(peakTraffic * 0.25) },
+      { time: "10 AM", val: Math.round(peakTraffic * 0.45), visitors: Math.round(peakTraffic * 0.45) },
+      { time: "11 AM", val: Math.round(peakTraffic * 0.60), visitors: Math.round(peakTraffic * 0.60) },
+      { time: "12 PM", val: Math.round(peakTraffic * 0.75), visitors: Math.round(peakTraffic * 0.75) },
+      { time: "1 PM", val: Math.round(peakTraffic * 0.95), visitors: Math.round(peakTraffic * 0.95) },
+      { time: "2 PM", val: Math.round(peakTraffic * 0.85), visitors: Math.round(peakTraffic * 0.85) },
+      { time: "3 PM", val: Math.round(peakTraffic * 0.90), visitors: Math.round(peakTraffic * 0.90) },
+      { time: "4 PM", val: Math.round(peakTraffic * 0.75), visitors: Math.round(peakTraffic * 0.75) },
+      { time: "5 PM", val: peakTraffic, visitors: peakTraffic },
+      { time: "6 PM", val: Math.round(peakTraffic * 0.95), visitors: Math.round(peakTraffic * 0.95) },
+      { time: "7 PM", val: Math.round(peakTraffic * 0.80), visitors: Math.round(peakTraffic * 0.80) },
+      { time: "8 PM", val: Math.round(peakTraffic * 0.55), visitors: Math.round(peakTraffic * 0.55) },
+      { time: "9 PM", val: Math.round(peakTraffic * 0.30), visitors: Math.round(peakTraffic * 0.30) }
+    ],
+    customersByZone: [
+      { zone: "Entrance", name: "Entrance", val: Math.round(totalVisitors * 0.22), count: Math.round(totalVisitors * 0.22), scaledVisitors: Math.round(totalVisitors * 0.22), fill: "#2563EB", color: "#2563EB" },
+      { zone: "Bakery", name: "Bakery", val: Math.round(totalVisitors * 0.18), count: Math.round(totalVisitors * 0.18), scaledVisitors: Math.round(totalVisitors * 0.18), fill: "#10B981", color: "#10B981" },
+      { zone: "Dairy", name: "Dairy", val: Math.round(totalVisitors * 0.17), count: Math.round(totalVisitors * 0.17), scaledVisitors: Math.round(totalVisitors * 0.17), fill: "#8B5CF6", color: "#8B5CF6" },
+      { zone: "Produce", name: "Produce", val: Math.round(totalVisitors * 0.14), count: Math.round(totalVisitors * 0.14), scaledVisitors: Math.round(totalVisitors * 0.14), fill: "#F59E0B", color: "#F59E0B" },
+      { zone: "Cosmetics", name: "Cosmetics", val: Math.round(totalVisitors * 0.10), count: Math.round(totalVisitors * 0.10), scaledVisitors: Math.round(totalVisitors * 0.10), fill: "#06B6D4", color: "#06B6D4" },
+      { zone: "Electronics", name: "Electronics", val: Math.round(totalVisitors * 0.09), count: Math.round(totalVisitors * 0.09), scaledVisitors: Math.round(totalVisitors * 0.09), fill: "#F97316", color: "#F97316" }
+    ],
+    segmentationData: [
+      { name: "New Visitors", value: Math.round(totalVisitors * 0.63), color: "#2563EB" },
+      { name: "Returning Visitors", value: Math.round(totalVisitors * 0.37), color: "#10B981" }
+    ],
+    productInteraction: [
+      { name: "Picked", value: Math.round(totalVisitors * 0.15), color: "#10B981" },
+      { name: "Viewed", value: Math.round(totalVisitors * 0.35), color: "#2563EB" },
+      { name: "Returned", value: Math.round(totalVisitors * 0.05), color: "#F59E0B" },
+      { name: "Compared", value: Math.round(totalVisitors * 0.08), color: "#8B5CF6" }
+    ],
+    topPickedProducts: [
+      { rank: 1, name: "Artisan Sourdough Bread", category: "Bakery", picked: Math.round(totalVisitors * 0.015), change: "↑ 12%", color: "text-emerald-400" },
+      { rank: 2, name: "Organic Almond Milk", category: "Dairy", picked: Math.round(totalVisitors * 0.012), change: "↑ 7%", color: "text-emerald-400" },
+      { rank: 3, name: "Free-Range Eggs (12pk)", category: "Dairy", picked: Math.round(totalVisitors * 0.011), change: "↑ 3%", color: "text-emerald-400" },
+      { rank: 4, name: "Premium Greek Yogurt", category: "Dairy", picked: Math.round(totalVisitors * 0.010), change: "↑ 8%", color: "text-emerald-400" },
+      { rank: 5, name: "Avocado (Hass, 4-pack)", category: "Produce", picked: Math.round(totalVisitors * 0.008), change: "↑ 5%", color: "text-emerald-400" }
+    ],
+    entryExitPoints: [
+      { name: "Main Entrance", entries: Math.round(8420 * mult), exits: Math.round(7980 * mult), pct: 58.2, scaledEntries: Math.round(8420 * mult) },
+      { name: "Side Entrance (Parking)", entries: Math.round(3640 * mult), exits: Math.round(3890 * mult), pct: 25.4, scaledEntries: Math.round(3640 * mult) },
+      { name: "Mall Connector", entries: Math.round(2360 * mult), exits: Math.round(2410 * mult), pct: 16.4, scaledEntries: Math.round(2360 * mult) }
+    ]
+  };
+}

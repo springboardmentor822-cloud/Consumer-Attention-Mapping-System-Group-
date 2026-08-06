@@ -1,9 +1,19 @@
 import React, { useState } from "react";
+import { useCams } from "../../services/CamsContext";
 
 export default function StoreSettings() {
+  const { users, rolePermissions } = useCams();
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
+
+  // Password fields state (clean, no unnecessary default dots)
+  const [currentPass, setCurrentPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+
+  // Manage Users / Roles Active Modal View
+  const [activeManagementView, setActiveManagementView] = useState(null); // 'users' | 'roles' | null
 
   // Toggle states
   const [notifications, setNotifications] = useState({
@@ -14,7 +24,7 @@ export default function StoreSettings() {
   });
 
   return (
-    <div className="space-y-5 font-sans text-xs">
+    <div className="space-y-5 font-sans text-xs pb-6">
 
       {/* 2. TOP ROW: PROFILE INFO & CHANGE PASSWORD */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -31,7 +41,7 @@ export default function StoreSettings() {
                 📷
               </button>
               <div className="mt-2 text-center">
-                <span className="font-bold text-white block text-xs">John Manager</span>
+                <span className="font-bold text-white block text-xs">Arjun Singh</span>
                 <span className="text-[10px] text-slate-400 block">Store Manager</span>
                 <span className="mt-1 inline-block px-2 py-0.5 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded text-[9px] font-bold">
                   Administrator
@@ -45,7 +55,7 @@ export default function StoreSettings() {
                   <label className="text-slate-400 text-[10px] block mb-1">Full Name</label>
                   <input
                     type="text"
-                    defaultValue="John Manager"
+                    defaultValue="Arjun Singh"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 text-white outline-none focus:border-blue-500 text-xs font-sans"
                   />
                 </div>
@@ -53,7 +63,7 @@ export default function StoreSettings() {
                   <label className="text-slate-400 text-[10px] block mb-1">Email Address</label>
                   <input
                     type="email"
-                    defaultValue="john.manager@visionops.com"
+                    defaultValue="arjun.singh@cams-retail.com"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 text-white outline-none focus:border-blue-500 text-xs font-sans"
                   />
                 </div>
@@ -92,7 +102,7 @@ export default function StoreSettings() {
           </div>
         </div>
 
-        {/* CHANGE PASSWORD */}
+        {/* CHANGE PASSWORD (REQUIREMENT 8: CLEAN INPUT FIELDS WITH NO PLACEHOLDER DOTS) */}
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Change Password</h3>
 
@@ -103,7 +113,9 @@ export default function StoreSettings() {
                 <div className="relative">
                   <input
                     type={showCurrentPass ? "text" : "password"}
-                    defaultValue="••••••••"
+                    value={currentPass}
+                    onChange={e => setCurrentPass(e.target.value)}
+                    placeholder="Enter current password"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 pr-8 text-white outline-none focus:border-blue-500 text-xs"
                   />
                   <button
@@ -120,7 +132,9 @@ export default function StoreSettings() {
                 <div className="relative">
                   <input
                     type={showNewPass ? "text" : "password"}
-                    defaultValue="••••••••"
+                    value={newPass}
+                    onChange={e => setNewPass(e.target.value)}
+                    placeholder="Enter new password"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 pr-8 text-white outline-none focus:border-blue-500 text-xs"
                   />
                   <button
@@ -137,7 +151,9 @@ export default function StoreSettings() {
                 <div className="relative">
                   <input
                     type={showConfirmPass ? "text" : "password"}
-                    defaultValue="••••••••"
+                    value={confirmPass}
+                    onChange={e => setConfirmPass(e.target.value)}
+                    placeholder="Confirm new password"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 pr-8 text-white outline-none focus:border-blue-500 text-xs"
                   />
                   <button
@@ -150,7 +166,23 @@ export default function StoreSettings() {
               </div>
 
               <div className="pt-2">
-                <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs">
+                <button
+                  onClick={() => {
+                    if (!currentPass || !newPass || !confirmPass) {
+                      alert("Please fill all password fields.");
+                      return;
+                    }
+                    if (newPass !== confirmPass) {
+                      alert("New password and confirm password do not match.");
+                      return;
+                    }
+                    alert("Password updated successfully!");
+                    setCurrentPass("");
+                    setNewPass("");
+                    setConfirmPass("");
+                  }}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs"
+                >
                   Update Password
                 </button>
               </div>
@@ -186,7 +218,7 @@ export default function StoreSettings() {
         </div>
       </div>
 
-      {/* 3. BOTTOM ROW: NOTIFICATION PREFERENCES, SYSTEM PREFERENCES, & USERS SHORTCUTS */}
+      {/* 3. BOTTOM ROW: NOTIFICATION PREFERENCES, SYSTEM PREFERENCES, & USERS/ROLES SHORTCUTS */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* NOTIFICATION PREFERENCES */}
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
@@ -240,28 +272,6 @@ export default function StoreSettings() {
                 className="w-4 h-4 accent-blue-600 cursor-pointer"
               />
             </div>
-
-            <div className="flex items-center justify-between p-2.5 bg-[#070C18] border border-[#1E293B] rounded-xl">
-              <div className="flex items-center space-x-3">
-                <span className="p-1.5 bg-cyan-600/20 text-cyan-400 rounded-lg">📄</span>
-                <div>
-                  <span className="font-bold text-white block text-xs">Reports & Summaries</span>
-                  <span className="text-[9px] text-slate-400 block">Receive daily/weekly summary reports</span>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifications.reports}
-                onChange={() => setNotifications({ ...notifications, reports: !notifications.reports })}
-                className="w-4 h-4 accent-blue-600 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          <div className="text-right pt-2">
-            <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs">
-              Save Preferences
-            </button>
           </div>
         </div>
 
@@ -281,21 +291,6 @@ export default function StoreSettings() {
               <select className="bg-[#0F172A] border border-[#1E293B] rounded-lg px-2 py-1 text-white text-[10px] outline-none">
                 <option>5 Minutes</option>
                 <option>10 Minutes</option>
-                <option>15 Minutes</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between p-2.5 bg-[#070C18] border border-[#1E293B] rounded-xl">
-              <div className="flex items-center space-x-3">
-                <span className="p-1.5 bg-blue-600/20 text-blue-400 rounded-lg">📊</span>
-                <div>
-                  <span className="font-bold text-white block text-xs">Default Dashboard View</span>
-                  <span className="text-[9px] text-slate-400 block">Select default dashboard</span>
-                </div>
-              </div>
-              <select className="bg-[#0F172A] border border-[#1E293B] rounded-lg px-2 py-1 text-white text-[10px] outline-none">
-                <option>Overview</option>
-                <option>Live Cameras</option>
               </select>
             </div>
 
@@ -310,56 +305,133 @@ export default function StoreSettings() {
               <select className="bg-[#0F172A] border border-[#1E293B] rounded-lg px-2 py-1 text-white text-[10px] outline-none">
                 <option>High</option>
                 <option>Medium</option>
-                <option>Low</option>
               </select>
             </div>
-
-            <div className="flex items-center justify-between p-2.5 bg-[#070C18] border border-[#1E293B] rounded-xl">
-              <div className="flex items-center space-x-3">
-                <span className="p-1.5 bg-amber-600/20 text-amber-400 rounded-lg">🔢</span>
-                <div>
-                  <span className="font-bold text-white block text-xs">Items Per Page</span>
-                  <span className="text-[9px] text-slate-400 block">Set default table pagination</span>
-                </div>
-              </div>
-              <select className="bg-[#0F172A] border border-[#1E293B] rounded-lg px-2 py-1 text-white text-[10px] outline-none">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="text-right pt-2">
-            <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs">
-              Save Preferences
-            </button>
           </div>
         </div>
 
-        {/* USERS & ROLES SHORTCUTS */}
+        {/* USERS & ROLES NAVIGATION SHORTCUTS (REQUIREMENT 9: FUNCTIONING MANAGEMENT NAVIGATION) */}
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono flex flex-col justify-between">
           <div>
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Users & Roles Shortcuts</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Roles & Users Management</h3>
             <p className="text-[10px] text-slate-400 mt-1">
-              Manage users, roles, and permissions
+              Select an option below to navigate directly to its corresponding management view.
             </p>
           </div>
 
-          <div className="p-4 bg-[#070C18] border border-[#1E293B] rounded-2xl flex items-center justify-between cursor-pointer hover:border-blue-500/50 transition">
-            <div className="flex items-center space-x-3">
-              <span className="p-2 bg-blue-600/20 text-blue-400 rounded-xl text-lg">👥</span>
-              <span className="font-bold text-white text-xs">Manage Users & Roles</span>
-            </div>
-            <span className="text-slate-400">›</span>
+          <div className="space-y-2">
+            <button
+              onClick={() => setActiveManagementView("users")}
+              className="w-full p-3 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between hover:border-blue-500/60 transition text-left"
+            >
+              <div className="flex items-center space-x-3">
+                <span className="p-1.5 bg-blue-600/20 text-blue-400 rounded-lg text-base">👤</span>
+                <div>
+                  <span className="font-bold text-white block text-xs">Manage Users</span>
+                  <span className="text-[9px] text-slate-400 block">View, add, edit, or disable user accounts</span>
+                </div>
+              </div>
+              <span className="text-cyan-400 font-extrabold text-sm">›</span>
+            </button>
+
+            <button
+              onClick={() => setActiveManagementView("roles")}
+              className="w-full p-3 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between hover:border-purple-500/60 transition text-left"
+            >
+              <div className="flex items-center space-x-3">
+                <span className="p-1.5 bg-purple-600/20 text-purple-400 rounded-lg text-base">🔑</span>
+                <div>
+                  <span className="font-bold text-white block text-xs">Manage Roles</span>
+                  <span className="text-[9px] text-slate-400 block">Configure role access & module permissions</span>
+                </div>
+              </div>
+              <span className="text-purple-400 font-extrabold text-sm">›</span>
+            </button>
           </div>
 
-          <div className="text-[10px] text-slate-500 pt-4 border-t border-[#1E293B] flex justify-between">
+          <div className="text-[10px] text-slate-500 pt-2 border-t border-[#1E293B] flex justify-between">
             <span>© 2025 VisionOps. All rights reserved.</span>
             <span>Version 1.0.0</span>
           </div>
         </div>
       </div>
+
+      {/* MANAGE USERS MODAL VIEW */}
+      {activeManagementView === "users" && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0A1224] border border-[#1E293B] p-6 rounded-2xl max-w-2xl w-full font-mono space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-sm">User Management Directory</h3>
+                <p className="text-[10px] text-slate-400">View and manage authorized CAMS portal users</p>
+              </div>
+              <button onClick={() => setActiveManagementView(null)} className="text-slate-400 hover:text-white text-base">✕</button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[11px]">
+                <thead>
+                  <tr className="border-b border-[#1E293B] text-slate-400">
+                    <th className="pb-2">Name</th>
+                    <th className="pb-2">Email</th>
+                    <th className="pb-2">Role</th>
+                    <th className="pb-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1E293B]/60">
+                  {users.map(u => (
+                    <tr key={u.id} className="hover:bg-[#070C18]">
+                      <td className="py-2.5 font-bold text-white">{u.name}</td>
+                      <td className="py-2.5 text-slate-400">{u.email}</td>
+                      <td className="py-2.5 text-cyan-400 font-bold">{u.role}</td>
+                      <td className="py-2.5">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${u.status === "Active" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : "bg-slate-500/20 text-slate-400"}`}>
+                          {u.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="text-right pt-2 border-t border-[#1E293B]">
+              <button onClick={() => setActiveManagementView(null)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGE ROLES MODAL VIEW */}
+      {activeManagementView === "roles" && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0A1224] border border-[#1E293B] p-6 rounded-2xl max-w-2xl w-full font-mono space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-sm">Role & Permissions Configuration</h3>
+                <p className="text-[10px] text-slate-400">Configure role-based access control policies</p>
+              </div>
+              <button onClick={() => setActiveManagementView(null)} className="text-slate-400 hover:text-white text-base">✕</button>
+            </div>
+
+            <div className="space-y-3">
+              {Object.entries(rolePermissions).map(([role, perms]) => (
+                <div key={role} className="p-3 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-white text-xs">{role}</h4>
+                    <p className="text-[10px] text-slate-400">Permissions: {Object.keys(perms).filter(k => perms[k]).join(", ")}</p>
+                  </div>
+                  <span className="px-2.5 py-1 bg-purple-500/20 border border-purple-500/40 text-purple-400 text-[10px] font-bold rounded-lg">Configured</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-right pt-2 border-t border-[#1E293B]">
+              <button onClick={() => setActiveManagementView(null)} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

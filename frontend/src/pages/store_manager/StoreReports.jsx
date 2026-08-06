@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { LineChart, Line, PieChart, Pie, Cell, Tooltip, ResponsiveContainer, CartesianGrid, XAxis, YAxis } from "recharts";
+import CustomDateSelector from "../../components/CustomDateSelector";
 
 export default function StoreReports() {
   const [selectedReport, setSelectedReport] = useState("Daily Store Summary");
   const [exportFormat, setExportFormat] = useState("PDF");
+  const [reportPeriod, setReportPeriod] = useState("Last 7 Days");
 
   const reportTrends = [
     { date: "May 15", generated: 15, downloads: 8 },
@@ -22,59 +24,80 @@ export default function StoreReports() {
     { name: "Product Interaction", val: 4, percent: "16.7%", color: "#F59E0B" }
   ];
 
-  const recentReports = [
-    { name: "Daily Store Summary", category: "Summary", dateRange: "Today", generatedOn: "Just Now", format: "PDF", icon: "📄" },
-    { name: "Visitor Analytics Report", category: "Visitors", dateRange: "Last 7 Days", generatedOn: "1 hour ago", format: "Excel", icon: "👥" },
-    { name: "Store Traffic Analysis", category: "Store Traffic", dateRange: "Last 7 Days", generatedOn: "2 hours ago", format: "CSV", icon: "📊" },
-    { name: "Shelf Performance Report", category: "Shelf", dateRange: "Last 30 Days", generatedOn: "Yesterday", format: "PDF", icon: "🛒" }
-  ];
+  const [recentReports, setRecentReports] = useState([
+    { id: 1, name: "Daily Store Summary", category: "Summary", dateRange: "Today", generatedOn: "Just Now", format: "PDF", icon: "📄" },
+    { id: 2, name: "Visitor Analytics Report", category: "Visitors", dateRange: "Last 7 Days", generatedOn: "1 hour ago", format: "Excel", icon: "👥" },
+    { id: 3, name: "Store Traffic Analysis", category: "Store Traffic", dateRange: "Last 7 Days", generatedOn: "2 hours ago", format: "CSV", icon: "📊" },
+    { id: 4, name: "Shelf Performance Report", category: "Shelf", dateRange: "Last 30 Days", generatedOn: "Yesterday", format: "PDF", icon: "🛒" }
+  ]);
 
-  const triggerExport = () => {
-    alert(`Successfully generated and downloaded ${selectedReport} in ${exportFormat} format!`);
+  // Direct File Download Generator (REQUIREMENT 7)
+  const handleDownload = (reportName, format) => {
+    const ext = format.toLowerCase() === "pdf" ? "pdf" : format.toLowerCase() === "excel" ? "xlsx" : "csv";
+    const filename = `${reportName.replace(/\s+/g, "_")}_Export.${ext}`;
+    const dummyContent = `CAMS Retail Analytics Report: ${reportName}\nFormat: ${format}\nDate Generated: ${new Date().toLocaleString()}\nStatus: Verified Complete`;
+    
+    const blob = new Blob([dummyContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportNew = () => {
+    handleDownload(selectedReport, exportFormat);
+    setRecentReports(prev => [
+      { id: Date.now(), name: selectedReport, category: "Operational", dateRange: reportPeriod, generatedOn: "Just Now", format: exportFormat, icon: "📄" },
+      ...prev.slice(0, 7)
+    ]);
   };
 
   return (
-    <div className="space-y-6 font-sans text-xs">
+    <div className="space-y-6 font-sans text-xs pb-6">
       {/* 1. TOP METRICS CARDS ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 font-mono">
             <span className="text-slate-400 text-[11px] block">Reports Generated</span>
-            <h2 className="text-xl font-black text-white font-mono">24</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 14% vs last period</span>
+            <h2 className="text-xl font-black text-white">{recentReports.length + 20}</h2>
+            <span className="text-[10px] text-emerald-400 font-bold">↑ 14% vs last period</span>
           </div>
           <div className="w-10 h-10 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl flex items-center justify-center text-lg">📄</div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 font-mono">
             <span className="text-slate-400 text-[11px] block">Downloads</span>
-            <h2 className="text-xl font-black text-white font-mono">18</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 12% vs last period</span>
+            <h2 className="text-xl font-black text-white">18</h2>
+            <span className="text-[10px] text-emerald-400 font-bold">↑ 12% vs last period</span>
           </div>
           <div className="w-10 h-10 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-xl flex items-center justify-center text-lg">📥</div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 font-mono">
             <span className="text-slate-400 text-[11px] block">Data Points Analyzed</span>
-            <h2 className="text-xl font-black text-white font-mono">2.4M</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">Real-time sync</span>
+            <h2 className="text-xl font-black text-white">2.4M</h2>
+            <span className="text-[10px] text-emerald-400 font-bold">Real-time sync</span>
           </div>
           <div className="w-10 h-10 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl flex items-center justify-center text-lg">👥</div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 font-mono">
             <span className="text-slate-400 text-[11px] block">AI Accuracy</span>
-            <h2 className="text-xl font-black text-white font-mono">99.8%</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">Optimal</span>
+            <h2 className="text-xl font-black text-white">99.8%</h2>
+            <span className="text-[10px] text-emerald-400 font-bold">Optimal</span>
           </div>
           <div className="w-10 h-10 bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 rounded-xl flex items-center justify-center text-lg">📈</div>
         </div>
       </div>
 
-      {/* Exactly Two Components Per Row */}
+      {/* CHARTS ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* REPORT TRENDS LINE CHART */}
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
@@ -142,11 +165,7 @@ export default function StoreReports() {
 
             <div>
               <label className="text-slate-400 block mb-1">Date Range</label>
-              <select className="w-full bg-[#070C18] border border-[#1E293B] text-white rounded-lg p-2.5 outline-none focus:border-cyan-500">
-                <option>Today</option>
-                <option>Last 7 Days</option>
-                <option>Last 30 Days</option>
-              </select>
+              <CustomDateSelector value={reportPeriod} onChange={setReportPeriod} />
             </div>
 
             <div>
@@ -166,18 +185,18 @@ export default function StoreReports() {
               </div>
             </div>
 
-            <button onClick={triggerExport} className="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-black font-extrabold rounded-lg transition uppercase tracking-wider">
-              Export Report
+            <button onClick={handleExportNew} className="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-black font-extrabold rounded-lg transition uppercase tracking-wider">
+              Generate & Download Report
             </button>
           </div>
         </div>
 
-        {/* RECENT REPORTS HISTORY */}
+        {/* RECENT REPORTS HISTORY WITH DIRECT DOWNLOAD (REQUIREMENT 7) */}
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Recent Export History</h3>
           <div className="space-y-2.5">
-            {recentReports.map((r, i) => (
-              <div key={i} className="p-3 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between">
+            {recentReports.map((r) => (
+              <div key={r.id} className="p-3 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="p-1 bg-blue-600/20 text-blue-400 rounded">{r.icon}</span>
                   <div>
@@ -185,7 +204,12 @@ export default function StoreReports() {
                     <span className="text-[9px] text-slate-400 block">{r.generatedOn} · Format: {r.format}</span>
                   </div>
                 </div>
-                <button onClick={() => alert(`Downloading ${r.name}...`)} className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold rounded-lg">Download</button>
+                <button
+                  onClick={() => handleDownload(r.name, r.format)}
+                  className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-[10px] font-bold rounded-lg transition flex items-center gap-1"
+                >
+                  <span>📥</span> Download
+                </button>
               </div>
             ))}
           </div>
