@@ -298,3 +298,75 @@ class TrainingRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     store: Mapped[Store] = relationship("Store")
+
+
+class ShopperSegment(str, Enum):
+    explorers = "explorers"
+    quick_buyers = "quick_buyers"
+    comparison_shoppers = "comparison_shoppers"
+    impulse_buyers = "impulse_buyers"
+    brand_loyal = "brand_loyal"
+
+
+class ShopperTrajectoryMetric(Base):
+    __tablename__ = "shopper_trajectory_metrics"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[int | None] = mapped_column(ForeignKey("shopper_sessions.id"), nullable=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), nullable=False)
+    shopper_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    total_path_distance: Mapped[float] = mapped_column(Float, default=0.0)
+    avg_movement_velocity: Mapped[float] = mapped_column(Float, default=0.0)
+    total_dwell_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+    zone_dwell_times: Mapped[dict] = mapped_column(JSON, default=dict)
+    smoothed_trajectory_points: Mapped[list] = mapped_column(JSON, default=list)
+    segment: Mapped[ShopperSegment] = mapped_column(SqlEnum(ShopperSegment), default=ShopperSegment.explorers)
+    pickup_count: Mapped[int] = mapped_column(Integer, default=0)
+    purchase_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    store: Mapped[Store] = relationship("Store")
+
+
+class ProductAttractivenessScore(Base):
+    __tablename__ = "product_attractiveness_scores"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), nullable=False)
+    product_sku: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    product_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(120), nullable=False)
+    shelf_location: Mapped[str] = mapped_column(String(120), default="Shelf A")
+    attention_duration_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+    interaction_count: Mapped[int] = mapped_column(Integer, default=0)
+    pickup_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    purchase_conversion_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    repeat_engagement_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    normalized_attention: Mapped[float] = mapped_column(Float, default=0.0)
+    normalized_interaction: Mapped[float] = mapped_column(Float, default=0.0)
+    normalized_pickup: Mapped[float] = mapped_column(Float, default=0.0)
+    normalized_conversion: Mapped[float] = mapped_column(Float, default=0.0)
+    normalized_repeat: Mapped[float] = mapped_column(Float, default=0.0)
+    attractiveness_score: Mapped[float] = mapped_column(Float, default=0.0)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    store: Mapped[Store] = relationship("Store")
+
+
+class OptimizationRecommendation(Base):
+    __tablename__ = "optimization_recommendations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"), nullable=False)
+    shelf_id: Mapped[int | None] = mapped_column(ForeignKey("shelves.id"), nullable=True)
+    target_sku: Mapped[str] = mapped_column(String(80), nullable=False)
+    product_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    priority_level: Mapped[str] = mapped_column(String(20), default="high")
+    rule_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    action_item: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_conversion_uplift: Mapped[str] = mapped_column(String(40), default="+15%")
+    status: Mapped[str] = mapped_column(String(30), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    store: Mapped[Store] = relationship("Store")
+

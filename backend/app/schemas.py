@@ -425,4 +425,83 @@ class TrainingRunRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ShopperTrajectoryRequest(BaseModel):
+    store_id: int
+    shopper_id: str
+    points: list[tuple[float, float]]
+    timestamps: list[float] = []
+    pickup_count: int = Field(default=0, ge=0)
+    purchase_count: int = Field(default=0, ge=0)
+    distinct_zones_visited: int = Field(default=1, ge=1)
+
+
+class ShopperTrajectoryResponse(BaseModel):
+    store_id: int
+    shopper_id: str
+    total_path_distance: float
+    avg_movement_velocity: float
+    total_dwell_seconds: float
+    segment: str
+    smoothed_points: list[tuple[float, float]]
+
+
+class HomographyCalibrationRequest(BaseModel):
+    src_camera_points: list[tuple[float, float]] = Field(min_length=4)
+    dst_planogram_points: list[tuple[float, float]] = Field(min_length=4)
+
+
+class HomographyCalibrationResponse(BaseModel):
+    success: bool
+    homography_matrix: list[list[float]]
+
+
+class AttractivenessCalculateRequest(BaseModel):
+    store_id: int
+    product_sku: str
+    product_name: str
+    category: str
+    shelf_location: str = "Shelf A"
+    attention_duration_seconds: float = Field(ge=0)
+    interaction_count: int = Field(ge=0)
+    pickup_rate: float = Field(ge=0, le=1)
+    purchase_conversion_rate: float = Field(ge=0, le=1)
+    repeat_engagement_rate: float = Field(ge=0, le=1)
+
+
+class AttractivenessScoreResponse(BaseModel):
+    store_id: int
+    product_sku: str
+    product_name: str
+    category: str
+    shelf_location: str
+    attention_duration_seconds: float
+    interaction_count: int
+    pickup_rate: float
+    purchase_conversion_rate: float
+    repeat_engagement_rate: float
+    normalized_attention: float
+    normalized_interaction: float
+    normalized_pickup: float
+    normalized_conversion: float
+    normalized_repeat: float
+    attractiveness_score: float
+
+    model_config = {"from_attributes": True}
+
+
+class OptimizationRecommendationResponse(BaseModel):
+    id: str
+    store_id: int
+    target_sku: str
+    product_name: str
+    priority_level: str
+    rule_type: str
+    action_item: str
+    expected_conversion_uplift: str
+    status: str
+
+    model_config = {"from_attributes": True}
+
+
 TokenResponse.model_rebuild()
+

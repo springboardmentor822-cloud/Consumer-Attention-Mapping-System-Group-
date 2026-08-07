@@ -17,10 +17,13 @@ from app import database
 from app import models, schemas
 from app.config import get_settings
 from app.database import get_db
+from app.routers import milestone3_routes
 
 settings = get_settings()
 app = FastAPI(title=os.getenv("PROJECT_NAME", settings.project_name))
+app.include_router(milestone3_routes.router)
 bearer_scheme = HTTPBearer(auto_error=False)
+
 
 app.add_middleware(
     CORSMiddleware,
