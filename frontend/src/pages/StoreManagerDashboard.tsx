@@ -9,6 +9,8 @@ import {
   Store, Users, Video, AlertTriangle, Play, RefreshCw, Plus, Trash2, Edit2, 
   Settings, Layers, Box, FileText, Info, X, LogOut
 } from "lucide-react";
+import AICameraStream from "@/components/camera/AICameraStream";
+import HeatmapCanvas from "@/components/charts/HeatmapCanvas";
 import { toast } from "react-toastify";
 
 // Import custom SVG charts
@@ -617,6 +619,12 @@ const StoreManagerDashboard: React.FC = () => {
                   <span className="text-[9px] text-slate-400 flex items-center mt-1">All cameras broadcasting</span>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* AI Computer Vision Live Camera Stream & Homography Heatmap Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AICameraStream cameraId={1} cameraName="Store Operations AI Vision" zoneName="Zone 1 Entrance & Shelf Bays" />
+              <HeatmapCanvas storeId={selectedStore?.id || 1} />
             </div>
 
             {/* Live Cameras & Floor Plan Layout Grid */}

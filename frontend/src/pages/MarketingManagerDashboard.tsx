@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Target, TrendingUp, BarChart3, Users, Eye, Sparkles, Store, LogOut, 
-  Settings, Layers, Compass, FileText 
+  Settings, Layers, Compass, FileText, Download, Megaphone
 } from "lucide-react";
+import AICameraStream from "@/components/camera/AICameraStream";
+import HeatmapCanvas from "@/components/charts/HeatmapCanvas";
+import { reportAPI } from "@/lib/api";
 
 // Import custom SVG charts
 import {
@@ -156,6 +159,30 @@ const MarketingManagerDashboard: React.FC = () => {
           {/* Tab 1: Overview */}
           {activeTab === "overview" && (
             <div className="space-y-6">
+              {/* Header Action Row */}
+              <div className="flex justify-between items-center bg-[#0c1524] p-4 rounded-xl border border-slate-800">
+                <div>
+                  <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Marketing Campaign & Merchandising Intelligence</h3>
+                  <p className="text-xs text-slate-400">Promotional placement optimization, campaign lift evaluation & SKU visibility tracking.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    reportAPI.exportCSV("attractiveness").then((res) => {
+                      const url = window.URL.createObjectURL(new Blob([res.data]));
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.setAttribute("download", "marketing_campaign_performance_report.csv");
+                      document.body.appendChild(link);
+                      link.click();
+                    });
+                  }}
+                  className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow-md shadow-indigo-500/20"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Marketing Report (CSV)
+                </button>
+              </div>
+
               {/* KPI Cards Row */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {stats.map((stat, i) => (
@@ -170,6 +197,104 @@ const MarketingManagerDashboard: React.FC = () => {
                   </Card>
                 ))}
               </div>
+
+              {/* AI Camera Stream & Promotional Recommendations */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <AICameraStream cameraId={1} cameraName="Promotional Bay AI Vision" zoneName="Zone 1 - Main Entrance & End-Cap Bay" />
+                </div>
+                <Card className="bg-[#0c1524] border-slate-800 text-white flex flex-col justify-between">
+                  <CardHeader className="border-b border-slate-800">
+                    <CardTitle className="text-xs font-bold uppercase text-indigo-400 flex items-center gap-2">
+                      <Megaphone className="w-4 h-4 text-indigo-400" />
+                      AI Promotional Suggestions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4 space-y-3 flex-1 overflow-y-auto">
+                    <div className="bg-indigo-950/40 border border-indigo-800/40 p-3 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono bg-indigo-600 text-white px-2 py-0.5 rounded font-bold">END-CAP OPTIMIZATION</span>
+                        <span className="text-[10px] text-indigo-300">Feature Display</span>
+                      </div>
+                      <p className="text-xs text-slate-200 font-semibold mt-2">Feature Artisanal Almonds on End-Cap A</p>
+                      <p className="text-[11px] text-slate-400 mt-1">High attention (81s) but lower pickup rate. End-cap display is projected to boost pickup by +32%.</p>
+                    </div>
+
+                    <div className="bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono bg-emerald-600 text-white px-2 py-0.5 rounded font-bold">CAMPAIGN LIFT</span>
+                        <span className="text-[10px] text-emerald-300">Organic Berry Can</span>
+                      </div>
+                      <p className="text-xs text-slate-200 font-semibold mt-2">Extend "Summer Energy" Campaign by 2 Weeks</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Achieved 3.4x ROI with 82.1 Attractiveness Score in Zone 1.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Campaign Performance & Merchandising Table */}
+              <Card className="bg-[#0c1524] border-slate-800 text-white">
+                <CardHeader className="border-b border-slate-800 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xs font-bold uppercase text-slate-200">Active Merchandising & Campaign Performance</CardTitle>
+                    <p className="text-[11px] text-slate-400">Live impression tracking, shelf gaze focus, and campaign ROI breakdown</p>
+                  </div>
+                  <span className="text-xs font-mono bg-indigo-950 text-indigo-400 border border-indigo-800 px-3 py-1 rounded">
+                    3 Active Campaigns
+                  </span>
+                </CardHeader>
+                <CardContent className="pt-4 overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-400">
+                        <th className="pb-3 font-semibold">CAMPAIGN NAME</th>
+                        <th className="pb-3 font-semibold">FEATURED SKUS</th>
+                        <th className="pb-3 font-semibold">ZONE / DISPLAY</th>
+                        <th className="pb-3 font-semibold text-center">IMPRESSIONS</th>
+                        <th className="pb-3 font-semibold text-center">PICKUP LIFT</th>
+                        <th className="pb-3 font-semibold text-center">CONVERSION</th>
+                        <th className="pb-3 font-semibold text-right">CAMPAIGN ROI</th>
+                        <th className="pb-3 font-semibold text-center">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                      <tr>
+                        <td className="py-3 font-bold text-indigo-400">Summer Organic Energy</td>
+                        <td className="py-3 font-semibold text-white">SKU-1001 (Organic Energy Can)</td>
+                        <td className="py-3 text-slate-400">Zone 1 End-Cap</td>
+                        <td className="py-3 text-center">142,500</td>
+                        <td className="py-3 text-center text-emerald-400">+60.0%</td>
+                        <td className="py-3 text-center text-emerald-400">22.0%</td>
+                        <td className="py-3 text-right font-extrabold text-emerald-400 text-sm">3.4x ROI</td>
+                        <td className="py-3 text-center"><span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px]">Active & High ROI</span></td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 font-bold text-indigo-400">Artisanal Snack Launch</td>
+                        <td className="py-3 font-semibold text-white">SKU-1003 (Sea Salt Almonds)</td>
+                        <td className="py-3 text-slate-400">Shelf B (Eye Level)</td>
+                        <td className="py-3 text-center">88,200</td>
+                        <td className="py-3 text-center text-indigo-400">+35.0%</td>
+                        <td className="py-3 text-center text-indigo-400">18.5%</td>
+                        <td className="py-3 text-right font-extrabold text-indigo-400 text-sm">2.8x ROI</td>
+                        <td className="py-3 text-center"><span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px]">Active</span></td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 font-bold text-indigo-400">Zero-Sugar Refresh</td>
+                        <td className="py-3 font-semibold text-white">SKU-1007 (Diet Soda)</td>
+                        <td className="py-3 text-slate-400">Shelf C (Bottom)</td>
+                        <td className="py-3 text-center">42,000</td>
+                        <td className="py-3 text-center text-rose-400">+12.0%</td>
+                        <td className="py-3 text-center text-rose-400">10.2%</td>
+                        <td className="py-3 text-right font-extrabold text-rose-400 text-sm">1.2x ROI</td>
+                        <td className="py-3 text-center"><span className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px]">Underperforming</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              {/* Campaign Gaze & Traffic Homography Heatmap */}
+              <HeatmapCanvas storeId={1} />
 
               {/* Campaign Performance */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

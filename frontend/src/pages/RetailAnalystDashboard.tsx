@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Eye, TrendingUp, BarChart3, Users, Compass, Store, LogOut, 
-  Settings, Clock, Sparkles, Layers, Box, FileText 
+  Settings, Clock, Sparkles, Layers, Box, FileText, Download
 } from "lucide-react";
+import AICameraStream from "@/components/camera/AICameraStream";
+import HeatmapCanvas from "@/components/charts/HeatmapCanvas";
+import { reportAPI } from "@/lib/api";
 
 // Import custom SVG charts
 import {
@@ -200,6 +203,30 @@ const RetailAnalystDashboard: React.FC = () => {
           {/* Tab 1: Overview */}
           {activeTab === "overview" && (
             <div className="space-y-6">
+              {/* Header Action Row */}
+              <div className="flex justify-between items-center bg-[#0c1524] p-4 rounded-xl border border-slate-800">
+                <div>
+                  <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Store Attention & Product Attractiveness Hub</h3>
+                  <p className="text-xs text-slate-400">Real-time computer vision shopper tracking, gaze estimation & SKU attractiveness scoring.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    reportAPI.exportCSV("attractiveness").then((res) => {
+                      const url = window.URL.createObjectURL(new Blob([res.data]));
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.setAttribute("download", "retail_attention_attractiveness_report.csv");
+                      document.body.appendChild(link);
+                      link.click();
+                    });
+                  }}
+                  className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow-md shadow-purple-500/20"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Attractiveness Report (CSV)
+                </button>
+              </div>
+
               {/* KPI Cards Row */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {stats.map((stat, i) => (
@@ -214,6 +241,114 @@ const RetailAnalystDashboard: React.FC = () => {
                   </Card>
                 ))}
               </div>
+
+              {/* AI Camera Vision Stream Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <AICameraStream cameraId={1} cameraName="AI Vision Cam 01" zoneName="Zone 1 - Main Entrance & Promotional Bay" />
+                </div>
+                <Card className="bg-[#0c1524] border-slate-800 text-white flex flex-col justify-between">
+                  <CardHeader className="border-b border-slate-800">
+                    <CardTitle className="text-xs font-bold uppercase text-purple-400 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      AI Optimization Engine
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4 space-y-3 flex-1 overflow-y-auto">
+                    <div className="bg-purple-950/40 border border-purple-800/40 p-3 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono bg-purple-600 text-white px-2 py-0.5 rounded font-bold">HIGH PRIORITY</span>
+                        <span className="text-[10px] text-purple-300">Shelf Placement</span>
+                      </div>
+                      <p className="text-xs text-slate-200 font-semibold mt-2">Relocate Zero-Sugar Soda to Eye Level</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Currently bottom shelf (22% conversion). Moving to Shelf A projects +35% attention uplift.</p>
+                    </div>
+
+                    <div className="bg-blue-950/40 border border-blue-800/40 p-3 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono bg-blue-600 text-white px-2 py-0.5 rounded font-bold">PROMOTIONAL</span>
+                        <span className="text-[10px] text-blue-300">Impulse Bundle</span>
+                      </div>
+                      <p className="text-xs text-slate-200 font-semibold mt-2">Pair Energy Can with Gluten-Free Bar</p>
+                      <p className="text-[11px] text-slate-400 mt-1">High co-gaze overlap detected. Estimated basket size expansion: +24%.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Product Attractiveness Scoring Matrix Table */}
+              <Card className="bg-[#0c1524] border-slate-800 text-white">
+                <CardHeader className="border-b border-slate-800 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xs font-bold uppercase text-slate-200">Product Attractiveness Scoring Engine</CardTitle>
+                    <p className="text-[11px] text-slate-400">Formula: 35% Attention + 25% Interaction + 20% Pickup + 15% Conversion + 5% Repeat</p>
+                  </div>
+                  <span className="text-xs font-mono bg-cyan-950 text-cyan-400 border border-cyan-800 px-3 py-1 rounded">
+                    8 SKUs Ranked
+                  </span>
+                </CardHeader>
+                <CardContent className="pt-4 overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-400">
+                        <th className="pb-3 font-semibold">SKU</th>
+                        <th className="pb-3 font-semibold">PRODUCT NAME</th>
+                        <th className="pb-3 font-semibold">SHELF LOCATION</th>
+                        <th className="pb-3 font-semibold text-center">ATTENTION (35%)</th>
+                        <th className="pb-3 font-semibold text-center">PICKUP RATE (20%)</th>
+                        <th className="pb-3 font-semibold text-center">CONVERSION (15%)</th>
+                        <th className="pb-3 font-semibold text-right">ATTRACTIVENESS SCORE</th>
+                        <th className="pb-3 font-semibold text-center">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                      <tr>
+                        <td className="py-3 font-bold text-cyan-400">SKU-1001</td>
+                        <td className="py-3 font-semibold text-white">Organic Berry Energy Can</td>
+                        <td className="py-3 text-slate-400">Shelf A (Promotional)</td>
+                        <td className="py-3 text-center">92.5s</td>
+                        <td className="py-3 text-center text-emerald-400">78.0%</td>
+                        <td className="py-3 text-center text-emerald-400">65.0%</td>
+                        <td className="py-3 text-right font-extrabold text-emerald-400 text-sm">82.1 / 100</td>
+                        <td className="py-3 text-center"><span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px]">High Performing</span></td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 font-bold text-cyan-400">SKU-1002</td>
+                        <td className="py-3 font-semibold text-white">Cold Brew Mocha 330ml</td>
+                        <td className="py-3 text-slate-400">Shelf C (Refrigerated)</td>
+                        <td className="py-3 text-center">88.0s</td>
+                        <td className="py-3 text-center text-emerald-400">74.0%</td>
+                        <td className="py-3 text-center text-emerald-400">70.0%</td>
+                        <td className="py-3 text-right font-extrabold text-emerald-400 text-sm">79.2 / 100</td>
+                        <td className="py-3 text-center"><span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px]">High Performing</span></td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 font-bold text-cyan-400">SKU-1003</td>
+                        <td className="py-3 font-semibold text-white">Artisanal Sea Salt Almonds</td>
+                        <td className="py-3 text-slate-400">Shelf B (Eye Level)</td>
+                        <td className="py-3 text-center">81.0s</td>
+                        <td className="py-3 text-center text-yellow-400">68.0%</td>
+                        <td className="py-3 text-center text-yellow-400">60.0%</td>
+                        <td className="py-3 text-right font-extrabold text-yellow-400 text-sm">71.7 / 100</td>
+                        <td className="py-3 text-center"><span className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px]">Average</span></td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 font-bold text-cyan-400">SKU-1007</td>
+                        <td className="py-3 font-semibold text-white">Zero-Sugar Diet Soda</td>
+                        <td className="py-3 text-slate-400">Shelf C (Bottom)</td>
+                        <td className="py-3 text-center">45.0s</td>
+                        <td className="py-3 text-center text-rose-400">30.0%</td>
+                        <td className="py-3 text-center text-rose-400">22.0%</td>
+                        <td className="py-3 text-right font-extrabold text-rose-400 text-sm">35.3 / 100</td>
+                        <td className="py-3 text-center"><span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded text-[10px]">Needs Optimization</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              {/* Homography & Gaussian KDE Heatmap Layer Visualizer */}
+              <HeatmapCanvas storeId={1} />
 
               {/* Journey & Flow */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -256,26 +391,6 @@ const RetailAnalystDashboard: React.FC = () => {
                       <span className="text-xs font-semibold text-slate-300 mt-0.5">78% Converters</span>
                     </div>
                   </CardContent>
-                </Card>
-              </div>
-
-              {/* Heatmaps Row */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-[#0c1524] border-slate-800 text-white">
-                  <CardHeader className="pb-2 border-b border-slate-850"><CardTitle className="text-[10px] font-bold uppercase text-slate-400">Store Heatmap</CardTitle></CardHeader>
-                  <CardContent className="pt-4 flex justify-center"><div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 via-yellow-400 to-red-500 animate-pulse" /></CardContent>
-                </Card>
-                <Card className="bg-[#0c1524] border-slate-800 text-white">
-                  <CardHeader className="pb-2 border-b border-slate-850"><CardTitle className="text-[10px] font-bold uppercase text-slate-400">Shelf Heatmap</CardTitle></CardHeader>
-                  <CardContent className="pt-4 flex justify-center"><div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 via-pink-400 to-red-500 animate-pulse" /></CardContent>
-                </Card>
-                <Card className="bg-[#0c1524] border-slate-800 text-white">
-                  <CardHeader className="pb-2 border-b border-slate-850"><CardTitle className="text-[10px] font-bold uppercase text-slate-400">Traffic Heatmap</CardTitle></CardHeader>
-                  <CardContent className="pt-4 flex justify-center"><div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 via-teal-400 to-amber-500 animate-pulse" /></CardContent>
-                </Card>
-                <Card className="bg-[#0c1524] border-slate-800 text-white">
-                  <CardHeader className="pb-2 border-b border-slate-850"><CardTitle className="text-[10px] font-bold uppercase text-slate-400">Zone Heatmap</CardTitle></CardHeader>
-                  <CardContent className="pt-4 flex justify-center"><div className="w-16 h-16 rounded-full bg-gradient-to-bl from-green-500 via-amber-400 to-rose-500 animate-pulse" /></CardContent>
                 </Card>
               </div>
             </div>
