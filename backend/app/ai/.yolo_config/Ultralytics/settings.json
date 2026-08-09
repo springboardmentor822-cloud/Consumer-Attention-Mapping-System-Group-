@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "D:\\datasets",
+  "weights_dir": "D:\\Consumer-Attention-Mapping-System\\weights",
+  "runs_dir": "D:\\Consumer-Attention-Mapping-System\\runs",
+  "uuid": "ffc7c22732da311975327bca2ceb4b65dde25134c72dbab7cc0ceeef83b01c19",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}
