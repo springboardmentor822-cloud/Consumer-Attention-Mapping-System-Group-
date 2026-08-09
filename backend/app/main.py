@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import OperationalError
 
 # Nothing configured the root logger before this, so every logging.info()
 # call across the app (video processing, alert generation, etc.) was
@@ -47,14 +48,35 @@ from app.services.camera_registration import backfill_camera_video_registrations
 # app on a fresh or updated database. ensure_schema_compatibility() is kept:
 # it only ALTERs columns on tables that already exist, so it doesn't race
 # with Alembic-managed CREATE TABLEs.
-ensure_schema_compatibility(engine)
+#
+# These run at import time, which means a database that isn't reachable
+# surfaces as a SQLAlchemy traceback raised from deep inside uvicorn's module
+# importer - ~200 lines where the one line that matters ("could not translate
+# host name ...") is buried in the middle. Catching OperationalError here and
+# re-raising with the resolved host/port plus the usual causes turns a
+# config typo into a message that says what to fix. Only connection failures
+# are translated; any other error still propagates untouched.
+try:
+    ensure_schema_compatibility(engine)
 
-# One-time reconciliation for cameras processed before
-# Camera.last_processed_video_filename existed - see the module's docstring.
-# Safe to run on every startup: cameras that already have the field set are
-# skipped, so this is a no-op once everything's backfilled.
-with SessionLocal() as _startup_db:
-    backfill_camera_video_registrations(_startup_db)
+    # One-time reconciliation for cameras processed before
+    # Camera.last_processed_video_filename existed - see the module's docstring.
+    # Safe to run on every startup: cameras that already have the field set are
+    # skipped, so this is a no-op once everything's backfilled.
+    with SessionLocal() as _startup_db:
+        backfill_camera_video_registrations(_startup_db)
+except OperationalError as exc:
+    _url = engine.url
+    raise RuntimeError(
+        f"Cannot reach the database at host={_url.host!r} port={_url.port} "
+        f"database={_url.database!r} as user={_url.username!r}.\n"
+        f"  Underlying error: {exc.orig}\n"
+        f"  Check backend/.env (see backend/.env.example):\n"
+        f"    - Use host 'localhost' when running uvicorn directly on your machine.\n"
+        f"      Host 'postgres' only resolves inside docker-compose.\n"
+        f"    - Confirm PostgreSQL is running and the password is correct.\n"
+        f"    - URL-encode special characters in the password (e.g. '@' -> '%40')."
+    ) from exc
 
 app = FastAPI(
     title=settings.APP_NAME,
