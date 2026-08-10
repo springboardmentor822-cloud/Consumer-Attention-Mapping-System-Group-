@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Badge } from '../../../components/ui/badge';
 import Plot from 'react-plotly.js';
 import { LiveStoreHeatmap } from './LiveStoreHeatmap';
+import { LiveVideoFeed } from './LiveVideoFeed';
 
 export function StoreManagerDashboard(): JSX.Element {
   const chartLayout = {
@@ -172,8 +173,9 @@ export function StoreManagerDashboard(): JSX.Element {
       <section>
         <h3 className="text-xl font-bold mb-4">Section 6 - Camera Monitoring & Tracking</h3>
         
-        <div className="mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           <LiveStoreHeatmap />
+          <LiveVideoFeed />
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">

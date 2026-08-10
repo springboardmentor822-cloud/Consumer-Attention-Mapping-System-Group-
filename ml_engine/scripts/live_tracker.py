@@ -3,6 +3,8 @@ import cv2
 import time
 import uuid
 import requests
+import base64
+import concurrent.futures
 from datetime import datetime, timezone
 from ultralytics import YOLO
 
@@ -17,6 +19,15 @@ def track_video(video_source=0, store_id=STORE_ID, camera_id=CAMERA_ID):
     print(f"Video Source: {video_source}")
     print(f"Store ID: {store_id}, Camera ID: {camera_id}")
 
+    # Use a ThreadPoolExecutor to prevent HTTP POST requests from blocking the YOLO camera capture thread
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+    def send_payload(url, json_payload):
+        try:
+            requests.post(url, json=json_payload, timeout=0.5)
+        except Exception:
+            pass
+
     # Load YOLOv8 model (using standard YOLOv8 nano for speed)
     model = YOLO('yolov8n.pt')
 
@@ -25,6 +36,11 @@ def track_video(video_source=0, store_id=STORE_ID, camera_id=CAMERA_ID):
     if not cap.isOpened():
         print(f"Error: Could not open video source {video_source}")
         return
+        
+    # Attempt to force webcam hardware to 60 FPS and smaller resolution for max performance
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 60)
 
     frame_count = 0
     start_time = time.time()
@@ -59,11 +75,8 @@ def track_video(video_source=0, store_id=STORE_ID, camera_id=CAMERA_ID):
                     "timestamp": current_time
                 }
                 
-                # Push to backend decoupled ingest layer
-                try:
-                    requests.post(API_INGEST_URL, json=payload, timeout=0.5)
-                except requests.exceptions.RequestException:
-                    pass # Drop frame coordinate if API is busy (UDP style)
+                # Push to backend decoupled ingest layer asynchronously to avoid lag
+                executor.submit(send_payload, API_INGEST_URL, payload)
         
         # Calculate FPS
         elapsed = time.time() - start_time
@@ -71,9 +84,29 @@ def track_video(video_source=0, store_id=STORE_ID, camera_id=CAMERA_ID):
         if frame_count % 30 == 0:
             print(f"Tracking FPS: {fps:.2f} | Pushed coordinates for {len(track_ids) if boxes is not None and boxes.id is not None else 0} shoppers")
             
-        # Visualize the live tracking feed
+        # Visualize the live tracking feed (DISABLED native window to show only on dashboard)
         annotated_frame = result.plot()
-        cv2.imshow("Live Store Camera (YOLOv8)", annotated_frame)
+        # cv2.imshow("Live Store Camera (YOLOv8)", annotated_frame)
+        
+        # Resize to max 640px width to ensure lightning fast encoding and smooth 30+ FPS streaming
+        h, w = annotated_frame.shape[:2]
+        if w > 640:
+            scale = 640 / w
+            annotated_frame = cv2.resize(annotated_frame, (640, int(h * scale)))
+
+        # Compress to JPEG with 50% quality to save massive bandwidth
+        _, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        frame_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        frame_payload = {
+            "store_id": store_id,
+            "camera_id": camera_id,
+            "frame_base64": f"data:image/jpeg;base64,{frame_base64}",
+            "timestamp": current_time
+        }
+        # Post to the frame ingestion endpoint asynchronously
+        executor.submit(send_payload, "http://localhost:8000/api/stream/frame", frame_payload)
+                
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 

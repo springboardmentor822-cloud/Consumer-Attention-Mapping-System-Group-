@@ -38,24 +38,38 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+video_manager = ConnectionManager()
 
 # Background task to listen to Redis and push to WebSockets
 async def listen_to_redis_stream():
     redis = aioredis.from_url(settings.redis_url)
-    last_id = "$"  # Only listen to new messages
+    last_tracking_id = "$"  # Only listen to new messages
+    last_frame_id = "$"
     while True:
         try:
-            # XREAD with block=1000ms
-            streams = await redis.xread({"tracking_stream": last_id}, count=100, block=1000)
+            # XREAD with block=1000ms for both streams
+            streams = await redis.xread({
+                "tracking_stream": last_tracking_id, 
+                "frame_stream": last_frame_id
+            }, count=100, block=1000)
+            
             for stream, messages in streams:
                 for message_id, message_data in messages:
-                    last_id = message_id
                     raw_data = message_data.get(b"data")
-                    if raw_data:
-                        data = json.loads(raw_data.decode("utf-8"))
-                        store_id = data.get("store_id")
+                    if not raw_data:
+                        continue
+                        
+                    data = json.loads(raw_data.decode("utf-8"))
+                    store_id = data.get("store_id")
+                    
+                    if stream == b"tracking_stream":
+                        last_tracking_id = message_id
                         if store_id:
                             await manager.broadcast_to_store(json.dumps(data), store_id)
+                    elif stream == b"frame_stream":
+                        last_frame_id = message_id
+                        if store_id:
+                            await video_manager.broadcast_to_store(json.dumps(data), store_id)
         except Exception as e:
             await asyncio.sleep(1)
 
@@ -70,3 +84,13 @@ async def websocket_endpoint(websocket: WebSocket, store_id: UUID):
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, store_id_str)
+
+@router.websocket("/video/{store_id}")
+async def video_websocket_endpoint(websocket: WebSocket, store_id: UUID):
+    store_id_str = str(store_id)
+    await video_manager.connect(websocket, store_id_str)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        video_manager.disconnect(websocket, store_id_str)

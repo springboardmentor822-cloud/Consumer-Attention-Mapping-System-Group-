@@ -24,7 +24,7 @@ echo.
 echo =========================================
 echo Starting Live Tracker AI (YOLOv8)...
 echo =========================================
-start "AI Tracker" cmd /k "cd /d %~dp0 && call .venv\Scripts\activate && pip install ultralytics opencv-python && cd ml_engine\scripts && python live_tracker.py"
+start "AI Tracker" cmd /k "cd /d %~dp0 && call .venv\Scripts\activate && pip install ultralytics opencv-python numpy==1.26.4 && cd ml_engine\scripts && python live_tracker.py"
 
 echo.
 echo Everything is launching in separate windows!

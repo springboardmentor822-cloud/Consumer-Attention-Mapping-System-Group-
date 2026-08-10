@@ -22,6 +22,7 @@ import type { Camera } from '../../types/camera';
 import type { Store } from '../../types/store';
 import { useToast } from '../../components/ui/toast';
 import { LiveStoreHeatmap } from '../Dashboard/components/LiveStoreHeatmap';
+import { LiveVideoFeed } from '../Dashboard/components/LiveVideoFeed';
 
 const cameraSchema = z.object({
   store_id: z.string().uuid('Select a store'),
@@ -109,8 +110,9 @@ export function CamerasPage(): JSX.Element {
 
       {loading ? <LoadingState /> : cameras.length === 0 ? <EmptyState title="No cameras found" description="Register a camera stream and link it to an active store configuration." actionLabel={canMutate ? 'Create Camera' : undefined} onAction={canMutate ? openCreateDialog : undefined} /> : (
         <div className="space-y-6">
-          <div className="mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <LiveStoreHeatmap />
+            <LiveVideoFeed />
           </div>
 
           <Card className="bg-card/50 backdrop-blur border-border/60">

@@ -32,6 +32,7 @@ from backend.app.api.zones import router as zones_router
 from backend.app.api.products import router as products_router
 from backend.app.api.tracking import router as tracking_router
 from backend.app.api.stream import router as stream_router
+from backend.app.api.analytics import router as analytics_router
 from backend.app.api.websockets import router as websockets_router
 from backend.app.api.websockets import listen_to_redis_stream
 from backend.app.workers.db_worker import db_worker_task
@@ -125,4 +126,5 @@ app.include_router(zones_router, prefix=settings.api_v1_prefix)
 app.include_router(products_router, prefix=settings.api_v1_prefix)
 app.include_router(tracking_router, prefix=settings.api_v1_prefix)
 app.include_router(stream_router, prefix=settings.api_v1_prefix)
+app.include_router(analytics_router, prefix=settings.api_v1_prefix)
 app.include_router(websockets_router)
