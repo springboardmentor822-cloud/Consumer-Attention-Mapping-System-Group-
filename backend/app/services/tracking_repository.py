@@ -362,20 +362,41 @@ class TrackingRepository:
             query = query.filter(TrackingData.timestamp >= since)
         return query.count()
 
-    def unique_customers_for_cameras(self, camera_ids: list[int], since: datetime | None = None) -> int:
+    def latest_timestamp_for_cameras(self, camera_ids: list[int]) -> datetime | None:
+        """Timestamp of the most recent tracking record for these cameras, or
+        None if they have none at all. Used to resolve which day a dashboard
+        should report on when today has no activity yet (see
+        _resolve_reporting_day in app/api/routers/store_manager.py)."""
+        if not camera_ids:
+            return None
+        return (
+            self.db.query(func.max(TrackingData.timestamp))
+            .filter(TrackingData.camera_id.in_(camera_ids))
+            .scalar()
+        )
+
+    def unique_customers_for_cameras(
+        self, camera_ids: list[int], since: datetime | None = None, until: datetime | None = None
+    ) -> int:
         if not camera_ids:
             return 0
         query = self.db.query(TrackingData.customer_id).filter(TrackingData.camera_id.in_(camera_ids))
         if since is not None:
             query = query.filter(TrackingData.timestamp >= since)
+        if until is not None:
+            query = query.filter(TrackingData.timestamp < until)
         return query.distinct().count()
 
-    def unique_customers_for_zones(self, zone_ids: list[int], since: datetime | None = None) -> int:
+    def unique_customers_for_zones(
+        self, zone_ids: list[int], since: datetime | None = None, until: datetime | None = None
+    ) -> int:
         if not zone_ids:
             return 0
         query = self.db.query(TrackingData.customer_id).filter(TrackingData.zone_id.in_(zone_ids))
         if since is not None:
             query = query.filter(TrackingData.timestamp >= since)
+        if until is not None:
+            query = query.filter(TrackingData.timestamp < until)
         return query.distinct().count()
 
     def busiest_zone(self, zone_ids: list[int]) -> int | None:
@@ -487,7 +508,9 @@ class TrackingRepository:
         row = query.group_by("hour").order_by(func.count(TrackingData.id).desc()).first()
         return int(row.hour) if row else None
 
-    def counts_by_hour(self, camera_ids: list[int], since: datetime | None = None) -> dict[int, int]:
+    def counts_by_hour(
+        self, camera_ids: list[int], since: datetime | None = None, until: datetime | None = None
+    ) -> dict[int, int]:
         """Tracking-record counts bucketed by hour-of-day, for a visitors-by-hour chart."""
         if not camera_ids:
             return {}
@@ -497,10 +520,14 @@ class TrackingRepository:
         ).filter(TrackingData.camera_id.in_(camera_ids))
         if since is not None:
             query = query.filter(TrackingData.timestamp >= since)
+        if until is not None:
+            query = query.filter(TrackingData.timestamp < until)
         rows = query.group_by("hour").all()
         return {int(row.hour): int(row.hits) for row in rows}
 
-    def counts_by_zone(self, zone_ids: list[int], since: datetime | None = None) -> dict[int, int]:
+    def counts_by_zone(
+        self, zone_ids: list[int], since: datetime | None = None, until: datetime | None = None
+    ) -> dict[int, int]:
         """Unique-customer counts bucketed by zone, for a visitors-by-zone chart."""
         if not zone_ids:
             return {}
@@ -510,6 +537,8 @@ class TrackingRepository:
         ).filter(TrackingData.zone_id.in_(zone_ids))
         if since is not None:
             query = query.filter(TrackingData.timestamp >= since)
+        if until is not None:
+            query = query.filter(TrackingData.timestamp < until)
         rows = query.group_by(TrackingData.zone_id).all()
         return {int(row.zone_id): int(row.hits) for row in rows if row.zone_id is not None}
 

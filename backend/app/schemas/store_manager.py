@@ -1,9 +1,22 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
 
-class StoreManagerSummary(BaseModel):
+# Which day the traffic figures on a response actually cover, and whether that
+# day is today. Footage is processed in batches rather than streamed from
+# always-on cameras, so after midnight "today" is empty until someone
+# processes a video; the dashboard then reports the most recent day that has
+# real data instead of showing zeros (see _resolve_reporting_day in
+# app/api/routers/store_manager.py). These fields exist so the UI can say
+# which day it is showing - an older day's numbers must never be presented as
+# today's. Both default so existing clients that ignore them keep working.
+class ReportingDayMixin(BaseModel):
+    reporting_date: date | None = None
+    is_today: bool = True
+
+
+class StoreManagerSummary(ReportingDayMixin):
     store_id: int
     today_visitors: int
     current_customers: int
@@ -49,7 +62,7 @@ class HourlyVisitorPoint(BaseModel):
     visitors: int
 
 
-class VisitorsByHourResponse(BaseModel):
+class VisitorsByHourResponse(ReportingDayMixin):
     store_id: int
     points: list[HourlyVisitorPoint]
 
@@ -60,7 +73,7 @@ class ZoneVisitorPoint(BaseModel):
     visitors: int
 
 
-class VisitorsByZoneResponse(BaseModel):
+class VisitorsByZoneResponse(ReportingDayMixin):
     store_id: int
     points: list[ZoneVisitorPoint]
 

@@ -38,6 +38,25 @@ const CHART_TOOLTIP_STYLE = {
 
 const SNAPSHOT_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
 
+/** Says which day a traffic panel is actually showing, whenever that isn't
+ * today. Footage is processed in batches, so after midnight the backend falls
+ * back to the most recent day that has real data (see _resolve_reporting_day)
+ * - these are real numbers, but presenting them unlabelled would read as
+ * today's traffic, so the day is stated explicitly. Renders nothing on the
+ * normal same-day path. */
+function ReportingDayNote({ data }: { data?: { reporting_date: string | null; is_today: boolean } }) {
+  if (!data || data.is_today || !data.reporting_date) return null;
+  const label = new Date(`${data.reporting_date}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+      Showing {label} - latest processed day
+    </span>
+  );
+}
+
 interface StoreManagerDashboardPageProps {
   /** Overrides the store scope - used by the Admin side-by-side view.
    * Omitted for a real Store Manager, whose own store is resolved server-side. */
@@ -75,7 +94,16 @@ export default function StoreManagerDashboardPage({ storeId, compact = false }: 
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Today's Visitors" value={s?.today_visitors ?? 0} icon={Users} accent="blue" loading={summary.isLoading} />
+        <KpiCard
+          // Relabelled when the figure is from an earlier day, so this card
+          // never claims "today" for a number that isn't today's.
+          label={s && !s.is_today ? "Visitors (latest day)" : "Today's Visitors"}
+          value={s?.today_visitors ?? 0}
+          hint={s && !s.is_today && s.reporting_date ? `As of ${s.reporting_date}` : undefined}
+          icon={Users}
+          accent="blue"
+          loading={summary.isLoading}
+        />
         <KpiCard label="Current Customers" value={s?.current_customers ?? 0} icon={Users} accent="emerald" loading={summary.isLoading} />
         <KpiCard
           label="Avg Dwell Time"
@@ -189,15 +217,16 @@ export default function StoreManagerDashboardPage({ storeId, compact = false }: 
         <Card>
           <CardHeader>
             <CardTitle>Visitors by Hour</CardTitle>
+            <ReportingDayNote data={visitorsByHour.data} />
           </CardHeader>
           <div className="h-64">
             {visitorsByHour.isLoading ? (
               <div className="h-full animate-pulse rounded-xl bg-white/5" />
             ) : !visitorsByHour.data?.points.some((p) => p.visitors > 0) ? (
               <p className="grid h-full place-items-center text-center text-sm text-slate-500">
-                No visitors tracked yet today.
+                No visitors tracked yet.
                 <br />
-                <span className="text-xs text-slate-600">Counts reset at midnight and fill in as footage is processed.</span>
+                <span className="text-xs text-slate-600">Process a video to generate tracking data.</span>
               </p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -222,6 +251,7 @@ export default function StoreManagerDashboardPage({ storeId, compact = false }: 
         <Card>
           <CardHeader>
             <CardTitle>Visitors by Zone</CardTitle>
+            <ReportingDayNote data={visitorsByZone.data} />
           </CardHeader>
           <div className="h-64">
             {visitorsByZone.isLoading ? (
@@ -230,9 +260,9 @@ export default function StoreManagerDashboardPage({ storeId, compact = false }: 
               <p className="grid h-full place-items-center text-sm text-slate-500">No zones configured yet.</p>
             ) : !visitorsByZone.data.points.some((p) => p.visitors > 0) ? (
               <p className="grid h-full place-items-center text-center text-sm text-slate-500">
-                No visitors tracked yet today.
+                No visitors tracked yet.
                 <br />
-                <span className="text-xs text-slate-600">Counts reset at midnight and fill in as footage is processed.</span>
+                <span className="text-xs text-slate-600">Process a video to generate tracking data.</span>
               </p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">

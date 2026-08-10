@@ -12,7 +12,7 @@ schema has no purchase/checkout events and no product-pick detection model
   a shelf's camera, standing in for "products picked".
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -70,6 +70,42 @@ def _start_of_today() -> datetime:
     return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _resolve_reporting_day(
+    repo: TrackingRepository, camera_ids: list[int]
+) -> tuple[datetime, datetime | None, date, bool]:
+    """Pick which day the traffic panels should report on, and return
+    (window_start, window_end, day, is_today).
+
+    Today, whenever today has any real activity - that's the normal case and
+    the behaviour these panels always had. But footage here is processed in
+    batches rather than streamed from always-on cameras, so at every midnight
+    every "since midnight" counter drops to zero and stays there until
+    somebody processes another video. That rendered the whole traffic section
+    (Today's Visitors, Visitors by Hour, Visitors by Zone) blank for most of
+    the day, which reads as broken rather than as "no footage processed yet".
+
+    So when today is genuinely empty, fall back to the most recent day that
+    does have data and report that full day instead. Nothing is invented: the
+    numbers are still real rows from tracking_data, just from a stated
+    earlier day. Callers surface `day`/`is_today` so the UI can label exactly
+    which day is on screen - a number from Aug 8 must never be presented as
+    if it were today's.
+    """
+    today_start = _start_of_today()
+    if repo.unique_customers_for_cameras(camera_ids, since=today_start) > 0:
+        return today_start, None, today_start.date(), True
+
+    latest = repo.latest_timestamp_for_cameras(camera_ids)
+    if latest is None:
+        # No tracking data at all, ever - report today and let it read zero,
+        # which is the honest answer for a store that has never been processed.
+        return today_start, None, today_start.date(), True
+
+    latest_utc = latest.astimezone(timezone.utc)
+    day_start = latest_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    return day_start, day_start + timedelta(days=1), day_start.date(), False
+
+
 @router.get("/summary", response_model=StoreManagerSummary)
 def summary(
     store_id: int | None = Query(default=None),
@@ -100,7 +136,8 @@ def summary(
         else:
             current_customers += repo.unique_customers_for_cameras([camera_id], since=live_since)
 
-    today_visitors = repo.unique_customers_for_cameras(camera_ids, since=_start_of_today())
+    day_start, day_end, reporting_day, is_today = _resolve_reporting_day(repo, camera_ids)
+    today_visitors = repo.unique_customers_for_cameras(camera_ids, since=day_start, until=day_end)
     avg_dwell = repo.avg_dwell_seconds(camera_ids)
 
     checkout_zone_ids = [
@@ -109,7 +146,9 @@ def summary(
     ]
     conversion_rate: float | None = None
     if checkout_zone_ids and today_visitors:
-        checkout_customers = repo.unique_customers_for_zones(checkout_zone_ids, since=_start_of_today())
+        # Same window as today_visitors above, so the ratio can't mix a
+        # fallback day's denominator with today's numerator.
+        checkout_customers = repo.unique_customers_for_zones(checkout_zone_ids, since=day_start, until=day_end)
         conversion_rate = round(checkout_customers / today_visitors, 4)
 
     shelves = db.query(Shelf).filter(Shelf.store_id == effective_store_id).all()
@@ -125,6 +164,8 @@ def summary(
         shelf_engagement_proxy=shelf_engagement,
         online_cameras=online_cameras,
         total_cameras=len(cameras),
+        reporting_date=reporting_day,
+        is_today=is_today,
     )
 
 
@@ -177,9 +218,13 @@ def visitors_by_hour(
     effective_store_id = _require_store(current_user, store_id)
     camera_ids = [c.id for c in db.query(Camera.id).filter(Camera.store_id == effective_store_id).all()]
 
-    counts = TrackingRepository(db).counts_by_hour(camera_ids, since=_start_of_today())
+    repo = TrackingRepository(db)
+    day_start, day_end, reporting_day, is_today = _resolve_reporting_day(repo, camera_ids)
+    counts = repo.counts_by_hour(camera_ids, since=day_start, until=day_end)
     points = [HourlyVisitorPoint(hour=hour, visitors=counts.get(hour, 0)) for hour in range(24)]
-    return VisitorsByHourResponse(store_id=effective_store_id, points=points)
+    return VisitorsByHourResponse(
+        store_id=effective_store_id, points=points, reporting_date=reporting_day, is_today=is_today
+    )
 
 
 @router.get("/visitors-by-zone", response_model=VisitorsByZoneResponse)
@@ -192,9 +237,17 @@ def visitors_by_zone(
     zones = db.query(Zone).filter(Zone.store_id == effective_store_id).all()
     zone_ids = [z.id for z in zones]
 
-    counts = TrackingRepository(db).counts_by_zone(zone_ids, since=_start_of_today())
+    repo = TrackingRepository(db)
+    # Reporting day is resolved from the store's cameras (same basis as the
+    # other panels) so every traffic panel on the page always shows the same
+    # day, rather than each one independently picking its own.
+    camera_ids = [c.id for c in db.query(Camera.id).filter(Camera.store_id == effective_store_id).all()]
+    day_start, day_end, reporting_day, is_today = _resolve_reporting_day(repo, camera_ids)
+    counts = repo.counts_by_zone(zone_ids, since=day_start, until=day_end)
     points = [ZoneVisitorPoint(zone_id=z.id, zone_name=z.zone_name, visitors=counts.get(z.id, 0)) for z in zones]
-    return VisitorsByZoneResponse(store_id=effective_store_id, points=points)
+    return VisitorsByZoneResponse(
+        store_id=effective_store_id, points=points, reporting_date=reporting_day, is_today=is_today
+    )
 
 
 @router.get("/shelf-activity", response_model=ShelfActivityResponse)

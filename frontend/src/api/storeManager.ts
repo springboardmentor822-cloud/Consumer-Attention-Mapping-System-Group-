@@ -1,6 +1,15 @@
 import api from "./client";
 
-export interface StoreManagerSummary {
+/** Which day the traffic figures actually cover. When no footage has been
+ * processed yet today, the backend reports the most recent day that has real
+ * data rather than showing zeros - `is_today: false` means the numbers are
+ * real but from `reporting_date`, not from today, and the UI must say so. */
+export interface ReportingDay {
+  reporting_date: string | null;
+  is_today: boolean;
+}
+
+export interface StoreManagerSummary extends ReportingDay {
   store_id: number;
   today_visitors: number;
   current_customers: number;
@@ -34,7 +43,7 @@ export interface HourlyVisitorPoint {
   visitors: number;
 }
 
-export interface VisitorsByHourResponse {
+export interface VisitorsByHourResponse extends ReportingDay {
   store_id: number;
   points: HourlyVisitorPoint[];
 }
@@ -45,7 +54,7 @@ export interface ZoneVisitorPoint {
   visitors: number;
 }
 
-export interface VisitorsByZoneResponse {
+export interface VisitorsByZoneResponse extends ReportingDay {
   store_id: number;
   points: ZoneVisitorPoint[];
 }
