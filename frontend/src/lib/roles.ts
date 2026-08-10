@@ -58,6 +58,7 @@ export function getNavSections(role: Role | undefined): NavSection[] {
   if (role === "Retail Analyst") {
     analytics.push(
       { to: "/analyst/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/analyst/customer-analytics", label: "Customer Analytics", icon: Users },
       { to: "/analyst/product-analysis", label: "Product Analysis", icon: Package },
       { to: "/analyst/shelf-analysis", label: "Shelf Analysis", icon: LayoutGrid },
       { to: "/analyst/store-reports", label: "Store Reports", icon: Building2 },
@@ -73,6 +74,7 @@ export function getNavSections(role: Role | undefined): NavSection[] {
   if (role === "Admin") {
     management.push(
       { to: "/users", label: "Users", icon: Users },
+      { to: "/customers", label: "Customers", icon: Users },
       { to: "/stores", label: "Stores", icon: Building2 },
       { to: "/shelves", label: "Shelves", icon: LayoutGrid },
       { to: "/products", label: "Products", icon: Package },
@@ -81,6 +83,7 @@ export function getNavSections(role: Role | undefined): NavSection[] {
     management.push(
       { to: "/shelves", label: "Shelves", icon: LayoutGrid },
       { to: "/products", label: "Products", icon: Package },
+      { to: "/customers", label: "Customers", icon: Users },
       { to: "/employees", label: "Employees", icon: UserCheck },
       { to: "/security-alerts", label: "Security Alerts", icon: ShieldAlert },
     );

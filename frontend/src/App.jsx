@@ -32,6 +32,8 @@ const StoreReportsPage = lazy(() => import("./pages/dashboards/StoreReportsPage"
 const Campaigns = lazy(() => import("./pages/Campaigns"));
 const Promotions = lazy(() => import("./pages/Promotions"));
 const Employees = lazy(() => import("./pages/Employees"));
+const Customers = lazy(() => import("./pages/Customers"));
+const CustomerAnalyticsPage = lazy(() => import("./pages/dashboards/CustomerAnalyticsPage"));
 const SecurityAlerts = lazy(() => import("./pages/SecurityAlerts"));
 
 function PageFallback() {
@@ -151,6 +153,22 @@ export default function App() {
             element={
               <RoleRoute allow={["Store Manager"]}>
                 <Employees />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="customers"
+            element={
+              <RoleRoute allow={["Admin", "Store Manager"]}>
+                <Customers />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="analyst/customer-analytics"
+            element={
+              <RoleRoute allow={["Retail Analyst"]}>
+                <CustomerAnalyticsPage />
               </RoleRoute>
             }
           />

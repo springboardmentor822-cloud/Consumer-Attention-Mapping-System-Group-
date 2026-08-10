@@ -15,8 +15,11 @@ from .engagement_metric import EngagementMetric
 from .employee import Employee
 from .employee_attendance import EmployeeAttendance
 from .alert import Alert
+from .customer import Customer, CustomerInteraction, CustomerVisit
+from .purchase import Purchase, PurchaseItem
 
 __all__ = [
     "User", "Store", "Shelf", "Product", "Camera", "Zone", "Detection", "TrackingData", "AuditLog",
     "Campaign", "Promotion", "DwellMetric", "EngagementMetric", "Employee", "EmployeeAttendance", "Alert",
+    "Customer", "CustomerVisit", "CustomerInteraction", "Purchase", "PurchaseItem",
 ]

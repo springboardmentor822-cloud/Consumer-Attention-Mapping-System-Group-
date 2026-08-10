@@ -24,6 +24,8 @@ from app.api.routers import (
     auth,
     cameras,
     campaigns,
+    customer_analytics,
+    customers,
     dashboard,
     employees,
     live,
@@ -143,5 +145,7 @@ app.include_router(campaigns.router)
 app.include_router(promotions.router)
 app.include_router(analytics_engine.router)
 app.include_router(employees.router)
+app.include_router(customers.router)
+app.include_router(customer_analytics.router)
 app.include_router(alerts.router)
 app.include_router(security_dashboard.router)

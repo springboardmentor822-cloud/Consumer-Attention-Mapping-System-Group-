@@ -16,6 +16,7 @@ from app.schemas.video import (
 from app.ai.live_stream import register_camera_video
 from app.models.camera import Camera
 from app.services.alert_service import generate_alerts_for_video_processing
+from app.services.customer_visits import rebuild_visits_after_processing
 from app.services.video_service import VideoService
 from app.services.tracking_repository import TrackingPersistenceError, TrackingRepository
 
@@ -100,6 +101,14 @@ def process_video_endpoint(
                 camera_id=camera_id,
                 zone_id=zone_id,
                 coordinates=result.get("coordinates", []),
+            )
+            # Derive customer visit sessions from the tracking rows just
+            # saved. Same background-task pattern and same rationale as the
+            # alert generation above: it runs after the response is sent, so
+            # it can never slow down or break video processing.
+            background_tasks.add_task(
+                rebuild_visits_after_processing,
+                store_id=camera.store_id,
             )
     except HTTPException as exc:
         return _error_response(
