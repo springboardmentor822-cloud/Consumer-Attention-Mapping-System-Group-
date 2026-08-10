@@ -10,6 +10,43 @@ batch_worker = BatchWriterWorker()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    try:
+        from .core.database import SessionLocal, init_db
+        from .models.role import Role
+
+        # Create tables automatically if needed
+        init_db()
+
+        db = SessionLocal()
+        try:
+            if db.query(Role).count() == 0:
+                default_roles = [
+                    Role(id=1, name="Administrator", description="Full system access"),
+                    Role(id=2, name="Store Manager", description="Manage stores, shelves, and cameras"),
+                    Role(id=3, name="Retail Analyst", description="View analytics and reports"),
+                    Role(id=4, name="Marketing Manager", description="View marketing insights"),
+                ]
+                db.add_all(default_roles)
+                db.commit()
+
+            from .models.user import User
+            from .core.security import get_password_hash
+            if db.query(User).count() == 0:
+                admin_user = User(
+                    username="admin",
+                    email="admin@example.com",
+                    full_name="System Administrator",
+                    hashed_password=get_password_hash("admin123"),
+                    role_id=1,
+                    is_active=True
+                )
+                db.add(admin_user)
+                db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        print("Role seeding check failed:", e)
+
     batch_worker.start()
     yield
     # Shutdown

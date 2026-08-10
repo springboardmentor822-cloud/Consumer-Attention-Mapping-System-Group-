@@ -30,16 +30,28 @@ const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const DEFAULT_ROLES: Role[] = [
+    { id: 1, name: "Administrator", description: "Full system access", created_at: new Date().toISOString(), updated_at: null },
+    { id: 2, name: "Store Manager", description: "Manage stores, shelves, and cameras", created_at: new Date().toISOString(), updated_at: null },
+    { id: 3, name: "Retail Analyst", description: "View analytics and reports", created_at: new Date().toISOString(), updated_at: null },
+    { id: 4, name: "Marketing Manager", description: "View marketing insights", created_at: new Date().toISOString(), updated_at: null },
+  ];
+
   useEffect(() => {
     const fetchRoles = async () => {
       try {
         const res = await roleAPI.getRoles();
-        setRoles(res.data);
-        if (res.data.length > 0) {
+        if (res.data && res.data.length > 0) {
+          setRoles(res.data);
           setFormData((prev) => ({ ...prev, role_id: res.data[0].id }));
+        } else {
+          setRoles(DEFAULT_ROLES);
+          setFormData((prev) => ({ ...prev, role_id: 1 }));
         }
       } catch (error) {
         console.error("Failed to fetch roles:", error);
+        setRoles(DEFAULT_ROLES);
+        setFormData((prev) => ({ ...prev, role_id: 1 }));
       }
     };
     fetchRoles();
@@ -48,7 +60,11 @@ const RegisterPage: React.FC = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "role_id" ? Number(value) : value,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,9 +159,12 @@ const RegisterPage: React.FC = () => {
                   name="role_id"
                   value={formData.role_id}
                   onChange={handleChange}
-                  className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
+                  {roles.length === 0 && (
+                    <option value="" disabled>Select a Role</option>
+                  )}
                   {roles.map((role) => (
                     <option key={role.id} value={role.id}>
                       {role.name}

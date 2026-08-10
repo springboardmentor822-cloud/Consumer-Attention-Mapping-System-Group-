@@ -5,8 +5,6 @@ import {
   Eye, TrendingUp, BarChart3, Users, Compass, Store, LogOut, 
   Settings, Clock, Sparkles, Layers, Box, FileText, Download
 } from "lucide-react";
-import AICameraStream from "@/components/camera/AICameraStream";
-import HeatmapCanvas from "@/components/charts/HeatmapCanvas";
 import { reportAPI } from "@/lib/api";
 
 // Import custom SVG charts
@@ -135,8 +133,7 @@ const RetailAnalystDashboard: React.FC = () => {
     { id: "attention", label: "Attention Analytics", icon: Eye },
     { id: "segments", label: "Segmentation", icon: Users },
     { id: "behavior", label: "Shopping Behaviour", icon: Compass },
-    { id: "dwell", label: "Dwell Time Analysis", icon: Clock },
-    { id: "traffic_flow", label: "Traffic Flow Analysis", icon: TrendingUp },
+    { id: "dwell_traffic", label: "Dwell & Traffic Flow Analysis", icon: Clock },
     { id: "zone_perf", label: "Zone Performance", icon: Layers },
     { id: "product_analytics", label: "Product Analytics", icon: Box },
     { id: "category_perf", label: "Category Performance", icon: Layers },
@@ -242,39 +239,34 @@ const RetailAnalystDashboard: React.FC = () => {
                 ))}
               </div>
 
-              {/* AI Camera Vision Stream Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <AICameraStream cameraId={1} cameraName="AI Vision Cam 01" zoneName="Zone 1 - Main Entrance & Promotional Bay" />
-                </div>
-                <Card className="bg-[#0c1524] border-slate-800 text-white flex flex-col justify-between">
-                  <CardHeader className="border-b border-slate-800">
-                    <CardTitle className="text-xs font-bold uppercase text-purple-400 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-purple-400" />
-                      AI Optimization Engine
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-3 flex-1 overflow-y-auto">
-                    <div className="bg-purple-950/40 border border-purple-800/40 p-3 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono bg-purple-600 text-white px-2 py-0.5 rounded font-bold">HIGH PRIORITY</span>
-                        <span className="text-[10px] text-purple-300">Shelf Placement</span>
-                      </div>
-                      <p className="text-xs text-slate-200 font-semibold mt-2">Relocate Zero-Sugar Soda to Eye Level</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Currently bottom shelf (22% conversion). Moving to Shelf A projects +35% attention uplift.</p>
+              {/* AI Optimization Engine */}
+              <Card className="bg-[#0c1524] border-slate-800 text-white">
+                <CardHeader className="border-b border-slate-800">
+                  <CardTitle className="text-xs font-bold uppercase text-purple-400 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    AI Optimization Engine
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-purple-950/40 border border-purple-800/40 p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono bg-purple-600 text-white px-2 py-0.5 rounded font-bold">HIGH PRIORITY</span>
+                      <span className="text-[10px] text-purple-300">Shelf Placement</span>
                     </div>
+                    <p className="text-xs text-slate-200 font-semibold mt-2">Relocate Zero-Sugar Soda to Eye Level</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Currently bottom shelf (22% conversion). Moving to Shelf A projects +35% attention uplift.</p>
+                  </div>
 
-                    <div className="bg-blue-950/40 border border-blue-800/40 p-3 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono bg-blue-600 text-white px-2 py-0.5 rounded font-bold">PROMOTIONAL</span>
-                        <span className="text-[10px] text-blue-300">Impulse Bundle</span>
-                      </div>
-                      <p className="text-xs text-slate-200 font-semibold mt-2">Pair Energy Can with Gluten-Free Bar</p>
-                      <p className="text-[11px] text-slate-400 mt-1">High co-gaze overlap detected. Estimated basket size expansion: +24%.</p>
+                  <div className="bg-blue-950/40 border border-blue-800/40 p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono bg-blue-600 text-white px-2 py-0.5 rounded font-bold">PROMOTIONAL</span>
+                      <span className="text-[10px] text-blue-300">Impulse Bundle</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <p className="text-xs text-slate-200 font-semibold mt-2">Pair Energy Can with Gluten-Free Bar</p>
+                    <p className="text-[11px] text-slate-400 mt-1">High co-gaze overlap detected. Estimated basket size expansion: +24%.</p>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Product Attractiveness Scoring Matrix Table */}
               <Card className="bg-[#0c1524] border-slate-800 text-white">
@@ -346,9 +338,6 @@ const RetailAnalystDashboard: React.FC = () => {
                   </table>
                 </CardContent>
               </Card>
-
-              {/* Homography & Gaussian KDE Heatmap Layer Visualizer */}
-              <HeatmapCanvas storeId={1} />
 
               {/* Journey & Flow */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -457,17 +446,29 @@ const RetailAnalystDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Tab 6: Dwell */}
-          {activeTab === "dwell" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-[#0c1524] border-slate-800 text-white">
-                <CardHeader><CardTitle className="text-xs font-bold uppercase">Dwell Time Hourly</CardTitle></CardHeader>
-                <CardContent className="pt-4"><LineChart data={hourlyDwellTime} color="#ec4899" /></CardContent>
-              </Card>
-              <Card className="bg-[#0c1524] border-slate-800 text-white">
-                <CardHeader><CardTitle className="text-xs font-bold uppercase">Behavioral Attention Scatter</CardTitle></CardHeader>
-                <CardContent className="pt-4"><ScatterPlot data={behavioralScatter} /></CardContent>
-              </Card>
+          {/* Tab 6: Combined Dwell Time & Traffic Flow Analysis */}
+          {activeTab === "dwell_traffic" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Dwell Time Hourly</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><LineChart data={hourlyDwellTime} color="#ec4899" /></CardContent>
+                </Card>
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Behavioral Attention Scatter</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><ScatterPlot data={behavioralScatter} /></CardContent>
+                </Card>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Entrance vs Exit Daily Rates</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><LineChart data={attentionTrend} color="#10b981" /></CardContent>
+                </Card>
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Zone Flow Ratios</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><DonutChart data={customerSegments} /></CardContent>
+                </Card>
+              </div>
             </div>
           )}
 
@@ -592,7 +593,7 @@ const RetailAnalystDashboard: React.FC = () => {
           )}
 
           {/* Fallback logs */}
-          {!["overview", "journey", "attention", "segments", "behavior", "dwell", "insights", "settings", "traffic_flow", "zone_perf", "product_analytics", "category_perf", "reports"].includes(activeTab) && (
+          {!["overview", "journey", "attention", "segments", "behavior", "dwell_traffic", "insights", "settings", "zone_perf", "product_analytics", "category_perf", "reports"].includes(activeTab) && (
             <Card className="bg-[#0c1524] border-slate-800 text-white">
               <CardHeader className="border-b border-slate-850">
                 <CardTitle className="text-xs font-bold uppercase">{activeTab.replace("_", " ")} Portal</CardTitle>

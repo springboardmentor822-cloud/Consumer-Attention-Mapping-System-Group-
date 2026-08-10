@@ -3,10 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Target, TrendingUp, BarChart3, Users, Eye, Sparkles, Store, LogOut, 
-  Settings, Layers, Compass, FileText, Download, Megaphone
+  Settings, Layers, FileText, Download, Megaphone
 } from "lucide-react";
-import AICameraStream from "@/components/camera/AICameraStream";
-import HeatmapCanvas from "@/components/charts/HeatmapCanvas";
 import { reportAPI } from "@/lib/api";
 
 // Import custom SVG charts
@@ -89,12 +87,10 @@ const MarketingManagerDashboard: React.FC = () => {
     { id: "overview", label: "Overview", icon: Store },
     { id: "campaigns", label: "Campaign Performance", icon: Layers },
     { id: "promotion", label: "Promotion Effectiveness", icon: TrendingUp },
-    { id: "visibility", label: "Product Visibility", icon: Eye },
-    { id: "attraction", label: "Product Attractiveness", icon: Sparkles },
+    { id: "visibility_attraction", label: "Product Visibility & Attractiveness", icon: Target },
     { id: "engagement", label: "Customer Engagement", icon: Users },
     { id: "conversion", label: "Conversion Analysis", icon: TrendingUp },
-    { id: "attention_insights", label: "Attention Insights", icon: Eye },
-    { id: "traffic_insights", label: "Traffic Insights", icon: Compass },
+    { id: "attention_traffic_insights", label: "Attention & Traffic Insights", icon: Eye },
     { id: "recommendations", label: "Marketing Recommendations", icon: Sparkles },
     { id: "action_center", label: "Action Center", icon: Target },
     { id: "reports", label: "Campaign Reports", icon: FileText },
@@ -198,39 +194,34 @@ const MarketingManagerDashboard: React.FC = () => {
                 ))}
               </div>
 
-              {/* AI Camera Stream & Promotional Recommendations */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <AICameraStream cameraId={1} cameraName="Promotional Bay AI Vision" zoneName="Zone 1 - Main Entrance & End-Cap Bay" />
-                </div>
-                <Card className="bg-[#0c1524] border-slate-800 text-white flex flex-col justify-between">
-                  <CardHeader className="border-b border-slate-800">
-                    <CardTitle className="text-xs font-bold uppercase text-indigo-400 flex items-center gap-2">
-                      <Megaphone className="w-4 h-4 text-indigo-400" />
-                      AI Promotional Suggestions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-3 flex-1 overflow-y-auto">
-                    <div className="bg-indigo-950/40 border border-indigo-800/40 p-3 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono bg-indigo-600 text-white px-2 py-0.5 rounded font-bold">END-CAP OPTIMIZATION</span>
-                        <span className="text-[10px] text-indigo-300">Feature Display</span>
-                      </div>
-                      <p className="text-xs text-slate-200 font-semibold mt-2">Feature Artisanal Almonds on End-Cap A</p>
-                      <p className="text-[11px] text-slate-400 mt-1">High attention (81s) but lower pickup rate. End-cap display is projected to boost pickup by +32%.</p>
+              {/* AI Promotional Suggestions */}
+              <Card className="bg-[#0c1524] border-slate-800 text-white">
+                <CardHeader className="border-b border-slate-800">
+                  <CardTitle className="text-xs font-bold uppercase text-indigo-400 flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-indigo-400" />
+                    AI Promotional Suggestions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-indigo-950/40 border border-indigo-800/40 p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono bg-indigo-600 text-white px-2 py-0.5 rounded font-bold">END-CAP OPTIMIZATION</span>
+                      <span className="text-[10px] text-indigo-300">Feature Display</span>
                     </div>
+                    <p className="text-xs text-slate-200 font-semibold mt-2">Feature Artisanal Almonds on End-Cap A</p>
+                    <p className="text-[11px] text-slate-400 mt-1">High attention (81s) but lower pickup rate. End-cap display is projected to boost pickup by +32%.</p>
+                  </div>
 
-                    <div className="bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono bg-emerald-600 text-white px-2 py-0.5 rounded font-bold">CAMPAIGN LIFT</span>
-                        <span className="text-[10px] text-emerald-300">Organic Berry Can</span>
-                      </div>
-                      <p className="text-xs text-slate-200 font-semibold mt-2">Extend "Summer Energy" Campaign by 2 Weeks</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Achieved 3.4x ROI with 82.1 Attractiveness Score in Zone 1.</p>
+                  <div className="bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono bg-emerald-600 text-white px-2 py-0.5 rounded font-bold">CAMPAIGN LIFT</span>
+                      <span className="text-[10px] text-emerald-300">Organic Berry Can</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <p className="text-xs text-slate-200 font-semibold mt-2">Extend "Summer Energy" Campaign by 2 Weeks</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Achieved 3.4x ROI with 82.1 Attractiveness Score in Zone 1.</p>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Campaign Performance & Merchandising Table */}
               <Card className="bg-[#0c1524] border-slate-800 text-white">
@@ -292,9 +283,6 @@ const MarketingManagerDashboard: React.FC = () => {
                   </table>
                 </CardContent>
               </Card>
-
-              {/* Campaign Gaze & Traffic Homography Heatmap */}
-              <HeatmapCanvas storeId={1} />
 
               {/* Campaign Performance */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -427,31 +415,29 @@ const MarketingManagerDashboard: React.FC = () => {
             </Card>
           )}
 
-          {/* Tab 4: Visibility */}
-          {activeTab === "visibility" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-[#0c1524] border-slate-800 text-white">
-                <CardHeader><CardTitle className="text-xs font-bold uppercase">Visibility Metrics</CardTitle></CardHeader>
-                <CardContent className="pt-4"><RadarChart data={visibilityMetricsRadar} /></CardContent>
-              </Card>
-              <Card className="bg-[#0c1524] border-slate-800 text-white">
-                <CardHeader><CardTitle className="text-xs font-bold uppercase">Product Visibility Score</CardTitle></CardHeader>
-                <CardContent className="pt-4"><HorizontalBarChart data={visibilityScore} color="#6366f1" /></CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Tab 5: Attraction */}
-          {activeTab === "attraction" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-[#0c1524] border-slate-800 text-white">
-                <CardHeader><CardTitle className="text-xs font-bold uppercase">Product Attractiveness Ranking</CardTitle></CardHeader>
-                <CardContent className="pt-4"><HorizontalBarChart data={attractivenessRanking} color="#ec4899" /></CardContent>
-              </Card>
-              <Card className="bg-[#0c1524] border-slate-800 text-white">
-                <CardHeader><CardTitle className="text-xs font-bold uppercase">Scatter Attention vs Conversion</CardTitle></CardHeader>
-                <CardContent className="pt-4"><ScatterPlot data={scatterAttentionConversion} /></CardContent>
-              </Card>
+          {/* Tab: Combined Product Visibility & Attractiveness */}
+          {activeTab === "visibility_attraction" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Visibility Metrics</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><RadarChart data={visibilityMetricsRadar} /></CardContent>
+                </Card>
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Product Visibility Score</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><HorizontalBarChart data={visibilityScore} color="#6366f1" /></CardContent>
+                </Card>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Product Attractiveness Ranking</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><HorizontalBarChart data={attractivenessRanking} color="#ec4899" /></CardContent>
+                </Card>
+                <Card className="bg-[#0c1524] border-slate-800 text-white">
+                  <CardHeader><CardTitle className="text-xs font-bold uppercase">Scatter Attention vs Conversion</CardTitle></CardHeader>
+                  <CardContent className="pt-4"><ScatterPlot data={scatterAttentionConversion} /></CardContent>
+                </Card>
+              </div>
             </div>
           )}
 
@@ -479,20 +465,18 @@ const MarketingManagerDashboard: React.FC = () => {
             </Card>
           )}
 
-          {/* Attention Insights */}
-          {activeTab === "attention_insights" && (
-            <Card className="bg-[#0c1524] border-slate-800 text-white">
-              <CardHeader><CardTitle className="text-xs font-bold uppercase">Attention vs Conversion Scatter Plot</CardTitle></CardHeader>
-              <CardContent className="pt-4"><ScatterPlot data={scatterAttentionConversion} /></CardContent>
-            </Card>
-          )}
-
-          {/* Traffic Insights */}
-          {activeTab === "traffic_insights" && (
-            <Card className="bg-[#0c1524] border-slate-800 text-white">
-              <CardHeader><CardTitle className="text-xs font-bold uppercase">Store Traffic Ingestion Timeline</CardTitle></CardHeader>
-              <CardContent className="pt-4"><LineChart data={campaignTrend} color="#6366f1" /></CardContent>
-            </Card>
+          {/* Tab: Combined Attention & Traffic Insights */}
+          {activeTab === "attention_traffic_insights" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-[#0c1524] border-slate-800 text-white">
+                <CardHeader><CardTitle className="text-xs font-bold uppercase">Attention vs Conversion Scatter Plot</CardTitle></CardHeader>
+                <CardContent className="pt-4"><ScatterPlot data={scatterAttentionConversion} /></CardContent>
+              </Card>
+              <Card className="bg-[#0c1524] border-slate-800 text-white">
+                <CardHeader><CardTitle className="text-xs font-bold uppercase">Store Traffic Ingestion Timeline</CardTitle></CardHeader>
+                <CardContent className="pt-4"><LineChart data={campaignTrend} color="#6366f1" /></CardContent>
+              </Card>
+            </div>
           )}
 
           {/* Recommendations */}
@@ -555,7 +539,7 @@ const MarketingManagerDashboard: React.FC = () => {
           )}
 
           {/* Fallback logs */}
-          {!["overview", "campaigns", "promotion", "visibility", "attraction", "engagement", "conversion", "attention_insights", "traffic_insights", "recommendations", "action_center", "reports", "settings"].includes(activeTab) && (
+          {!["overview", "campaigns", "promotion", "visibility_attraction", "engagement", "conversion", "attention_traffic_insights", "recommendations", "action_center", "reports", "settings"].includes(activeTab) && (
             <Card className="bg-[#0c1524] border-slate-800 text-white">
               <CardHeader className="border-b border-slate-850">
                 <CardTitle className="text-xs font-bold uppercase">{activeTab.replace("_", " ")} Portal</CardTitle>
