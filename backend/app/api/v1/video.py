@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Optional, List
+from typing import Optional, List, Dict
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import StreamingResponse

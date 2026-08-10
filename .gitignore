@@ -43,3 +43,16 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Video uploads & Media files
+backend/app/uploads/
+uploads/
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Databases & local stream output
+*.db
+backend/local_dev.db
+backend/stream_output/
