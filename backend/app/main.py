@@ -19,6 +19,7 @@ from app.api.routers import (
     admin_dashboard,
     ai_dashboard,
     alerts,
+    behavior_intelligence,
     analytics_dashboard,
     analytics_engine,
     auth,
@@ -147,5 +148,6 @@ app.include_router(analytics_engine.router)
 app.include_router(employees.router)
 app.include_router(customers.router)
 app.include_router(customer_analytics.router)
+app.include_router(behavior_intelligence.router)
 app.include_router(alerts.router)
 app.include_router(security_dashboard.router)
