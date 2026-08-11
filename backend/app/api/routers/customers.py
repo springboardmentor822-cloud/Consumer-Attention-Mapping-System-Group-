@@ -244,6 +244,29 @@ def customer_overview(
     # rather than invented when a customer has no transactions.
     products_by_customer = purchased_products_by_customer(db, catalogue)
 
+    # Registered customers who have no tracked visit yet still belong in the
+    # list - they exist in the CRM whether or not a camera has ever seen them,
+    # and omitting them would make the customer list silently disagree with
+    # the customer record count. They appear with zero visits/dwell, which is
+    # the truthful reading, and are skipped entirely when the caller filtered
+    # by zone or date (those filters are about visits, so a customer with no
+    # visits genuinely doesn't match).
+    if zone_id is None and date_from is None and date_to is None:
+        already_listed = {b["customer_id"] for b in grouped.values() if b["customer_id"] is not None}
+        for customer in customers_by_id.values():
+            if customer.id in already_listed:
+                continue
+            if effective_store_id is not None and customer.store_id not in (None, effective_store_id):
+                continue
+            grouped[("customer", str(customer.id))] = {
+                "customer_id": customer.id,
+                "tracking_id": None,
+                "visits": 0,
+                "dwell": 0.0,
+                "interactions": 0,
+                "last_visit": None,
+            }
+
     items: list[CustomerListItem] = []
     for (kind, _), bucket in grouped.items():
         customer = customers_by_id.get(bucket["customer_id"]) if bucket["customer_id"] else None
