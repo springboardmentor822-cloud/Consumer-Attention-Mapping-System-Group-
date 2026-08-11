@@ -2,7 +2,7 @@ import api from "./client";
 
 /** Shown wherever a visit has no legitimate mapping to a real customer.
  * Mirrors the backend constants - CCTV never supplies a name or phone. */
-export const UNKNOWN_CUSTOMER_NAME = "Unknown Customer";
+export const ANONYMOUS_VISITOR_NAME = "Anonymous Visitor";
 export const UNKNOWN_CUSTOMER_PHONE = "Not Available";
 
 export interface Customer {
@@ -25,10 +25,17 @@ export interface CustomerPayload {
   is_active: boolean;
 }
 
+export interface PurchasedProduct {
+  product_id: number | null;
+  name: string;
+  quantity: number;
+}
+
 export interface CustomerListItem {
   customer_id: number | null;
   tracking_id: string | null;
   display_name: string;
+  customer_code: string | null;
   phone: string;
   /** False for anonymous video-derived rows. The UI must not imply identity. */
   is_identified: boolean;
@@ -38,6 +45,9 @@ export interface CustomerListItem {
   interaction_count: number;
   products_purchased: number;
   total_spend: string;
+  /** Real purchased products. Empty means no transactions - render
+   * "No purchase recorded", never a fabricated line. */
+  products: PurchasedProduct[];
 }
 
 export interface CustomerListResponse {
@@ -86,9 +96,71 @@ export interface InteractionItem {
 export interface PurchaseItem {
   product_id: number | null;
   product_name: string | null;
+  category: string | null;
   quantity: number;
   unit_price: string;
   total_price: string;
+}
+
+export interface JourneyZone {
+  zone_id: number | null;
+  zone_name: string;
+  seconds: number;
+  visits: number;
+  interactions: number;
+}
+
+export interface ProductInteractionDetail {
+  product_id: number | null;
+  product_name: string;
+  zone_name: string | null;
+  interaction_count: number;
+  total_seconds: number;
+}
+
+export interface TrackingInfo {
+  tracking_ids: string[];
+  cameras: string[];
+  first_detected: string | null;
+  last_detected: string | null;
+  zones: string[];
+  total_tracking_seconds: number;
+  visit_count: number;
+}
+
+/** Everything the Customer Details modal needs, for a registered customer or
+ * an anonymous tracked visitor, in one request. */
+export interface CustomerProfile {
+  is_identified: boolean;
+  display_name: string;
+  phone: string;
+  email: string | null;
+  customer_code: string | null;
+  customer_id: number | null;
+  tracking_id: string | null;
+  total_visits: number;
+  first_visit: string | null;
+  last_visit: string | null;
+  average_visit_seconds: number;
+  total_dwell_seconds: number;
+  total_spend: string;
+  average_purchase_value: string | null;
+  purchase_count: number;
+  journey: JourneyZone[];
+  purchases: Purchase[];
+  interactions: ProductInteractionDetail[];
+  tracking: TrackingInfo;
+  recent_visits: VisitSummary[];
+}
+
+export interface StoreCustomerSummary {
+  store_id: number | null;
+  todays_customers: number;
+  returning_customers: number;
+  average_dwell_seconds: number;
+  total_purchases: number;
+  total_revenue: string;
+  average_purchase_value: string | null;
 }
 
 export interface Purchase {
@@ -182,6 +254,14 @@ export const customersApi = {
   remove: (id: number) => api.delete(`/customers/${id}`),
   overview: (p: OverviewParams = {}) =>
     api.get<CustomerListResponse>("/customers/overview", { params: overviewParams(p) }),
+  summary: (storeId?: number) =>
+    api.get<StoreCustomerSummary>("/customers/summary", { params: storeId ? { store_id: storeId } : {} }),
+  /** One request for the whole details modal - works for a registered
+   * customer (customerId) or an anonymous visitor (trackingId). */
+  profile: (customerId: number | null, trackingId: string | null) =>
+    api.get<CustomerProfile>("/customers/profile", {
+      params: customerId != null ? { customer_id: customerId } : { tracking_id: trackingId },
+    }),
   detail: (id: number) => api.get<CustomerDetail>(`/customers/${id}`),
   visits: (storeId?: number, trackingId?: string) =>
     api.get<VisitSummary[]>("/customers/visits", {

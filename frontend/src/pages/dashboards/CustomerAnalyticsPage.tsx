@@ -14,7 +14,7 @@ import { Package, ShoppingBag, Timer, Users } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "../../components/ui/Card";
 import KpiCard from "../../components/ui/KpiCard";
 import { useAuth } from "../../context/AuthContext";
-import { customerAnalyticsApi } from "../../api/customers";
+import { customerAnalyticsApi, customersApi } from "../../api/customers";
 
 const CHART_TOOLTIP_STYLE = {
   background: "#111827",
@@ -61,6 +61,13 @@ export default function CustomerAnalyticsPage() {
   const purchases = useQuery({
     queryKey: ["customer-analytics", "purchases", storeId ?? null],
     queryFn: () => customerAnalyticsApi.purchases(storeId).then((r) => r.data),
+    refetchInterval: POLL_INTERVAL,
+  });
+  // Same real customer rows the Store Manager sees, read-only here - the
+  // analyst gets actual product names and spend, not opaque counts.
+  const customers = useQuery({
+    queryKey: ["customers", "overview", storeId ?? null, "analyst"],
+    queryFn: () => customersApi.overview({ storeId }).then((r) => r.data),
     refetchInterval: POLL_INTERVAL,
   });
 
@@ -258,6 +265,72 @@ export default function CustomerAnalyticsPage() {
                     <td className="px-3 py-2 font-medium text-white">{p.product_name}</td>
                     <td className="px-3 py-2">{p.quantity}</td>
                     <td className="px-3 py-2">₹{p.revenue}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Customer Analytics Table</CardTitle>
+          <span className="text-xs text-slate-500">Read-only</span>
+        </CardHeader>
+        {customers.isLoading ? (
+          <div className="h-24 animate-pulse rounded-xl bg-white/5" />
+        ) : !customers.data?.items.length ? (
+          <p className="text-sm text-slate-500">No visitor sessions recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-500">
+                  <th className="px-3 py-2 font-medium">Customer</th>
+                  <th className="px-3 py-2 font-medium">Visits</th>
+                  <th className="px-3 py-2 font-medium">Dwell Time</th>
+                  <th className="px-3 py-2 font-medium">Interactions</th>
+                  <th className="px-3 py-2 font-medium">Products Purchased</th>
+                  <th className="px-3 py-2 font-medium">Total Spending</th>
+                  <th className="px-3 py-2 font-medium">Last Visit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.data.items.slice(0, 25).map((row) => (
+                  <tr
+                    key={row.customer_id ? `c-${row.customer_id}` : `t-${row.tracking_id}`}
+                    className="border-b border-white/5 text-slate-300"
+                  >
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-white">{row.display_name}</div>
+                      <div className="text-xs text-slate-500">
+                        {row.is_identified ? row.customer_code ?? "-" : row.tracking_id}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{row.total_visits}</td>
+                    <td className="px-3 py-2">{formatDuration(row.total_dwell_seconds)}</td>
+                    <td className="px-3 py-2">{row.interaction_count}</td>
+                    <td className="px-3 py-2">
+                      {!row.products.length ? (
+                        <span className="text-xs text-slate-500">No purchase recorded</span>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {row.products.slice(0, 2).map((product) => (
+                            <div key={product.product_id ?? product.name} className="text-xs">
+                              {product.name} <span className="text-slate-500">× {product.quantity}</span>
+                            </div>
+                          ))}
+                          {row.products.length > 2 && (
+                            <div className="text-xs text-blue-400">+{row.products.length - 2} more</div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">{row.products.length ? `₹${row.total_spend}` : "₹0"}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {row.last_visit ? new Date(row.last_visit).toLocaleString() : "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

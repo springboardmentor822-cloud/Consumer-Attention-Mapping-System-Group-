@@ -6,7 +6,12 @@ from pydantic import BaseModel
 # Shown wherever a visit has no legitimate mapping to a real customer record,
 # which is the normal case: CCTV cannot supply a name or phone, and this
 # system never guesses one. See app/models/customer.py.
-UNKNOWN_CUSTOMER_NAME = "Unknown Customer"
+#
+# "Anonymous Visitor" rather than "Unknown Customer": the system isn't failing
+# to look something up, it deliberately never collected it. Paired with the
+# tracking id in the UI, that reads as a real, describable person the cameras
+# saw - not as missing data.
+ANONYMOUS_VISITOR_NAME = "Anonymous Visitor"
 UNKNOWN_CUSTOMER_PHONE = "Not Available"
 
 
@@ -80,10 +85,22 @@ class InteractionItem(BaseModel):
 
 class PurchaseItemResponse(BaseModel):
     product_id: int | None
+    # Resolved from the products table. When a product row has since been
+    # deleted the API returns "Product <id>" rather than inventing a name.
     product_name: str | None
+    category: str | None
     quantity: int
     unit_price: Decimal
     total_price: Decimal
+
+
+class PurchasedProduct(BaseModel):
+    """Compact per-product roll-up for the customer table, so a row can show
+    real product names instead of an opaque count."""
+
+    product_id: int | None
+    name: str
+    quantity: int
 
 
 class PurchaseResponse(BaseModel):
@@ -123,6 +140,9 @@ class CustomerListItem(BaseModel):
     customer_id: int | None
     tracking_id: str | None
     display_name: str
+    # Business customer code for a registered customer, else None - the UI
+    # shows the tracking id for anonymous rows instead.
+    customer_code: str | None
     phone: str
     is_identified: bool
     last_visit: datetime | None
@@ -131,6 +151,10 @@ class CustomerListItem(BaseModel):
     interaction_count: int
     products_purchased: int
     total_spend: Decimal
+    # Real purchased products (name + quantity), empty when this customer has
+    # no transactions. The UI renders "No purchase recorded" for an empty list
+    # rather than a bare dash.
+    products: list[PurchasedProduct]
 
 
 class CustomerListResponse(BaseModel):
@@ -162,6 +186,88 @@ class VisitMappingRequest(BaseModel):
     """
 
     customer_id: int | None
+
+
+class JourneyZone(BaseModel):
+    """One zone on the customer's path, with what the video actually recorded
+    there. `visits` counts separate visit sessions that touched this zone."""
+
+    zone_id: int | None
+    zone_name: str
+    seconds: float
+    visits: int
+    interactions: int
+
+
+class ProductInteractionDetail(BaseModel):
+    """A product this visitor was near, aggregated across their visits.
+
+    Proximity-derived (zone/shelf), not observed handling - this system has
+    person detection only, no pick detection.
+    """
+
+    product_id: int | None
+    product_name: str
+    zone_name: str | None
+    interaction_count: int
+    total_seconds: float
+
+
+class TrackingInfo(BaseModel):
+    """What the video pipeline genuinely recorded for this visitor."""
+
+    tracking_ids: list[str]
+    cameras: list[str]
+    first_detected: datetime | None
+    last_detected: datetime | None
+    zones: list[str]
+    total_tracking_seconds: float
+    visit_count: int
+
+
+class CustomerProfile(BaseModel):
+    """Everything the Customer Details modal needs, for a registered customer
+    OR an anonymous tracked visitor, in one request.
+
+    Identity fields are populated only from a real Customer row; an anonymous
+    profile carries the placeholders and an empty purchase history, because a
+    camera cannot observe a payment.
+    """
+
+    is_identified: bool
+    display_name: str
+    phone: str
+    email: str | None
+    customer_code: str | None
+    customer_id: int | None
+    tracking_id: str | None
+
+    total_visits: int
+    first_visit: datetime | None
+    last_visit: datetime | None
+    average_visit_seconds: float
+    total_dwell_seconds: float
+    total_spend: Decimal
+    average_purchase_value: Decimal | None
+    purchase_count: int
+
+    journey: list[JourneyZone]
+    purchases: list[PurchaseResponse]
+    interactions: list[ProductInteractionDetail]
+    tracking: TrackingInfo
+    recent_visits: list[VisitSummary]
+
+
+class StoreCustomerSummary(BaseModel):
+    """KPI row on the Store Manager customer page."""
+
+    store_id: int | None
+    todays_customers: int
+    returning_customers: int
+    average_dwell_seconds: float
+    total_purchases: int
+    total_revenue: Decimal
+    average_purchase_value: Decimal | None
 
 
 class CustomerAnalyticsSummary(BaseModel):

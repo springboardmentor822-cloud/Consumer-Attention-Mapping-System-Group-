@@ -10,7 +10,7 @@ dependency every other router already uses.
 
 Identity rule enforced throughout: a name or phone is rendered only from a
 real Customer row. Anything derived from video shows its anonymous label
-plus "Unknown Customer"/"Not Available". Nothing here infers identity.
+plus "Anonymous Visitor"/"Not Available". Nothing here infers identity.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -30,24 +30,36 @@ from app.models.user import User
 from app.models.zone import Zone
 from app.schemas.common import Message
 from app.schemas.customer import (
-    UNKNOWN_CUSTOMER_NAME,
+    ANONYMOUS_VISITOR_NAME,
     UNKNOWN_CUSTOMER_PHONE,
     CustomerCreate,
     CustomerDetail,
     CustomerListItem,
     CustomerListResponse,
+    CustomerProfile,
     CustomerResponse,
     CustomerUpdate,
     InteractionItem,
     PurchaseCreate,
     PurchaseItemResponse,
     PurchaseResponse,
+    StoreCustomerSummary,
+    TrackingInfo,
     VisitDetail,
     VisitMappingRequest,
     VisitSummary,
     VisitZone,
 )
 from app.services.crud import CRUDService
+from app.services.customer_profile import (
+    ProductCatalogue,
+    build_interactions,
+    build_journey,
+    purchased_products_by_customer,
+    purchases_for_customer,
+    spend_totals,
+    visits_for,
+)
 
 router = APIRouter(prefix="/customers", tags=["Customer Analytics"])
 service = CRUDService[Customer, CustomerCreate, CustomerUpdate](Customer, "Customer")
@@ -61,7 +73,7 @@ def _visit_summary(visit: CustomerVisit, interaction_count: int, camera_name: st
         id=visit.id,
         tracking_id=visit.tracking_id,
         customer_id=visit.customer_id,
-        customer_name=customer.full_name if customer else UNKNOWN_CUSTOMER_NAME,
+        customer_name=customer.full_name if customer else ANONYMOUS_VISITOR_NAME,
         phone=(customer.phone or UNKNOWN_CUSTOMER_PHONE) if customer else UNKNOWN_CUSTOMER_PHONE,
         store_id=visit.store_id,
         camera_id=visit.camera_id,
@@ -226,17 +238,29 @@ def customer_overview(
             bucket["last_visit"] = visit.exit_time
 
     customers_by_id = {c.id: c for c in db.query(Customer).all()}
+    catalogue = ProductCatalogue(db)
+    # Real purchased product names per customer, resolved through
+    # purchase_items -> products. Never hardcoded, and absent (empty list)
+    # rather than invented when a customer has no transactions.
+    products_by_customer = purchased_products_by_customer(db, catalogue)
 
     items: list[CustomerListItem] = []
     for (kind, _), bucket in grouped.items():
         customer = customers_by_id.get(bucket["customer_id"]) if bucket["customer_id"] else None
-        display_name = customer.full_name if customer else UNKNOWN_CUSTOMER_NAME
+        display_name = customer.full_name if customer else ANONYMOUS_VISITOR_NAME
         phone = (customer.phone or UNKNOWN_CUSTOMER_PHONE) if customer else UNKNOWN_CUSTOMER_PHONE
         spend, _pcount = spend_by_customer.get(bucket["customer_id"], (Decimal(0), 0)) if customer else (Decimal(0), 0)
+        purchased = products_by_customer.get(bucket["customer_id"], []) if customer else []
 
         if search:
+            # Product names are searchable too, so "search by product" finds
+            # every customer who actually bought it.
             needle = search.strip().lower()
-            haystack = f"{display_name} {phone} {bucket['tracking_id'] or ''} {customer.customer_code if customer else ''}".lower()
+            product_text = " ".join(p.name for p in purchased)
+            haystack = (
+                f"{display_name} {phone} {bucket['tracking_id'] or ''} "
+                f"{customer.customer_code if customer else ''} {product_text}"
+            ).lower()
             if needle not in haystack:
                 continue
 
@@ -245,12 +269,14 @@ def customer_overview(
                 customer_id=bucket["customer_id"],
                 tracking_id=bucket["tracking_id"],
                 display_name=display_name,
+                customer_code=customer.customer_code if customer else None,
                 phone=phone,
                 is_identified=kind == "customer",
                 last_visit=bucket["last_visit"],
                 total_visits=bucket["visits"],
                 total_dwell_seconds=round(bucket["dwell"], 2),
                 interaction_count=bucket["interactions"],
+                products=purchased,
                 products_purchased=items_by_customer.get(bucket["customer_id"], 0) if customer else 0,
                 total_spend=spend,
             )
@@ -258,6 +284,127 @@ def customer_overview(
 
     items.sort(key=lambda i: (i.last_visit is None, i.last_visit), reverse=True)
     return CustomerListResponse(store_id=effective_store_id, total=len(items), items=items[:limit])
+
+
+@router.get("/summary", response_model=StoreCustomerSummary)
+def store_customer_summary(
+    store_id: int | None = Query(default=None),
+    current_user: User = Depends(dashboard_access),
+    db: Session = Depends(get_db),
+):
+    """KPI row for the Store Manager customer page. Purchase figures are real
+    or zero - never estimated from footfall."""
+    effective_store_id = resolve_store_scope(current_user, store_id)
+
+    visits_q = db.query(CustomerVisit)
+    if effective_store_id is not None:
+        visits_q = visits_q.filter(CustomerVisit.store_id == effective_store_id)
+    visits = visits_q.all()
+
+    today = datetime.now(timezone.utc).date()
+    todays = {
+        (v.customer_id, v.tracking_id) for v in visits if v.entry_time.astimezone(timezone.utc).date() == today
+    }
+
+    # Returning is only answerable for mapped customers - an anonymous
+    # ByteTrack label cannot prove two sessions were the same person.
+    per_customer: dict[int, int] = {}
+    for visit in visits:
+        if visit.customer_id is not None:
+            per_customer[visit.customer_id] = per_customer.get(visit.customer_id, 0) + 1
+    returning = sum(1 for c in per_customer.values() if c > 1)
+
+    purchase_q = db.query(Purchase)
+    if effective_store_id is not None:
+        purchase_q = purchase_q.filter(Purchase.store_id == effective_store_id)
+    purchases = purchase_q.all()
+    revenue = sum((p.total_amount for p in purchases), Decimal(0))
+    total_dwell = sum(v.total_dwell_seconds for v in visits)
+
+    return StoreCustomerSummary(
+        store_id=effective_store_id,
+        todays_customers=len(todays),
+        returning_customers=returning,
+        average_dwell_seconds=round(total_dwell / len(visits), 2) if visits else 0.0,
+        total_purchases=len(purchases),
+        total_revenue=revenue,
+        average_purchase_value=(revenue / len(purchases)) if purchases else None,
+    )
+
+
+@router.get("/profile", response_model=CustomerProfile)
+def customer_profile(
+    customer_id: int | None = Query(default=None),
+    tracking_id: str | None = Query(default=None),
+    current_user: User = Depends(dashboard_access),
+    db: Session = Depends(get_db),
+):
+    """Everything the Customer Details modal needs, in one request.
+
+    Serves both a registered customer (`customer_id`) and an anonymous tracked
+    visitor (`tracking_id`). Identity fields come only from a real Customer
+    row; an anonymous profile carries placeholders and an empty purchase
+    history, since a camera cannot observe a payment.
+    """
+    if customer_id is None and tracking_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Provide either customer_id or tracking_id"
+        )
+
+    effective_store_id = resolve_store_scope(current_user, None)
+    customer = db.get(Customer, customer_id) if customer_id is not None else None
+    if customer_id is not None and customer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+    if customer and effective_store_id is not None and customer.store_id not in (None, effective_store_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Customer belongs to another store")
+
+    visits = visits_for(db, customer_id, tracking_id, effective_store_id)
+    visit_ids = [v.id for v in visits]
+    catalogue = ProductCatalogue(db)
+    counts = _interaction_counts(db, visit_ids)
+    cameras = _camera_names(db)
+
+    total_dwell = sum(v.total_dwell_seconds for v in visits)
+    spend, purchase_count = spend_totals(db, customer_id)
+    journey = build_journey(db, visit_ids, catalogue)
+
+    zone_names: list[str] = []
+    for zone in journey:
+        if zone.zone_name not in zone_names:
+            zone_names.append(zone.zone_name)
+
+    tracking = TrackingInfo(
+        tracking_ids=sorted({v.tracking_id for v in visits}),
+        cameras=sorted({cameras.get(v.camera_id, f"Camera {v.camera_id}") for v in visits}),
+        first_detected=min((v.entry_time for v in visits), default=None),
+        last_detected=max((v.exit_time for v in visits), default=None),
+        zones=zone_names,
+        total_tracking_seconds=round(total_dwell, 2),
+        visit_count=len(visits),
+    )
+
+    return CustomerProfile(
+        is_identified=customer is not None,
+        display_name=customer.full_name if customer else ANONYMOUS_VISITOR_NAME,
+        phone=(customer.phone or UNKNOWN_CUSTOMER_PHONE) if customer else UNKNOWN_CUSTOMER_PHONE,
+        email=customer.email if customer else None,
+        customer_code=customer.customer_code if customer else None,
+        customer_id=customer_id,
+        tracking_id=tracking_id,
+        total_visits=len(visits),
+        first_visit=min((v.entry_time for v in visits), default=None),
+        last_visit=max((v.exit_time for v in visits), default=None),
+        average_visit_seconds=round(total_dwell / len(visits), 2) if visits else 0.0,
+        total_dwell_seconds=round(total_dwell, 2),
+        total_spend=spend,
+        average_purchase_value=(spend / purchase_count) if purchase_count else None,
+        purchase_count=purchase_count,
+        journey=journey,
+        purchases=purchases_for_customer(db, customer_id, catalogue) if customer_id is not None else [],
+        interactions=build_interactions(db, visit_ids, catalogue),
+        tracking=tracking,
+        recent_visits=[_visit_summary(v, counts.get(v.id, 0), cameras.get(v.camera_id)) for v in visits[:20]],
+    )
 
 
 # ------------------------------------------------------------------- visits
@@ -379,6 +526,7 @@ def customer_detail(
     )
     total_spend = sum((p.total_amount for p in purchases), Decimal(0))
     product_names = {p.id: p.product_name for p in db.query(Product.id, Product.product_name).all()}
+    product_categories = {p.id: p.category for p in db.query(Product.id, Product.category).all()}
 
     purchase_payload = [
         PurchaseResponse(
@@ -390,7 +538,8 @@ def customer_detail(
             items=[
                 PurchaseItemResponse(
                     product_id=i.product_id,
-                    product_name=product_names.get(i.product_id),
+                    product_name=product_names.get(i.product_id) or f"Product {i.product_id}",
+                    category=product_categories.get(i.product_id),
                     quantity=i.quantity,
                     unit_price=i.unit_price,
                     total_price=i.total_price,
@@ -441,6 +590,7 @@ def customer_purchases(
         .all()
     )
     product_names = {p.id: p.product_name for p in db.query(Product.id, Product.product_name).all()}
+    product_categories = {p.id: p.category for p in db.query(Product.id, Product.category).all()}
     return [
         PurchaseResponse(
             id=p.id,
@@ -451,7 +601,8 @@ def customer_purchases(
             items=[
                 PurchaseItemResponse(
                     product_id=i.product_id,
-                    product_name=product_names.get(i.product_id),
+                    product_name=product_names.get(i.product_id) or f"Product {i.product_id}",
+                    category=product_categories.get(i.product_id),
                     quantity=i.quantity,
                     unit_price=i.unit_price,
                     total_price=i.total_price,
@@ -474,6 +625,7 @@ def visit_interactions(
         .all()
     )
     product_names = {p.id: p.product_name for p in db.query(Product.id, Product.product_name).all()}
+    product_categories = {p.id: p.category for p in db.query(Product.id, Product.category).all()}
     zone_names = {z.id: z.zone_name for z in db.query(Zone.id, Zone.zone_name).all()}
     return [
         InteractionItem(
@@ -538,6 +690,7 @@ def create_purchase(
     db.refresh(purchase)
 
     product_names = {p.id: p.product_name for p in db.query(Product.id, Product.product_name).all()}
+    product_categories = {p.id: p.category for p in db.query(Product.id, Product.category).all()}
     return PurchaseResponse(
         id=purchase.id,
         transaction_number=purchase.transaction_number,
@@ -547,7 +700,8 @@ def create_purchase(
         items=[
             PurchaseItemResponse(
                 product_id=i.product_id,
-                product_name=product_names.get(i.product_id),
+                product_name=product_names.get(i.product_id) or f"Product {i.product_id}",
+                category=product_categories.get(i.product_id),
                 quantity=i.quantity,
                 unit_price=i.unit_price,
                 total_price=i.total_price,
