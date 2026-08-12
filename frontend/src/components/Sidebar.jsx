@@ -194,7 +194,11 @@ export default function Sidebar() {
       <FaUsers />,
       t.customerBehaviour,
     ],
-
+    [
+      "/recommendations",
+      <FaChartLine />,
+      "Recommendation & Optimization",
+    ],
     [
       "/heatmap",
       <FaFire />,
@@ -269,7 +273,11 @@ export default function Sidebar() {
       <FaChartBar />,
       t.analytics,
     ],
-
+    [
+      "/recommendations",
+      <FaChartLine />,
+      "Recommendation & Optimization",
+    ],
     [
       "/heatmap",
       <FaFire />,
@@ -319,7 +327,11 @@ export default function Sidebar() {
       <FaUsers />,
       t.customerBehaviour,
     ],
-
+    [
+      "/recommendations",
+      <FaChartLine />,
+      "Recommendation & Optimization",
+    ],
     [
       "/reports",
       <FaFileAlt />,

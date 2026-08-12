@@ -128,3 +128,23 @@ export const getCustomerInsights = async (cameraId) => {
     live: live.data,
   };
 };
+
+// ==========================================================
+// RECOMMENDATION & OPTIMIZATION ENGINE
+// ==========================================================
+
+export const getRecommendations = async (
+  cameraId = 1,
+  role = "admin"
+) => {
+  const response = await API.get(
+    `/analytics/recommendations/${cameraId}`,
+    {
+      params: {
+        role,
+      },
+    }
+  );
+
+  return response.data;
+};

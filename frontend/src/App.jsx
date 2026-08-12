@@ -41,6 +41,7 @@ import AIInsightsPage from "./pages/AIInsightsPage";
 import TrajectoryAnalysis from "./pages/TrajectoryAnalysis";
 import ZoneTransition from "./pages/ZoneTransition";
 import CustomerBehaviour from "./pages/CustomerBehaviour";
+import Recommendations from "./pages/Recommendations";
 // ======================================
 // ROLE BASED DASHBOARD ROUTER
 // ======================================
@@ -189,6 +190,10 @@ function App() {
             <Route
               path="/customer-behaviour"
               element={<CustomerBehaviour />}
+            />
+            <Route
+              path="/recommendations"
+              element={<Recommendations />}
             />
             <Route
               path="/reports"
