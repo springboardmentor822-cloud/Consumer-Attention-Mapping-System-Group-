@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+env/
+
+# Python cache & build
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build outputs
+dist/
+build/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Heavy runtime datasets and uploads/processed media
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/processed/*
+!backend/processed/.gitkeep
+backend/datasets/
+frontend/public/*.mp4
+!frontend/public/.gitkeep
+
+# Temporary directories
+temp_repo/
