@@ -111,30 +111,29 @@ The system supports analytical report generation to summarize important customer
 
 ## 🏗️ System Workflow
 
-```text
-Camera / Video Input
-        ↓
-YOLOv8 Person Detection
-        ↓
-Customer Tracking
-        ↓
-Customer Behaviour Analysis
-        ↓
-Dwell Time Analysis
-        ↓
-Attention Analysis
-        ↓
-Store / Shelf / Zone Analytics
-        ↓
-FastAPI Backend
-        ↓
-PostgreSQL Database
-        ↓
-React Dashboard
-        ↓
-Recommendation Engine
-        ↓
-Actionable Retail Insights
+**Camera / Video Input**  
+↓  
+**YOLOv8 Person Detection**  
+↓  
+**Customer Tracking**  
+↓  
+**Customer Behaviour Analysis**  
+↓  
+**Dwell Time Analysis**  
+↓  
+**Attention Analysis**  
+↓  
+**Store / Shelf / Zone Analytics**  
+↓  
+**FastAPI Backend**  
+↓  
+**PostgreSQL Database**  
+↓  
+**React Dashboard**  
+↓  
+**Recommendation Engine**  
+↓  
+**Actionable Retail Insights**
 
 ## 🧩 Main Modules
 
@@ -223,32 +222,33 @@ The platform can help retailers understand:
 
 ## 🤖 AI Analytics Pipeline
 
-```text
-Video / Camera Feed
-        ↓
-YOLOv8 Detection
-        ↓
-ByteTrack Tracking
-        ↓
-Customer Identification
-        ↓
-Behaviour Processing
-        ↓
-Dwell Time Calculation
-        ↓
-Attention Analysis
-        ↓
-Analytics Processing
-        ↓
-Dashboard Visualization
-        ↓
-Recommendation Generation
+**Video / Camera Feed**  
+↓  
+**YOLOv8 Detection**  
+↓  
+**ByteTrack Tracking**  
+↓  
+**Customer Identification**  
+↓  
+**Behaviour Processing**  
+↓  
+**Dwell Time Calculation**  
+↓  
+**Attention Analysis**  
+↓  
+**Analytics Processing**  
+↓  
+**Dashboard Visualization**  
+↓  
+**Recommendation Generation**
 
 ## 🎥 Project Demo
 
 A complete screen recording demonstrates the overall workflow of the AI-Based Consumer Attention Mapping System, including the dashboard, customer analytics, behaviour analysis, attention analytics, store and shelf analytics, recommendation engine, recommendations dashboard, reports, and overall system navigation.
 
-**Demo Video:** `Demo Video.mp4`
+**Demo Video:** [View Project Demo](./Demo%20Video.mp4)
+
+> Note: The demo video will be available through the link after `Demo Video.mp4` is uploaded to the repository.
 
 ## 🌟 Benefits
 
