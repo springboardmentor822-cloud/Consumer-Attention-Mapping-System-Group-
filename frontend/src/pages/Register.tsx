@@ -15,27 +15,27 @@ import { authAPI, roleAPI } from "@/lib/api";
 import type { Role } from "@/types";
 import { toast } from "react-toastify";
 
+const DEFAULT_ROLES: Role[] = [
+  { id: 1, name: "Administrator", description: "Full system access", created_at: new Date().toISOString(), updated_at: null },
+  { id: 2, name: "Store Manager", description: "Manage stores, shelves, and cameras", created_at: new Date().toISOString(), updated_at: null },
+  { id: 3, name: "Retail Analyst", description: "View analytics and reports", created_at: new Date().toISOString(), updated_at: null },
+  { id: 4, name: "Marketing Manager", description: "View marketing insights", created_at: new Date().toISOString(), updated_at: null },
+];
+
 const RegisterPage: React.FC = () => {
+  const [roles, setRoles] = useState<Role[]>(DEFAULT_ROLES);
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     full_name: "",
     password: "",
     confirmPassword: "",
-    role_id: 0,
+    role_id: 1,
   });
-  const [roles, setRoles] = useState<Role[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  const DEFAULT_ROLES: Role[] = [
-    { id: 1, name: "Administrator", description: "Full system access", created_at: new Date().toISOString(), updated_at: null },
-    { id: 2, name: "Store Manager", description: "Manage stores, shelves, and cameras", created_at: new Date().toISOString(), updated_at: null },
-    { id: 3, name: "Retail Analyst", description: "View analytics and reports", created_at: new Date().toISOString(), updated_at: null },
-    { id: 4, name: "Marketing Manager", description: "View marketing insights", created_at: new Date().toISOString(), updated_at: null },
-  ];
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -43,15 +43,10 @@ const RegisterPage: React.FC = () => {
         const res = await roleAPI.getRoles();
         if (res.data && res.data.length > 0) {
           setRoles(res.data);
-          setFormData((prev) => ({ ...prev, role_id: res.data[0].id }));
-        } else {
-          setRoles(DEFAULT_ROLES);
-          setFormData((prev) => ({ ...prev, role_id: 1 }));
+          setFormData((prev) => ({ ...prev, role_id: prev.role_id || res.data[0].id }));
         }
       } catch (error) {
         console.error("Failed to fetch roles:", error);
-        setRoles(DEFAULT_ROLES);
-        setFormData((prev) => ({ ...prev, role_id: 1 }));
       }
     };
     fetchRoles();
@@ -159,12 +154,9 @@ const RegisterPage: React.FC = () => {
                   name="role_id"
                   value={formData.role_id}
                   onChange={handleChange}
-                  className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                   required
                 >
-                  {roles.length === 0 && (
-                    <option value="" disabled>Select a Role</option>
-                  )}
                   {roles.map((role) => (
                     <option key={role.id} value={role.id}>
                       {role.name}
