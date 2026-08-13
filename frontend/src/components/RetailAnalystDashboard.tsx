@@ -448,24 +448,19 @@ export default function RetailAnalystDashboard({ storeId, token }: RetailAnalyst
           </div>
         </div>
 
-        {/* Heatmap Preview Cards */}
-        <div
-          onClick={() => navigate('/dashboard/traffic-flow')}
-          className="lg:col-span-4 bg-[#0c0c14] border border-slate-850 rounded-xl p-5 shadow-lg space-y-4 cursor-pointer hover:border-indigo-500/50 transition duration-200"
-        >
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest block">Heatmap Previews (Click to View)</span>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: "Traffic", ref: canvasTraffic },
-              { label: "Attention", ref: canvasStoreAttention },
-              { label: "Shelf", ref: canvasShelf },
-              { label: "Zone", ref: canvasZone }
-            ].map((item, idx) => (
-              <div key={idx} className="flex flex-col items-center">
-                <div className="relative border border-slate-900 rounded overflow-hidden aspect-[4/3] w-full bg-black">
-                  <canvas ref={item.ref} width={120} height={90} className="w-full h-full block" />
+        {/* Department Attention Summary */}
+        <div className="lg:col-span-4 bg-[#0c0c14] border border-slate-850 rounded-xl p-5 shadow-lg space-y-4">
+          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest block">Department Attention Summary</span>
+          <div className="space-y-2">
+            {treemapData.map((dept, idx) => (
+              <div key={idx} className="space-y-1">
+                <div className="flex justify-between text-[9px] font-bold text-slate-400">
+                  <span>{dept.name}</span>
+                  <span>{dept.size} Attention Score</span>
                 </div>
-                <span className="text-[8px] font-bold text-slate-500 mt-1 uppercase">{item.label}</span>
+                <div className="w-full bg-[#161625] h-1.5 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${(dept.size / 1200) * 100}%`, backgroundColor: dept.fill }}></div>
+                </div>
               </div>
             ))}
           </div>

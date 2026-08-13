@@ -175,7 +175,6 @@ const DashboardShell: React.FC = () => {
               { name: 'Customer Segmentation', id: 'customer-segmentation', icon: UserCheck, path: 'customer-segmentation' },
               { name: 'Shopping Behaviour', id: 'shopping-behaviour', icon: TrendingUp, path: 'shopping-behaviour' },
               { name: 'Dwell Time Analysis', id: 'dwell-time-analysis', icon: Clock, path: 'dwell-time-analysis' },
-              { name: 'Traffic Flow Heatmap', id: 'traffic-flow', icon: Flame, path: 'traffic-flow' },
               { name: 'Zone Performance', id: 'zone-performance', icon: Layers, path: 'zone-performance' },
               { name: 'Executive Reports', id: 'reports', icon: FileText, path: 'reports' },
               { name: 'Settings', id: 'settings', icon: SettingsIcon, path: 'settings' },
@@ -296,10 +295,10 @@ const DashboardShell: React.FC = () => {
               className="flex items-center space-x-2 p-1.5 hover:bg-slate-800 rounded-lg"
             >
               <div className="w-8 h-8 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-300 font-bold border border-indigo-500/50 text-xs">
-                {user?.name?.substring(0, 2).toUpperCase()}
+                {user?.email?.substring(0, 2).toUpperCase()}
               </div>
               <div className="text-left hidden md:block">
-                <p className="text-xs font-semibold text-slate-200 leading-tight">{user?.name}</p>
+                <p className="text-xs font-semibold text-slate-200 leading-tight">{user?.email}</p>
                 <p className="text-[9px] text-slate-550 leading-none mt-0.5">{user?.role}</p>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -366,18 +365,18 @@ const DashboardShell: React.FC = () => {
                 {/* Dynamic Landing Routes based on User Role */}
                 <Route path="/" element={
                   user?.role === 'Retail Analyst' 
-                    ? <RetailAnalystDashboard storeId={activeStoreId} token={token} section="overview" />
+                    ? <RetailAnalystDashboard storeId={activeStoreId} token={token} />
                     : user?.role === 'Marketing Manager'
-                    ? <MarketingManagerDashboard storeId={activeStoreId} token={token} section="overview" />
+                    ? <MarketingManagerDashboard storeId={activeStoreId} token={token} />
                     : user?.role === 'Administrator'
                     ? <OverviewPage storeId={activeStoreId} token={token} />
                     : <OverviewPage storeId={activeStoreId} token={token} />
                 } />
                 <Route path="/overview" element={
                   user?.role === 'Retail Analyst' 
-                    ? <RetailAnalystDashboard storeId={activeStoreId} token={token} section="overview" />
+                    ? <RetailAnalystDashboard storeId={activeStoreId} token={token} />
                     : user?.role === 'Marketing Manager'
-                    ? <MarketingManagerDashboard storeId={activeStoreId} token={token} section="overview" />
+                    ? <MarketingManagerDashboard storeId={activeStoreId} token={token} />
                     : user?.role === 'Administrator'
                     ? <OverviewPage storeId={activeStoreId} token={token} />
                     : <OverviewPage storeId={activeStoreId} token={token} />

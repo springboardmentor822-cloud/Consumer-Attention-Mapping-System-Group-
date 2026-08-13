@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
 
-VALID_ZONE_TYPES = {"entrance", "checkout", "promotional", "shelf_area", "generic"}
+VALID_ZONE_TYPES = {"entrance", "checkout", "promotional", "shelf_area", "generic", "exit"}
 
 class ZoneBase(BaseModel):
     store_id: str

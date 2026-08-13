@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
-import { TrendingUp, RefreshCw } from 'lucide-react';
+import { TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface ChartPoint {
   hour: string;
@@ -21,6 +21,9 @@ interface StoreTrafficPageProps {
   storeId: string;
   token: string | null;
 }
+
+// Design colors matching CAMS portal
+const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#ec4899'];
 
 export default function StoreTrafficPage({ storeId, token }: StoreTrafficPageProps) {
   const [data, setData] = useState<StoreManagerData | null>(null);
@@ -48,68 +51,148 @@ export default function StoreTrafficPage({ storeId, token }: StoreTrafficPagePro
     return () => clearInterval(interval);
   }, [storeId]);
 
+  // Compute dynamic domains & summary stats
+  const trafficStats = useMemo(() => {
+    if (!data?.traffic_chart || data.traffic_chart.length === 0) {
+      return { max: 5, hasData: false, total: 0 };
+    }
+    const maxVal = Math.max(...data.traffic_chart.map(d => d.visitors));
+    const totalVal = data.traffic_chart.reduce((acc, curr) => acc + curr.visitors, 0);
+    return {
+      max: maxVal === 0 ? 5 : Math.ceil(maxVal * 1.15),
+      hasData: maxVal > 0,
+      total: totalVal
+    };
+  }, [data?.traffic_chart]);
+
+  const zoneStats = useMemo(() => {
+    if (!data?.zone_occupancy || data.zone_occupancy.length === 0) {
+      return { max: 5, hasData: false, total: 0 };
+    }
+    const maxVal = Math.max(...data.zone_occupancy.map(d => d.occupancy));
+    const totalVal = data.zone_occupancy.reduce((acc, curr) => acc + curr.occupancy, 0);
+    return {
+      max: maxVal === 0 ? 5 : Math.ceil(maxVal * 1.15),
+      hasData: maxVal > 0,
+      total: totalVal
+    };
+  }, [data?.zone_occupancy]);
+
   if (loading) return (
     <div className="flex justify-center items-center min-h-[50vh] text-slate-400">
-      <RefreshCw className="animate-spin mr-2" /> Loading Traffic Analysis...
+      <RefreshCw className="animate-spin mr-2 w-5 h-5 text-indigo-500" />
+      <span className="text-xs font-semibold uppercase tracking-wider">Synchronizing traffic logs...</span>
     </div>
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center pb-4 border-b border-slate-800">
+      {/* Page Header */}
+      <div className="flex justify-between items-center pb-4 border-b border-slate-850">
         <div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2 text-indigo-400" /> Store Traffic & Zone Occupancy
+            <TrendingUp className="w-5 h-5 mr-2 text-indigo-400" /> Traffic Flow Trends
           </h1>
-          <p className="text-xs text-slate-400 mt-1">Live customer traffic timeline trends and zone occupancy distributions</p>
+          <p className="text-xs text-slate-400 mt-1">Live customer timeline trends and zone occupancy distributions</p>
         </div>
       </div>
 
+      {/* Primary Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 1 - Store Traffic */}
-        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest">Line Chart (Hourly Visitor Trend)</span>
-          <div className="h-56">
+        
+        {/* 1. Line Chart: Hourly visitor traffic */}
+        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+          <div className="mb-2">
+            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Hourly Visitor Trend</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">Live shopper presence timeline scoped by hour</p>
+          </div>
+          
+          <div className="h-56 relative flex items-center justify-center">
+            {!trafficStats.hasData && (
+              <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-slate-650 mb-1" />
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">No active traffic recorded</span>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data?.traffic_chart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#22222f" />
-                <XAxis dataKey="hour" stroke="#94a3b8" fontSize={9} />
-                <YAxis stroke="#94a3b8" fontSize={9} />
-                <Tooltip />
-                <Line type="monotone" dataKey="visitors" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }} />
+              <LineChart data={data?.traffic_chart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#131322" />
+                <XAxis dataKey="hour" stroke="#475569" fontSize={9} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={9} tickLine={false} domain={[0, trafficStats.max]} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090f', borderColor: '#1e293b', borderRadius: '8px' }}
+                  labelStyle={{ color: '#94a3b8', fontSize: '9px', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#3b82f6', fontSize: '9px' }}
+                />
+                <Line type="monotone" dataKey="visitors" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3.5, strokeWidth: 1 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest">Area Chart (Daily Store Footfall Trend)</span>
-          <div className="h-56">
+        {/* 2. Area Chart: Daily cumulative footfall */}
+        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+          <div className="mb-2">
+            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Store Footfall Trend</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">Cumulative visitor count pattern projection</p>
+          </div>
+
+          <div className="h-56 relative flex items-center justify-center">
+            {!trafficStats.hasData && (
+              <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-slate-650 mb-1" />
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">No footfall data registered</span>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data?.traffic_chart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#22222f" />
-                <XAxis dataKey="hour" stroke="#94a3b8" fontSize={9} />
-                <YAxis stroke="#94a3b8" fontSize={9} />
-                <Tooltip />
-                <Area type="monotone" dataKey="visitors" stroke="#ec4899" fill="rgba(236, 72, 153, 0.1)" strokeWidth={2.5} />
+              <AreaChart data={data?.traffic_chart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorVis" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ec4899" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#131322" />
+                <XAxis dataKey="hour" stroke="#475569" fontSize={9} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={9} tickLine={false} domain={[0, trafficStats.max]} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090f', borderColor: '#1e293b', borderRadius: '8px' }}
+                  labelStyle={{ color: '#94a3b8', fontSize: '9px', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#ec4899', fontSize: '9px' }}
+                />
+                <Area type="monotone" dataKey="visitors" stroke="#ec4899" fillOpacity={1} fill="url(#colorVis)" strokeWidth={2.0} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Section 2 - Zone Occupancy */}
-        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest">Vertical Bar Chart (Visitors per Zone)</span>
-          <div className="h-56">
+        {/* 3. Bar Chart: Zone visitors counts */}
+        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+          <div className="mb-2">
+            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Visitors per Zone</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">Comparative shopper occupancy totals scoped by region</p>
+          </div>
+
+          <div className="h-56 relative flex items-center justify-center">
+            {!zoneStats.hasData && (
+              <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-slate-650 mb-1" />
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">No active zone records</span>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.zone_occupancy}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#22222f" />
-                <XAxis dataKey="zone" stroke="#94a3b8" fontSize={9} />
-                <YAxis stroke="#94a3b8" fontSize={9} />
-                <Tooltip />
-                <Bar dataKey="occupancy" fill="#10b981" radius={[4, 4, 0, 0]}>
+              <BarChart data={data?.zone_occupancy} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#131322" />
+                <XAxis dataKey="zone" stroke="#475569" fontSize={8.5} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={9} tickLine={false} domain={[0, zoneStats.max]} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090f', borderColor: '#1e293b', borderRadius: '8px' }}
+                  labelStyle={{ color: '#94a3b8', fontSize: '9px', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#10b981', fontSize: '9px' }}
+                />
+                <Bar dataKey="occupancy" radius={[4, 4, 0, 0]} maxBarSize={45}>
                   {data?.zone_occupancy.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? '#3b82f6' : index === 1 ? '#10b981' : '#f59e0b'} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -117,22 +200,60 @@ export default function StoreTrafficPage({ storeId, token }: StoreTrafficPagePro
           </div>
         </div>
 
-        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest">Donut Chart (Zone Occupancy Distribution)</span>
-          <div className="h-56 flex items-center justify-center">
+        {/* 4. Donut Chart: Zone occupancy distribution */}
+        <div className="bg-[#121218] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+          <div className="mb-2">
+            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Zone Occupancy Distribution</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">Regional layout distribution percentages</p>
+          </div>
+
+          <div className="h-56 relative flex items-center justify-center">
+            {!zoneStats.hasData && (
+              <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-slate-650 mb-1" />
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">No distribution data</span>
+              </div>
+            )}
+            
+            {/* Center Total Count Overlay */}
+            {zoneStats.hasData && (
+              <div className="absolute flex flex-col items-center justify-center z-0 pointer-events-none">
+                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total</span>
+                <span className="text-lg font-black text-slate-200">{zoneStats.total}</span>
+              </div>
+            )}
+
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={data?.zone_occupancy} dataKey="occupancy" nameKey="zone" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={4} label>
+                <Pie 
+                  data={data?.zone_occupancy} 
+                  dataKey="occupancy" 
+                  nameKey="zone" 
+                  cx="50%" 
+                  cy="50%" 
+                  innerRadius={50} 
+                  outerRadius={70} 
+                  paddingAngle={4}
+                  stroke="none"
+                >
                   {data?.zone_occupancy.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? '#3b82f6' : index === 1 ? '#10b981' : '#f59e0b'} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '9px', marginTop: '10px' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090f', borderColor: '#1e293b', borderRadius: '8px' }}
+                  itemStyle={{ fontSize: '9px' }}
+                />
+                <Legend 
+                  iconSize={6}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: '8px', color: '#94a3b8' }} 
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
+
       </div>
     </div>
   );

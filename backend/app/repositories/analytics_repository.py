@@ -94,12 +94,12 @@ class AnalyticsRepository:
         results = db.query(
             Product.id.label("product_id"),
             Product.name.label("product_name"),
-            func.sum(case((ProductInteraction.interaction_type == "view", 1), else_=0)).label("views"),
-            func.sum(case((ProductInteraction.interaction_type == "pickup", 1), else_=0)).label("pickups"),
-            func.sum(case((ProductInteraction.interaction_type == "compare", 1), else_=0)).label("compares"),
-            func.sum(case((ProductInteraction.interaction_type == "return", 1), else_=0)).label("returns"),
-            func.sum(case((ProductInteraction.interaction_type == "purchase", 1), else_=0)).label("purchases")
-        ).join(
+            func.sum(case((ProductInteraction.interaction_type.in_(["view", "viewed"]), 1), else_=0)).label("views"),
+            func.sum(case((ProductInteraction.interaction_type.in_(["pickup", "picked", "picked up"]), 1), else_=0)).label("pickups"),
+            func.sum(case((ProductInteraction.interaction_type.in_(["compare", "compared"]), 1), else_=0)).label("compares"),
+            func.sum(case((ProductInteraction.interaction_type.in_(["return", "returned"]), 1), else_=0)).label("returns"),
+            func.sum(case((ProductInteraction.interaction_type.in_(["purchase", "purchased"]), 1), else_=0)).label("purchases")
+        ).outerjoin(
             ProductInteraction, ProductInteraction.product_id == Product.id
         ).filter(
             Product.store_id == store_id
@@ -165,7 +165,7 @@ class AnalyticsRepository:
         ]
 
     @staticmethod
-    def get_shopper_journey_data(db: Session, store_id: str) -> List[Dict[str, Any]]:
+    def get_shopper_journey_data(db: Session, store_id: str, start_date = None, end_date = None) -> List[Dict[str, Any]]:
         import datetime
         from app.models.camera import Camera
 
@@ -178,9 +178,26 @@ class AnalyticsRepository:
         zone_map = {str(z.id): z.name for z in zones}
         for z in zones:
             zone_map[str(z.name)] = z.name
+        # Fallbacks for raw/numeric zone IDs to ensure human-readable labels
+        zone_map.setdefault("1", "Entrance Foyer")
+        zone_map.setdefault("2", "Main Product Aisle")
+        zone_map.setdefault("3", "Checkout Lanes")
 
-        # Resolve shoppers from sessions
-        sessions = db.query(ShopperSession).filter(ShopperSession.store_id == store_id).all()
+        # Handle date ranges
+        if start_date is None:
+            start_date = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+        if end_date is None:
+            end_date = start_date + datetime.timedelta(days=1)
+
+        # Resolve shoppers from sessions (limit to 500 most recent to prevent CPU overload on large databases)
+        sessions = db.query(ShopperSession).filter(
+            ShopperSession.store_id == store_id,
+            ShopperSession.entry_time >= start_date,
+            ShopperSession.entry_time < end_date
+        ).order_by(
+            ShopperSession.zone_sequence.isnot(None).desc(),
+            ShopperSession.entry_time.desc()
+        ).limit(500).all()
         shoppers = []
         session_shopper_ids = set()
         for s in sessions:
@@ -192,11 +209,14 @@ class AnalyticsRepository:
                 })
                 session_shopper_ids.add(s.shopper_identifier)
 
-        # Retrieve all tracking logs
+        # Retrieve tracking logs only for active shoppers using the indexed shopper_id column
         tracking_query = db.query(TrackingLog)
-        if cam_ids:
-            # Filter by camera if cameras exist
+        if session_shopper_ids:
+            tracking_query = tracking_query.filter(TrackingLog.shopper_id.in_(list(session_shopper_ids)))
+        elif cam_ids:
             tracking_query = tracking_query.filter(TrackingLog.camera_id.in_(cam_ids))
+        else:
+            tracking_query = tracking_query.filter(False)
         
         all_logs = tracking_query.all()
         shopper_logs = {}
@@ -212,6 +232,16 @@ class AnalyticsRepository:
                     "zone_sequence": None
                 })
 
+        # Pre-fetch all attention events for active sessions in a single batch query to avoid N+1 query loop
+        session_ids = [sh["session_id"] for sh in shoppers if sh["session_id"]]
+        attention_events = {}
+        if session_ids:
+            events_raw = db.query(AttentionEvent).filter(
+                AttentionEvent.session_id.in_(session_ids)
+            ).order_by(AttentionEvent.timestamp.asc()).all()
+            for e in events_raw:
+                attention_events.setdefault(e.session_id, []).append(e)
+
         transitions = {}
         for sh in shoppers:
             sequence = []
@@ -226,17 +256,16 @@ class AnalyticsRepository:
                 if zone_name in zone_map:
                     zone_name = zone_map[zone_name]
                 else:
-                    # Fallback to query Zone table directly
+                    # Fallback to query Zone table directly (cached in zone_map to avoid N+1)
                     z_obj = db.query(Zone).filter((Zone.id == zone_name) | (Zone.name == zone_name)).first()
                     if z_obj:
                         zone_name = z_obj.name
+                        zone_map[str(log.zone_id)] = zone_name
                 sequence.append(zone_name)
 
             # 2. Try AttentionEvent if logs are empty and we have a session
             if not sequence and sh["session_id"]:
-                events = db.query(AttentionEvent).filter(
-                    AttentionEvent.session_id == sh["session_id"]
-                ).order_by(AttentionEvent.timestamp.asc()).all()
+                events = attention_events.get(sh["session_id"], [])
                 for e in events:
                     sequence.append(zone_map.get(str(e.zone_id), e.zone_id))
 

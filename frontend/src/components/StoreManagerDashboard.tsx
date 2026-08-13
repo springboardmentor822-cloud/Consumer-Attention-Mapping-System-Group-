@@ -8,11 +8,14 @@ interface MonitoredCamera {
   name: string;
   status: string;
   zone_id: number;
+  zone_name?: string;
   people_count: number;
+  interactions_count?: number;
   crowd_status: string;
   shelf_activity: string;
   monitored_shelves: string[];
   stream_url?: string;
+  last_updated?: string;
 }
 
 interface AlertItem {
@@ -84,6 +87,28 @@ interface StoreManagerDashboardProps {
   storeId: string;
   token: string | null;
   section?: string;
+}
+
+function CameraFeed({ cameraId, clean = false, alt = "Camera Feed" }: { cameraId: string; clean?: boolean; alt?: string }) {
+  const [src, setSrc] = useState(`http://localhost:8000/api/cameras/${cameraId}/frame?clean=${clean}&t=${Date.now()}`);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSrc(`http://localhost:8000/api/cameras/${cameraId}/frame?clean=${clean}&t=${Date.now()}`);
+    }, 150);
+    return () => clearInterval(timer);
+  }, [cameraId, clean]);
+
+  return (
+    <img
+      src={src}
+      className="w-full h-full object-cover"
+      alt={alt}
+      onError={(e) => {
+        (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60" viewBox="0 0 100 60"><rect width="100" height="60" fill="%230f0f18"/><text x="50" y="32" font-size="6" fill="%23444" text-anchor="middle">STREAM LOADING / INGESTION ACTIVE</text></svg>';
+      }}
+    />
+  );
 }
 
 export default function StoreManagerDashboard({ storeId, token, section = 'overview' }: StoreManagerDashboardProps) {
@@ -314,20 +339,31 @@ export default function StoreManagerDashboard({ storeId, token, section = 'overv
                 View Full Grid <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </button>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {liveCams.map((cam, idx) => (
-                <div key={cam.camera_id} className="bg-[#0f0f18] border border-slate-850 p-2.5 rounded-lg flex flex-col shadow-sm">
-                  <span className="text-[9px] font-bold text-slate-400 truncate mb-1.5">{idx + 1}. {cam.name}</span>
-                  <div className="relative aspect-video w-full rounded overflow-hidden bg-black border border-slate-800 mb-2">
-                    <img
-                      src={`http://localhost:8000/api/cameras/${cam.camera_id}/stream`}
-                      className="w-full h-full object-cover"
-                      alt={cam.name}
-                    />
+                <div key={cam.camera_id} className="bg-[#0f0f18] border border-slate-850 p-3 rounded-xl flex flex-col justify-between shadow-sm hover:border-slate-700 transition duration-200">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-2">
+                    <span className="text-slate-200 font-bold">{idx + 1}. {cam.name}</span>
+                    <span className={`px-1.5 py-0.2 rounded text-[7px] uppercase tracking-wider ${cam.status === 'Online' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-500'}`}>
+                      {cam.status}
+                    </span>
                   </div>
-                  <span className="text-[8px] text-emerald-400 font-bold flex items-center">
-                    <span className="w-1 h-1 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>Live
-                  </span>
+                  <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black border border-slate-800 mb-2">
+                    {cam.status === 'Offline' ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-550 text-center select-none p-1">
+                        <span className="text-[10px] font-bold text-rose-500">NO SIGNAL</span>
+                        <span className="text-[7px] text-slate-500 mt-0.5">Source unavailable</span>
+                      </div>
+                    ) : (
+                      <CameraFeed cameraId={cam.camera_id} clean={false} alt={cam.name} />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-[8px] text-slate-400 bg-slate-950/40 p-2 rounded border border-slate-900/60 font-semibold mt-1">
+                    <div>Zone: <span className="text-slate-200 font-bold">{cam.zone_name || 'General Area'}</span></div>
+                    <div>Shoppers: <span className="text-slate-200 font-bold">{cam.people_count}</span></div>
+                    <div>Interactions: <span className="text-slate-200 font-bold">{cam.interactions_count ?? 0}</span></div>
+                    <div>Updated: <span className="text-slate-250 font-bold truncate">{cam.last_updated ? new Date(cam.last_updated).toLocaleTimeString() : 'N/A'}</span></div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -568,22 +604,25 @@ export default function StoreManagerDashboard({ storeId, token, section = 'overv
               <div key={cam.camera_id} className="bg-[#171722] border border-slate-800 rounded-xl p-4 space-y-4 shadow-sm">
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span className="text-slate-200">{cam.name}</span>
-                  <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider ${cam.status === "Online" ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-455'}`}>
+                  <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider ${cam.status === "Online" ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-500'}`}>
                     {cam.status}
                   </span>
                 </div>
                 <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black border border-slate-850">
-                  <img
-                    src={`http://localhost:8000/api/cameras/${cam.camera_id}/stream`}
-                    className="w-full h-full object-cover"
-                    alt={cam.name}
-                  />
+                  {cam.status === 'Offline' ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-550 text-center select-none">
+                      <span className="text-[12px] font-bold text-rose-500 tracking-wider">[ NO SIGNAL ]</span>
+                      <span className="text-[9px] text-slate-500 mt-1">Source unavailable</span>
+                    </div>
+                  ) : (
+                    <CameraFeed cameraId={cam.camera_id} clean={false} alt={cam.name} />
+                  )}
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-400 bg-slate-900/50 p-3 rounded-lg border border-slate-850">
-                  <div>Zone ID: <span className="text-slate-200 font-bold block mt-0.5">{cam.zone_id}</span></div>
-                  <div>Live Count: <span className="text-slate-200 font-bold block mt-0.5">{cam.people_count}</span></div>
-                  <div>Density: <span className="text-slate-200 font-bold block mt-0.5">{cam.crowd_status}</span></div>
-                  <div>Activity: <span className="text-slate-200 font-bold block mt-0.5">{cam.shelf_activity}</span></div>
+                  <div>Zone: <span className="text-slate-200 font-bold block mt-0.5">{cam.zone_name || 'General Area'}</span></div>
+                  <div>Shoppers tracked: <span className="text-slate-200 font-bold block mt-0.5">{cam.people_count}</span></div>
+                  <div>Interactions: <span className="text-slate-200 font-bold block mt-0.5">{cam.interactions_count ?? 0}</span></div>
+                  <div>Last updated: <span className="text-slate-250 font-bold block mt-0.5 truncate">{cam.last_updated ? new Date(cam.last_updated).toLocaleTimeString() : 'N/A'}</span></div>
                 </div>
               </div>
             ))}

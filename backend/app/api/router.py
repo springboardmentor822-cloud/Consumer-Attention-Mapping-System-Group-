@@ -29,4 +29,14 @@ router.include_router(reports_router, prefix="/reports", tags=["Report Generatio
 router.include_router(dashboards_router, prefix="/dashboards", tags=["Dashboard Intelligence"])
 router.include_router(ml_router, prefix="/ml", tags=["Machine Learning"])
 
+@router.get("/recommendations", tags=["Rule Engine"])
+def get_main_recommendations(store_id: str = "store-1"):
+    from app.core.database import SessionLocal
+    from app.services.analytics_service import AnalyticsService
+    db = SessionLocal()
+    try:
+        return AnalyticsService.get_recommendations(db, store_id)
+    finally:
+        db.close()
+
 

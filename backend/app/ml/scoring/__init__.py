@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.schemas import Product, InteractionLog, TrackingLog
 
-def update_product_attractiveness_score(db: Session, product_id: str) -> float:
+def update_product_attractiveness_score(db: Session, product_id: str, commit: bool = True) -> float:
     """
     Calculates and updates the Product Attractiveness Score based on the weighted model:
     - Attention Duration (35%)
@@ -76,7 +76,8 @@ def update_product_attractiveness_score(db: Session, product_id: str) -> float:
     )
     
     product.attractiveness_score = round(score, 1)
-    db.commit()
+    if commit:
+        db.commit()
     return product.attractiveness_score
 
 

@@ -13,32 +13,57 @@ router = APIRouter()
 require_analyst = RoleChecker(["Retail Analyst", "Administrator"])
 
 @router.get("/{store_id}", response_model=Dict[str, Any])
-def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_user: Any = Depends(require_analyst)):
+def get_analyst_dashboard(
+    store_id: str,
+    start_date: str = None,
+    end_date: str = None,
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(require_analyst)
+):
+    from app.models.zone import Zone
     store = db.query(Store).filter(Store.id == store_id).first()
     if not store:
         raise HTTPException(status_code=404, detail="Store not found")
 
-    today_start = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Date range parsing
+    if start_date:
+        try:
+            today_start = datetime.datetime.fromisoformat(start_date)
+        except ValueError:
+            today_start = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        today_start = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if end_date:
+        try:
+            today_end = datetime.datetime.fromisoformat(end_date)
+        except ValueError:
+            today_end = today_start + datetime.timedelta(days=1)
+    else:
+        today_end = today_start + datetime.timedelta(days=1)
 
     # 1. KPI Aggregates
     total_shoppers = db.query(func.count(func.distinct(TrackingLog.shopper_id)))\
-        .filter(TrackingLog.timestamp >= today_start).scalar() or 0
+        .filter(TrackingLog.timestamp >= today_start, TrackingLog.timestamp < today_end).scalar() or 0
 
     avg_att = db.query(func.avg(TrackingLog.dwell_time))\
-        .filter(TrackingLog.gaze_facing_shelf_id != None, TrackingLog.timestamp >= today_start).scalar()
+        .filter(TrackingLog.gaze_facing_shelf_id != None, TrackingLog.timestamp >= today_start, TrackingLog.timestamp < today_end).scalar()
     avg_attention_seconds = round(float(avg_att or 0.0), 1)
 
     avg_dw = db.query(func.avg(TrackingLog.dwell_time))\
-        .filter(TrackingLog.timestamp >= today_start).scalar()
+        .filter(TrackingLog.timestamp >= today_start, TrackingLog.timestamp < today_end).scalar()
     avg_dwell_seconds = round(float(avg_dw or 0.0), 1)
 
     total_pickups = db.query(func.count(InteractionLog.id))\
-        .filter(InteractionLog.interaction_type == "pickup", InteractionLog.timestamp >= today_start).scalar() or 0
+        .filter(InteractionLog.interaction_type == "pickup", InteractionLog.timestamp >= today_start, InteractionLog.timestamp < today_end).scalar() or 0
     total_views = db.query(func.count(TrackingLog.id))\
-        .filter(TrackingLog.gaze_facing_shelf_id != None, TrackingLog.timestamp >= today_start).scalar() or 0
+        .filter(TrackingLog.gaze_facing_shelf_id != None, TrackingLog.timestamp >= today_start, TrackingLog.timestamp < today_end).scalar() or 0
 
     # Dynamic Customer Segmentation using database rules
-    sessions = db.query(ShopperSession).filter(ShopperSession.store_id == store_id).all()
+    segment_counts_raw = db.query(ShopperSession.segment, func.count(ShopperSession.id))\
+        .filter(ShopperSession.store_id == store_id, ShopperSession.entry_time >= today_start, ShopperSession.entry_time < today_end)\
+        .group_by(ShopperSession.segment).all()
+        
     segment_counts = {
         "Explorers": 0,
         "Quick Buyers": 0,
@@ -46,24 +71,24 @@ def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_
         "Impulse Buyers": 0,
         "Brand Loyal": 0
     }
-
-    for sess in sessions:
-        zone_cnt = db.query(func.count(func.distinct(TrackingLog.zone_id))).filter(TrackingLog.shopper_id == sess.shopper_identifier).scalar() or 0
-        dwell = db.query(func.sum(TrackingLog.dwell_time)).filter(TrackingLog.shopper_id == sess.shopper_identifier).scalar() or 0
-        pickups_cnt = db.query(func.count(InteractionLog.id)).filter(InteractionLog.session_id == sess.id, InteractionLog.interaction_type == "pickup").scalar() or 0
-        purchases = db.query(func.count(InteractionLog.id)).filter(InteractionLog.session_id == sess.id, InteractionLog.interaction_type == "purchase").scalar() or 0
-        compares = db.query(func.count(InteractionLog.id)).filter(InteractionLog.session_id == sess.id, InteractionLog.interaction_type == "compare").scalar() or 0
-
-        if zone_cnt >= 3 and purchases == 0:
-            segment_counts["Explorers"] += 1
-        elif dwell <= 90 and purchases > 0:
-            segment_counts["Quick Buyers"] += 1
-        elif compares >= 2:
-            segment_counts["Comparison Shoppers"] += 1
-        elif pickups_cnt > 0 and purchases > 0:
-            segment_counts["Impulse Buyers"] += 1
-        else:
-            segment_counts["Brand Loyal"] += 1
+    
+    for seg_name, count in segment_counts_raw:
+        if not seg_name:
+            continue
+        key = seg_name
+        if seg_name == "Brand Loyal Customer":
+            key = "Brand Loyal"
+        elif seg_name == "Explorer":
+            key = "Explorers"
+        elif seg_name == "Comparison Shopper":
+            key = "Comparison Shoppers"
+        elif seg_name == "Impulse Buyer":
+            key = "Impulse Buyers"
+        elif seg_name == "Quick Buyer":
+            key = "Quick Buyers"
+            
+        if key in segment_counts:
+            segment_counts[key] += count
 
     total_segmented = sum(segment_counts.values()) or 1
     segmentation = [
@@ -73,12 +98,22 @@ def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_
 
     # Repeat Visitors Count (derived dynamically from shoppers with multiple session logs)
     sub = db.query(ShopperSession.shopper_identifier, func.count(ShopperSession.id).label("scount"))\
+        .filter(ShopperSession.store_id == store_id, ShopperSession.entry_time >= today_start, ShopperSession.entry_time < today_end)\
         .group_by(ShopperSession.shopper_identifier).subquery()
     repeat_visitors = db.query(func.count(sub.c.shopper_identifier)).filter(sub.c.scount > 1).scalar() or 0
 
+    # Get zones to translate IDs
+    zones_list = db.query(Zone).filter(Zone.store_id == store_id).all()
+    zone_map = {str(z.id): z.name for z in zones_list}
+    for z in zones_list:
+        zone_map[str(z.name)] = z.name
+    zone_map.setdefault("1", "Entrance Foyer")
+    zone_map.setdefault("2", "Main Product Aisle")
+    zone_map.setdefault("3", "Checkout Lanes")
+
     # 2. Dynamic Sankey Flow
     from app.services.analytics_service import AnalyticsService
-    journey_data = AnalyticsService.get_journey_metrics(db, store_id)
+    journey_data = AnalyticsService.get_journey_metrics(db, store_id, today_start, today_end)
     
     node_names = set()
     for item in journey_data:
@@ -103,7 +138,7 @@ def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_
     avg_attention_per_shelf = []
     for sh in shelves:
         att = db.query(func.avg(TrackingLog.dwell_time))\
-            .filter(TrackingLog.gaze_facing_shelf_id == sh.id, TrackingLog.timestamp >= today_start).scalar()
+            .filter(TrackingLog.gaze_facing_shelf_id == sh.id, TrackingLog.timestamp >= today_start, TrackingLog.timestamp < today_end).scalar()
         avg_attention_per_shelf.append({
             "shelf_name": sh.name,
             "avg_attention_seconds": round(float(att or 0.0), 1)
@@ -121,13 +156,13 @@ def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_
     shopping_behavior = []
     for pr in products:
         view_cnt = db.query(func.count(InteractionLog.id))\
-            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "viewed", InteractionLog.timestamp >= today_start).scalar() or 0
+            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "viewed", InteractionLog.timestamp >= today_start, InteractionLog.timestamp < today_end).scalar() or 0
         pickup_cnt = db.query(func.count(InteractionLog.id))\
-            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "pickup", InteractionLog.timestamp >= today_start).scalar() or 0
+            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "pickup", InteractionLog.timestamp >= today_start, InteractionLog.timestamp < today_end).scalar() or 0
         return_cnt = db.query(func.count(InteractionLog.id))\
-            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "returned", InteractionLog.timestamp >= today_start).scalar() or 0
+            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "returned", InteractionLog.timestamp >= today_start, InteractionLog.timestamp < today_end).scalar() or 0
         purch_cnt = db.query(func.count(InteractionLog.id))\
-            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "purchased", InteractionLog.timestamp >= today_start).scalar() or 0
+            .filter(InteractionLog.product_id == pr.id, InteractionLog.interaction_type == "purchased", InteractionLog.timestamp >= today_start, InteractionLog.timestamp < today_end).scalar() or 0
 
         shopping_behavior.append({
             "product_name": pr.name,
@@ -144,8 +179,73 @@ def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_
     ranges = [("0-10s", 0, 10), ("10-30s", 10, 30), ("30-60s", 30, 60), ("60s+", 60, 99999)]
     for rname, rmin, rmax in ranges:
         cnt = db.query(func.count(TrackingLog.id))\
-            .filter(TrackingLog.dwell_time >= rmin, TrackingLog.dwell_time < rmax, TrackingLog.timestamp >= today_start).scalar() or 0
+            .filter(TrackingLog.dwell_time >= rmin, TrackingLog.dwell_time < rmax, TrackingLog.timestamp >= today_start, TrackingLog.timestamp < today_end).scalar() or 0
         dwell_time_distribution.append({"dwell_range_seconds": rname, "frequency": cnt})
+
+    # 6. Hourly traffic trend calculation
+    from app.models.camera import Camera
+    cameras = db.query(Camera).filter(Camera.store_id == store_id).all()
+    cam_ids = [c.id for c in cameras]
+    
+    hourly_traffic = []
+    if cam_ids:
+        hourly_raw = db.query(
+            func.strftime("%H", func.datetime(TrackingLog.timestamp, "+5 hours", "30 minutes")),
+            func.count(func.distinct(TrackingLog.shopper_id))
+        ).filter(
+            TrackingLog.camera_id.in_(cam_ids),
+            TrackingLog.timestamp >= today_start,
+            TrackingLog.timestamp < today_end
+        ).group_by(func.strftime("%H", func.datetime(TrackingLog.timestamp, "+5 hours", "30 minutes"))).all()
+        
+        hourly_map = {f"{int(h):02d}:00": count for h, count in hourly_raw if h is not None}
+        for hour in range(9, 21):
+            hour_str = f"{hour:02d}:00"
+            hourly_traffic.append({
+                "hour": hour_str,
+                "visitors": hourly_map.get(hour_str, 0)
+            })
+    else:
+        for hour in range(9, 21):
+            hourly_traffic.append({"hour": f"{hour:02d}:00", "visitors": 0})
+
+    # 7. Aggregated Journey Path Analytics
+    sessions_path = db.query(ShopperSession).filter(
+        ShopperSession.store_id == store_id,
+        ShopperSession.entry_time >= today_start,
+        ShopperSession.entry_time < today_end,
+        ShopperSession.zone_sequence != None
+    ).all()
+    
+    path_counts = {}
+    total_valid_paths = 0
+    for s in sessions_path:
+        seq = s.zone_sequence
+        if not seq:
+            continue
+        collapsed = []
+        for z in seq:
+            if z:
+                z_name = zone_map.get(str(z), str(z))
+                if not collapsed or collapsed[-1] != z_name:
+                    collapsed.append(z_name)
+        if len(collapsed) >= 2:
+            path_str = " ➔ ".join(collapsed)
+            path_counts[path_str] = path_counts.get(path_str, 0) + 1
+            total_valid_paths += 1
+            
+    sorted_paths = sorted(path_counts.items(), key=lambda x: x[1], reverse=True)
+    journey_paths = []
+    for path, count in sorted_paths:
+        pct = round((count / total_valid_paths) * 100, 1) if total_valid_paths > 0 else 0.0
+        journey_paths.append({
+            "path": path,
+            "shoppers": count,
+            "percentage": pct
+        })
+
+    # 8. Zones legend
+    zones_legend = [{"id": z.id, "name": z.name} for z in zones_list]
 
     return {
         "store_id": store_id,
@@ -163,5 +263,8 @@ def get_analyst_dashboard(store_id: str, db: Session = Depends(get_db), current_
         },
         "segmentation": segmentation,
         "shopping_behavior": shopping_behavior,
-        "dwell_time_distribution": dwell_time_distribution
+        "dwell_time_distribution": dwell_time_distribution,
+        "traffic_chart": hourly_traffic,
+        "journey_paths": journey_paths,
+        "zones": zones_legend
     }

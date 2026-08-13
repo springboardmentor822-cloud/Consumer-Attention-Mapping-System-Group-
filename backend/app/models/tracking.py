@@ -1,10 +1,13 @@
 import uuid
 import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime
+from sqlalchemy import Column, String, Integer, Float, DateTime, Index
 from app.models.base import Base
 
 class TrackingLog(Base):
     __tablename__ = "tracking_logs"
+    __table_args__ = (
+        Index('ix_tracking_logs_camera_id_timestamp', 'camera_id', 'timestamp'),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None), index=True)

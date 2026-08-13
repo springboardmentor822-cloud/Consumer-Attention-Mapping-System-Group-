@@ -47,3 +47,29 @@ class CameraResponse(CameraBase):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+from typing import List
+
+class CameraCalibrationCreate(BaseModel):
+    src_points: List[List[float]] = Field(..., description="Exactly 4 coordinates in image space [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]")
+    dst_points: List[List[float]] = Field(..., description="Exactly 4 coordinates in floorplan space [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]")
+
+    @field_validator("src_points", "dst_points")
+    @classmethod
+    def validate_points(cls, value: List[List[float]]) -> List[List[float]]:
+        if len(value) != 4:
+            raise ValueError("Must provide exactly 4 points")
+        for pt in value:
+            if len(pt) != 2:
+                raise ValueError("Each point must contain exactly 2 coordinates [x, y]")
+        return value
+
+class CameraCalibrationResponse(BaseModel):
+    camera_id: str
+    src_points: List[List[float]]
+    dst_points: List[List[float]]
+    homography_matrix: Optional[List[List[float]]] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}

@@ -11,14 +11,28 @@ from app.utils.logging import get_structured_logger
 from contextlib import asynccontextmanager
 
 logger = get_structured_logger("main")
+main_loop = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global main_loop
+    main_loop = asyncio.get_running_loop()
     logger.info("Application starting up...", extra={"debug": settings.DEBUG, "project": settings.PROJECT_NAME})
     
-    # Start Partitioned Redis Consumers in the background
+    # Auto-create all tables (ensures camera_calibrations exists)
+    from app.core.database import engine
+    from app.models.base import Base
+    Base.metadata.create_all(bind=engine)
+    
+    # Start Partitioned Redis Consumers in the background thread
     from app.workers.redis_consumer import start_redis_consumers
-    asyncio.create_task(start_redis_consumers())
+    import threading
+    t = threading.Thread(target=start_redis_consumers, daemon=True)
+    t.start()
+
+    # Start Near-Real-Time Analytics Compiler Node in the background
+    from app.workers.analytics_worker import start_analytics_worker
+    asyncio.create_task(start_analytics_worker(interval=10.0))
     
     # Query database and automatically spin up YOLO/ByteTrack stream ingestion threads for cameras
     from app.core.database import SessionLocal

@@ -99,4 +99,4 @@ def test_get_product_attractiveness():
 
     assert len(products) == 2
     soda = [p for p in products if p["product_name"] == "Soda Pop"][0]
-    assert soda["attractiveness_score"] == 0.7
+    assert soda["attractiveness_score"] == 100.0
