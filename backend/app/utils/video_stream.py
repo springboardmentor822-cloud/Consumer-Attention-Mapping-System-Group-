@@ -29,82 +29,176 @@ def generate_ai_retail_frame(width: int = 640, height: int = 480, frame_id: int 
     for y in range(0, height, 60):
         cv2.line(frame, (0, y), (width, y), (35, 45, 58), 1)
 
-    # 1. Draw Retail Shelves (ROIs) based on camera ID
-    if camera_id == 1:
-        zone_title = "ZONE 1: ENTRANCE & PROMOTIONAL BAY"
-        # Shelf A (Promotional Display)
-        cv2.rectangle(frame, (40, 80), (280, 220), (50, 120, 60), -1)
-        cv2.rectangle(frame, (40, 80), (280, 220), (0, 255, 120), 2)
-        cv2.putText(frame, "SHELF A: Organic Energy Beverages", (45, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 255, 120), 1)
-
-        # Shelf B (New Arrivals)
-        cv2.rectangle(frame, (360, 80), (600, 220), (60, 50, 120), -1)
-        cv2.rectangle(frame, (360, 80), (600, 220), (200, 120, 255), 2)
-        cv2.putText(frame, "SHELF B: Premium Snacks & Nuts", (365, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (200, 120, 255), 1)
-
-        # Entry Gate
-        cv2.rectangle(frame, (200, 380), (440, 470), (40, 40, 70), 2)
-        cv2.putText(frame, "ENTRY / EXIT TURNSTILE", (210, 425), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 180, 200), 1)
-
-    elif camera_id == 2:
-        zone_title = "ZONE 2: BEVERAGE AISLE"
-        cv2.rectangle(frame, (30, 60), (260, 420), (40, 90, 120), -1)
-        cv2.rectangle(frame, (30, 60), (260, 420), (0, 200, 255), 2)
-        cv2.putText(frame, "SHELF C: Cold Brew & Juices", (35, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 255), 1)
-
-        cv2.rectangle(frame, (380, 60), (610, 420), (90, 40, 120), -1)
-        cv2.rectangle(frame, (380, 60), (610, 420), (255, 100, 200), 2)
-        cv2.putText(frame, "SHELF D: Artisanal Teas & Soda", (385, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 100, 200), 1)
-    else:
-        zone_title = "ZONE 3: CHECKOUT & IMPULSE BAY"
-        cv2.rectangle(frame, (50, 100), (590, 240), (100, 70, 40), -1)
-        cv2.rectangle(frame, (50, 100), (590, 240), (255, 180, 0), 2)
-        cv2.putText(frame, "CHECKOUT COUNTER #1 & #2", (55, 92), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 180, 0), 1)
-
-    # 2. Simulate AI Person Detection & Tracking Bounding Boxes
+    # 1. Draw Retail Shelves (ROIs) & Camera PTZ parameters based on camera ID
     t = frame_id * 0.05
 
-    shoppers = [
-        {
-            "id": 101,
-            "x": int(160 + 80 * math.sin(t)),
-            "y": int(260 + 40 * math.cos(t * 0.8)),
-            "w": 55, "h": 110,
-            "color": (0, 255, 128),  # Green
-            "status": "GAZE AT SHELF A",
-            "gaze_target": (140, 150),
-            "dwell": f"{int(12 + (frame_id % 120) * 0.1)}s"
-        },
-        {
-            "id": 102,
-            "x": int(460 + 60 * math.cos(t * 0.9)),
-            "y": int(280 + 30 * math.sin(t * 1.1)),
-            "w": 50, "h": 105,
-            "color": (255, 165, 0),  # Orange
-            "status": "PICKING PRODUCT",
-            "gaze_target": (480, 160),
-            "dwell": f"{int(8 + (frame_id % 90) * 0.1)}s"
-        },
-        {
-            "id": 103,
-            "x": int(320 + 30 * math.sin(t * 0.5)),
-            "y": int(360 + 20 * math.sin(t * 0.7)),
-            "w": 48, "h": 98,
-            "color": (255, 0, 200),  # Pink
-            "status": "WALKING",
-            "gaze_target": (320, 220),
-            "dwell": "3s"
-        }
-    ]
+    if camera_id == 1:
+        zone_title = "ZONE 1: MAIN ENTRANCE & END-CAP BAY"
+        ptz_info = "PTZ: PAN +45° | TILT -12° | CAM 01 NE FOYER"
+        # Shelf A (Promotional Display)
+        cv2.rectangle(frame, (40, 70), (280, 210), (40, 110, 50), -1)
+        cv2.rectangle(frame, (40, 70), (280, 210), (0, 255, 120), 2)
+        cv2.putText(frame, "ENDCAP A: Organic Energy Drinks", (45, 62), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (0, 255, 120), 1)
 
+        # Shelf B (New Snack Arrivals)
+        cv2.rectangle(frame, (360, 70), (600, 210), (60, 40, 110), -1)
+        cv2.rectangle(frame, (360, 70), (600, 210), (200, 120, 255), 2)
+        cv2.putText(frame, "ENDCAP B: Premium Nuts & Chips", (365, 62), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (200, 120, 255), 1)
+
+        # Turnstile Entrance
+        cv2.rectangle(frame, (220, 380), (420, 460), (35, 45, 75), 2)
+        cv2.putText(frame, "STORE ENTRANCE TURNSTILE", (225, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (180, 180, 220), 1)
+
+        shoppers = [
+            {
+                "id": 101,
+                "x": int(150 + 60 * math.sin(t)),
+                "y": int(240 + 30 * math.cos(t * 0.8)),
+                "w": 55, "h": 110,
+                "color": (0, 255, 128),
+                "status": "GAZE AT ENDCAP A",
+                "gaze_target": (150, 140),
+                "dwell": f"{int(14 + (frame_id % 120) * 0.1)}s"
+            },
+            {
+                "id": 104,
+                "x": int(470 + 40 * math.cos(t * 0.9)),
+                "y": int(260 + 35 * math.sin(t * 1.1)),
+                "w": 50, "h": 105,
+                "color": (255, 165, 0),
+                "status": "PICKING PRODUCT",
+                "gaze_target": (480, 150),
+                "dwell": f"{int(9 + (frame_id % 90) * 0.1)}s"
+            },
+            {
+                "id": 108,
+                "x": int(310 + 20 * math.sin(t * 0.5)),
+                "y": int(360 + 20 * math.sin(t * 0.7)),
+                "w": 48, "h": 98,
+                "color": (255, 0, 200),
+                "status": "ENTERING FOYER",
+                "gaze_target": (320, 210),
+                "dwell": "2s"
+            }
+        ]
+
+    elif camera_id == 2:
+        zone_title = "ZONE 2: BEVERAGE & JUICE AISLE"
+        ptz_info = "PTZ: PAN 0° | TILT -20° | CAM 02 NORTH AISLE"
+        # Left Beverage Racks
+        cv2.rectangle(frame, (30, 70), (250, 420), (30, 80, 110), -1)
+        cv2.rectangle(frame, (30, 70), (250, 420), (0, 220, 255), 2)
+        cv2.putText(frame, "SHELF C: Cold Brews & Mineral Water", (35, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (0, 220, 255), 1)
+
+        # Right Soda Racks
+        cv2.rectangle(frame, (390, 70), (610, 420), (80, 30, 110), -1)
+        cv2.rectangle(frame, (390, 70), (610, 420), (255, 100, 220), 2)
+        cv2.putText(frame, "SHELF D: Soda Cans & Flavored Teas", (395, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (255, 100, 220), 1)
+
+        shoppers = [
+            {
+                "id": 201,
+                "x": int(140 + 30 * math.cos(t * 0.7)),
+                "y": int(220 + 70 * math.sin(t * 0.5)),
+                "w": 52, "h": 106,
+                "color": (0, 255, 200),
+                "status": "GAZE AT COLD BREW",
+                "gaze_target": (140, 200),
+                "dwell": f"{int(22 + (frame_id % 150) * 0.1)}s"
+            },
+            {
+                "id": 205,
+                "x": int(450 + 25 * math.sin(t * 0.8)),
+                "y": int(240 + 60 * math.cos(t * 0.6)),
+                "w": 54, "h": 108,
+                "color": (255, 200, 0),
+                "status": "COMPARING TEAS",
+                "gaze_target": (460, 220),
+                "dwell": f"{int(15 + (frame_id % 100) * 0.1)}s"
+            }
+        ]
+
+    elif camera_id == 3:
+        zone_title = "ZONE 3: CHECKOUT REGISTERS & IMPULSE BAY"
+        ptz_info = "PTZ: PAN -30° | TILT -10° | CAM 03 REGISTERS"
+        # Register Counter
+        cv2.rectangle(frame, (40, 80), (590, 220), (100, 60, 30), -1)
+        cv2.rectangle(frame, (40, 80), (590, 220), (255, 180, 0), 2)
+        cv2.putText(frame, "CHECKOUT COUNTERS #1, #2 & BILLING REGISTERS", (45, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (255, 180, 0), 1)
+
+        # Impulse Candy Rack
+        cv2.rectangle(frame, (40, 320), (590, 440), (80, 80, 30), -1)
+        cv2.rectangle(frame, (40, 320), (590, 440), (220, 220, 0), 2)
+        cv2.putText(frame, "IMPULSE BAY: Chocolate & Batteries", (45, 310), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (220, 220, 0), 1)
+
+        shoppers = [
+            {
+                "id": 301,
+                "x": int(180 + 40 * math.sin(t * 0.4)),
+                "y": int(240 + 15 * math.cos(t * 0.6)),
+                "w": 50, "h": 100,
+                "color": (0, 255, 160),
+                "status": "BILLING AT REGISTER 1",
+                "gaze_target": (200, 150),
+                "dwell": f"{int(35 + (frame_id % 200) * 0.1)}s"
+            },
+            {
+                "id": 306,
+                "x": int(420 + 35 * math.cos(t * 0.5)),
+                "y": int(250 + 20 * math.sin(t * 0.7)),
+                "w": 52, "h": 102,
+                "color": (255, 140, 0),
+                "status": "IMPULSE CANDY PICK",
+                "gaze_target": (420, 360),
+                "dwell": f"{int(18 + (frame_id % 110) * 0.1)}s"
+            }
+        ]
+
+    else:
+        zone_title = "ZONE 4: BAKERY & FRESH PRODUCE"
+        ptz_info = "PTZ: PAN +60° | TILT -15° | CAM 04 EAST BAY"
+        # Artisan Bakery Stand
+        cv2.rectangle(frame, (40, 70), (290, 410), (110, 60, 50), -1)
+        cv2.rectangle(frame, (40, 70), (290, 410), (255, 140, 80), 2)
+        cv2.putText(frame, "BAKERY: Artisan Breads & Pastries", (45, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (255, 140, 80), 1)
+
+        # Organic Produce Rack
+        cv2.rectangle(frame, (350, 70), (600, 410), (40, 100, 70), -1)
+        cv2.rectangle(frame, (350, 70), (600, 410), (80, 255, 160), 2)
+        cv2.putText(frame, "PRODUCE: Organic Fruits & Vegetables", (355, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (80, 255, 160), 1)
+
+        shoppers = [
+            {
+                "id": 401,
+                "x": int(170 + 35 * math.sin(t * 0.6)),
+                "y": int(230 + 50 * math.cos(t * 0.5)),
+                "w": 53, "h": 105,
+                "color": (255, 180, 0),
+                "status": "GAZE AT BREAD BAY",
+                "gaze_target": (160, 200),
+                "dwell": f"{int(28 + (frame_id % 140) * 0.1)}s"
+            },
+            {
+                "id": 408,
+                "x": int(460 + 30 * math.cos(t * 0.7)),
+                "y": int(240 + 55 * math.sin(t * 0.6)),
+                "w": 51, "h": 103,
+                "color": (0, 255, 120),
+                "status": "INSPECTING PRODUCE",
+                "gaze_target": (470, 210),
+                "dwell": f"{int(12 + (frame_id % 80) * 0.1)}s"
+            }
+        ]
+
+    # 2. Draw Person Bounding Boxes & Gaze Vector Lines
     for s in shoppers:
         x, y, w, h = s["x"], s["y"], s["w"], s["h"]
         color = s["color"]
 
-        # Draw Person Bounding Box
+        # Person Bounding Box
         cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
 
-        # Draw Person Head & Gaze Direction Vector (AI Gaze Line)
+        # Head Circle & Gaze Ray
         head_cx, head_cy = x + w // 2, y + 15
         cv2.circle(frame, (head_cx, head_cy), 8, (255, 255, 255), -1)
         cv2.line(frame, (head_cx, head_cy), s["gaze_target"], (0, 255, 255), 2, lineType=cv2.LINE_AA)
@@ -121,16 +215,16 @@ def generate_ai_retail_frame(width: int = 640, height: int = 480, frame_id: int 
     cv2.rectangle(frame, (0, 0), (width, 40), (12, 16, 22), -1)
     cv2.line(frame, (0, 40), (width, 40), (0, 220, 255), 1)
 
-    in_count = 142 + (frame_id // 100)
-    out_count = 136 + (frame_id // 120)
+    in_count = 140 + camera_id * 5 + (frame_id // 100)
+    out_count = 135 + camera_id * 3 + (frame_id // 120)
     curr_occ = len(shoppers)
 
-    cv2.putText(frame, f"[AI VISION CAM 0{camera_id}] {zone_title}", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 220, 255), 1, cv2.LINE_AA)
-    cv2.putText(frame, f"IN: {in_count}  OUT: {out_count}  OCCUPANCY: {curr_occ}", (width - 240, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (0, 255, 160), 1, cv2.LINE_AA)
+    cv2.putText(frame, f"[CAM 0{camera_id}] {zone_title}", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (0, 220, 255), 1, cv2.LINE_AA)
+    cv2.putText(frame, f"IN: {in_count}  OUT: {out_count}  OCC: {curr_occ}", (width - 210, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (0, 255, 160), 1, cv2.LINE_AA)
 
-    # Time overlay
+    # PTZ & Time Footer Overlay
     time_str = time.strftime("%H:%M:%S")
-    cv2.putText(frame, f"REC {time_str}", (width - 70, height - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 200, 200), 1)
+    cv2.putText(frame, f"{ptz_info} | REC {time_str}", (10, height - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 200, 200), 1)
 
     return frame
 

@@ -53,6 +53,20 @@ export const AICameraStream: React.FC<AICameraStreamProps> = ({
     }
   };
 
+  const [ptzAngle, setPtzAngle] = useState<string>("45° NE");
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+
+  const handlePtzMove = (direction: string) => {
+    toast.info(`Store Manager PTZ Camera Direction adjusted: ${direction}`);
+    if (direction === "LEFT") setPtzAngle("30° NW");
+    else if (direction === "RIGHT") setPtzAngle("60° SE");
+    else if (direction === "UP") setPtzAngle("15° NORTH");
+    else if (direction === "DOWN") setPtzAngle("45° SOUTH");
+    else if (direction === "CENTER") setPtzAngle("0° CENTER");
+    else if (direction === "ZOOM_IN") setZoomLevel((prev) => Math.min(2.5, prev + 0.2));
+    else if (direction === "ZOOM_OUT") setZoomLevel((prev) => Math.max(1.0, prev - 0.2));
+  };
+
   return (
     <div className="bg-[#0b1422] border border-cyan-500/30 rounded-xl overflow-hidden shadow-2xl">
       {/* AI Header Bar */}
@@ -84,7 +98,7 @@ export const AICameraStream: React.FC<AICameraStreamProps> = ({
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1 rounded text-xs font-semibold transition-all shadow-sm"
+            className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1 rounded text-xs font-semibold transition-all shadow-sm shadow-cyan-900/50"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>{isUploading ? "Processing..." : "Upload Real Video (MP4)"}</span>
@@ -106,27 +120,48 @@ export const AICameraStream: React.FC<AICameraStreamProps> = ({
         </div>
       </div>
 
+      {/* Store Manager PTZ Directional & Camera Controls Overlay Bar */}
+      <div className="bg-[#0c192c] px-4 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-cyan-900/40 text-[11px] font-mono">
+        <div className="flex items-center gap-2 text-cyan-300">
+          <span className="text-slate-400">PTZ ANGLE:</span>
+          <span className="bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800 font-bold text-cyan-400">{ptzAngle}</span>
+          <span className="text-slate-400 ml-2">ZOOM:</span>
+          <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 font-bold text-emerald-400">{zoomLevel.toFixed(1)}x</span>
+        </div>
+
+        {/* PTZ Direction Control Buttons for Store Manager */}
+        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded border border-slate-800">
+          <span className="text-[10px] text-slate-400 px-1 font-sans">CAMERA PAN / TILT:</span>
+          <button onClick={() => handlePtzMove("LEFT")} title="Pan Left" className="px-1.5 py-0.5 bg-slate-800 hover:bg-cyan-600 text-white rounded text-[10px]">◀ W</button>
+          <button onClick={() => handlePtzMove("UP")} title="Tilt Up" className="px-1.5 py-0.5 bg-slate-800 hover:bg-cyan-600 text-white rounded text-[10px]">▲ N</button>
+          <button onClick={() => handlePtzMove("DOWN")} title="Tilt Down" className="px-1.5 py-0.5 bg-slate-800 hover:bg-cyan-600 text-white rounded text-[10px]">▼ S</button>
+          <button onClick={() => handlePtzMove("RIGHT")} title="Pan Right" className="px-1.5 py-0.5 bg-slate-800 hover:bg-cyan-600 text-white rounded text-[10px]">▶ E</button>
+          <button onClick={() => handlePtzMove("ZOOM_IN")} title="Zoom In" className="px-1.5 py-0.5 bg-slate-800 hover:bg-emerald-600 text-white rounded text-[10px]">🔍+</button>
+          <button onClick={() => handlePtzMove("ZOOM_OUT")} title="Zoom Out" className="px-1.5 py-0.5 bg-slate-800 hover:bg-emerald-600 text-white rounded text-[10px]">🔍-</button>
+        </div>
+      </div>
+
       {/* Camera Stream Player */}
       <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden group">
         <img
           src={streamUrl}
           alt={`AI Retail Stream ${cameraId}`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300"
+          style={{ transform: `scale(${zoomLevel})` }}
           onError={(e) => {
-            // Fallback placeholder if backend stream is connecting
             (e.target as HTMLElement).style.display = 'none';
           }}
         />
 
-        {/* Fallback AI Vision UI Canvas Overlay if image loads asynchronously */}
+        {/* Fallback AI Vision UI Canvas Overlay */}
         <div className="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <div className="bg-black/70 backdrop-blur-sm border border-cyan-500/40 rounded px-3 py-1.5 text-[11px] font-mono text-cyan-300">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>AI COMPUTER VISION ENGINE ACTIVE</span>
+                <span>STORE MANAGER MONITORING ACTIVE</span>
               </div>
-              <div className="text-gray-400 text-[10px] mt-0.5">YOLOv8 Object Tracking + MediaPipe Gaze Pose</div>
+              <div className="text-gray-400 text-[10px] mt-0.5">YOLOv8 Bounding Box + Gaze Direction Rays</div>
             </div>
             <div className="bg-red-950/80 border border-red-500/40 text-red-300 text-[10px] font-mono px-2.5 py-1 rounded flex items-center gap-1.5 animate-pulse">
               <span className="w-2 h-2 rounded-full bg-red-500"></span>
@@ -139,7 +174,7 @@ export const AICameraStream: React.FC<AICameraStreamProps> = ({
               <Eye className="w-4 h-4 text-cyan-400" />
               <span>Real-time Bounding Box Detection: <strong className="text-emerald-400">{occupancy} Shoppers Tracked</strong></span>
             </div>
-            <span className="text-[10px] text-gray-400 font-mono">Gaze Angle Precision: 98.4%</span>
+            <span className="text-[10px] text-cyan-300 font-mono">DIRECTION: {ptzAngle}</span>
           </div>
         </div>
       </div>
