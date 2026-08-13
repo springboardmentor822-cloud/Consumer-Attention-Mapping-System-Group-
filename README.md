@@ -2,11 +2,14 @@
 
 > **A real-time Computer Vision & Behavioral Intelligence platform that transforms physical retail CCTV feeds into actionable merchandising analytics, foot traffic heatmaps, and AI product attractiveness scores.**
 
-[![Repository Link](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/your-username/Consumer-Attention-Mapping-System-Group-)
+[![Repository Link](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/springboardmentor822-cloud/Consumer-Attention-Mapping-System-Group-/tree/chandana-s-consumer-attention-mapping-system)
+[![Project Demo Video](https://img.shields.io/badge/Google%20Drive-Watch%20Project%20Demo%20Video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1IAAbHM6YBYtJJiLKWgiLkWwVY8TLMVt1/view?usp=sharing)
 [![FastAPI Backend](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python%203.11+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20TypeScript%20%7C%20Vite-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
 [![OpenCV & YOLOv8](https://img.shields.io/badge/AI%20Vision-OpenCV%20%7C%20YOLOv8-FF6F00?style=for-the-badge&logo=opencv)](https://opencv.org/)
 [![Database](https://img.shields.io/badge/Database-PostgreSQL%20%2F%20SQLite%20Auto--Fallback-4169E1?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
+
+> 📹 **Project Demo Video:** [Click here to watch full video demonstration on Google Drive](https://drive.google.com/file/d/1IAAbHM6YBYtJJiLKWgiLkWwVY8TLMVt1/view?usp=sharing)
 
 ---
 
