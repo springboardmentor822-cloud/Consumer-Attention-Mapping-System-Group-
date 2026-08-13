@@ -52,8 +52,11 @@ const StoreManagerDashboard: React.FC = () => {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [shelves, setShelves] = useState<Shelf[]>([]);
   
-  // Active Navigation Tab
+  // Active Navigation Tab & Active Selected Camera
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeCameraId, setActiveCameraId] = useState<number>(1);
+  const [activeCameraName, setActiveCameraName] = useState<string>("Camera 1 (Entrance)");
+  const [activeCameraZone, setActiveCameraZone] = useState<string>("Zone 1 - Main Entrance & Foyer");
 
   // CRUD state variables
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
@@ -623,7 +626,11 @@ const StoreManagerDashboard: React.FC = () => {
 
             {/* AI Computer Vision Live Camera Stream & Homography Heatmap Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AICameraStream cameraId={1} cameraName="Store Operations AI Vision" zoneName="Zone 1 Entrance & Shelf Bays" />
+              <AICameraStream 
+                cameraId={activeCameraId} 
+                cameraName={activeCameraName} 
+                zoneName={activeCameraZone} 
+              />
               <HeatmapCanvas storeId={selectedStore?.id || 1} />
             </div>
 
@@ -633,35 +640,54 @@ const StoreManagerDashboard: React.FC = () => {
               {/* Live Camera registers feed block */}
               <div className="lg:col-span-1 bg-[#0c1524] border border-slate-800 rounded-xl p-4 flex flex-col h-[400px]">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Feeds</h3>
-                  <button onClick={() => setActiveTab("cameras")} className="text-[10px] text-blue-400 hover:underline">Manage</button>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Feeds</h3>
+                    <p className="text-[10px] text-slate-450 mt-0.5">Click any camera feed to view stream</p>
+                  </div>
+                  <button onClick={() => setActiveTab("cameras")} className="text-[10px] font-bold text-blue-400 hover:underline">Manage Feeds</button>
                 </div>
                 <div className="space-y-3 flex-1 overflow-y-auto pr-1">
                   {cameras.length === 0 ? (
                     <div className="text-slate-500 text-xs text-center py-10">No cameras registered. Please provision store.</div>
                   ) : (
-                    cameras.map((camera) => (
-                      <div 
-                        key={camera.id}
-                        onMouseEnter={() => setHoveredCameraId(camera.id)}
-                        onMouseLeave={() => setHoveredCameraId(null)}
-                        className={`p-2.5 rounded-lg border flex justify-between items-center cursor-pointer transition-all ${
-                          hoveredCameraId === camera.id ? "bg-[#162740] border-blue-500" : "bg-[#0f1c2d] border-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Video className="w-4.5 h-4.5 text-blue-400" />
-                          <div>
-                            <p className="text-[11px] font-bold text-slate-200 truncate max-w-[120px]">{camera.name}</p>
-                            <p className="text-[9px] text-slate-450 mt-0.5">Stream: {camera.stream_url}</p>
+                    cameras.map((camera) => {
+                      const isSelected = activeCameraId === camera.id;
+                      return (
+                        <div 
+                          key={camera.id}
+                          onClick={() => {
+                            setActiveCameraId(camera.id);
+                            setActiveCameraName(camera.name);
+                            setActiveCameraZone(camera.description || `Zone ${camera.id} Coverage`);
+                          }}
+                          onMouseEnter={() => setHoveredCameraId(camera.id)}
+                          onMouseLeave={() => setHoveredCameraId(null)}
+                          className={`p-2.5 rounded-lg border flex justify-between items-center cursor-pointer transition-all ${
+                            isSelected 
+                              ? "bg-cyan-950/60 border-cyan-400 text-cyan-200 shadow-md shadow-cyan-950" 
+                              : hoveredCameraId === camera.id 
+                                ? "bg-[#162740] border-blue-500" 
+                                : "bg-[#0f1c2d] border-slate-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Video className={`w-4.5 h-4.5 ${isSelected ? "text-cyan-400" : "text-blue-400"}`} />
+                            <div>
+                              <p className="text-[11px] font-bold text-slate-200 truncate max-w-[120px]">{camera.name}</p>
+                              <p className="text-[9px] text-slate-450 mt-0.5">Stream: {camera.stream_url}</p>
+                            </div>
                           </div>
+                          <span className={`flex items-center gap-1.5 text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${
+                            isSelected
+                              ? "text-cyan-300 bg-cyan-900/60 border-cyan-500/50"
+                              : "text-emerald-400 bg-emerald-950/60 border-emerald-900/50"
+                          }`}>
+                            <span className={`w-1 h-1 rounded-full ${isSelected ? "bg-cyan-400" : "bg-emerald-400"} animate-ping`}></span>
+                            {isSelected ? "LIVE VIEW" : "Online"}
+                          </span>
                         </div>
-                        <span className="flex items-center gap-1.5 text-[9px] font-extrabold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-900/50">
-                          <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                          Online
-                        </span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -788,14 +814,17 @@ const StoreManagerDashboard: React.FC = () => {
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* VIEW 2: CAMERAS (CRUD PANEL) */}
+        {/* VIEW 2: CAMERAS (CRUD PANEL & LIVE VISION WALL) */}
         {/* ---------------------------------------------------- */}
         {activeTab === "cameras" && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-bold text-slate-100">Live Camera Ingestion Network</h2>
-                <p className="text-xs text-slate-400">Add, edit, or delete store camera streams and view live status indicators.</p>
+                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  <Video className="w-5 h-5 text-cyan-400" />
+                  Live Camera Ingestion Network & Multiview Wall
+                </h2>
+                <p className="text-xs text-slate-400">Live AI Vision streams, MP4 store video uploads, and camera ingestion controls.</p>
               </div>
               <button
                 onClick={() => {
@@ -807,6 +836,35 @@ const StoreManagerDashboard: React.FC = () => {
               >
                 <Plus className="w-3.5 h-3.5" /> Register Camera
               </button>
+            </div>
+
+            {/* Live AI Multi-Camera Stream Wall */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Multi-Camera Live AI Streams ({cameras.length > 0 ? cameras.length : 4} Active Vision Feeds)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
+                  Each feed supports real MP4 video uploads
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(cameras.length > 0 ? cameras : [
+                  { id: 1, name: "Camera 1 (Entrance)", description: "Monitors main foyer & promotional end-cap bay." },
+                  { id: 2, name: "Camera 2 (Beverage Aisle)", description: "Monitors cold beverage racks & juice shelves." },
+                  { id: 3, name: "Camera 3 (Checkout Counter)", description: "Monitors impulse snacks & billing lines." },
+                  { id: 4, name: "Camera 4 (Bakery & Produce)", description: "Monitors fresh bakery display." }
+                ]).map((cam) => (
+                  <AICameraStream
+                    key={cam.id}
+                    cameraId={cam.id}
+                    cameraName={cam.name}
+                    zoneName={cam.description || `Zone ${cam.id} Coverage`}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Cameras Table */}
