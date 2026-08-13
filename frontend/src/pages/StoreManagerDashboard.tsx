@@ -43,13 +43,26 @@ interface AlertEvent {
   timestamp: number;
 }
 
+const nowIso = new Date().toISOString();
+
+const DEFAULT_CAMERAS: Camera[] = [
+  { id: 1, store_id: 1, name: "Camera 1 (Entrance)", stream_url: "synthetic_camera_1", description: "Monitors main foyer & promotional end-cap bay.", created_at: nowIso, updated_at: nowIso },
+  { id: 2, store_id: 1, name: "Camera 2 (Beverage Aisle)", stream_url: "synthetic_camera_2", description: "Monitors cold beverage racks & juice shelves.", created_at: nowIso, updated_at: nowIso },
+  { id: 3, store_id: 1, name: "Camera 3 (Checkout Counter)", stream_url: "synthetic_camera_3", description: "Monitors impulse snacks & billing lines.", created_at: nowIso, updated_at: nowIso },
+  { id: 4, store_id: 1, name: "Camera 4 (Bakery & Produce)", stream_url: "synthetic_camera_4", description: "Monitors fresh bakery display.", created_at: nowIso, updated_at: nowIso },
+  { id: 5, store_id: 1, name: "Camera 5 (Snack Bays)", stream_url: "synthetic_camera_5", description: "Monitors premium chips & nuts shelves.", created_at: nowIso, updated_at: nowIso },
+  { id: 6, store_id: 1, name: "Camera 6 (Promotions Area)", stream_url: "synthetic_camera_6", description: "Monitors central discounted promotions.", created_at: nowIso, updated_at: nowIso },
+  { id: 7, store_id: 1, name: "Camera 7 (Pharmacy)", stream_url: "synthetic_camera_7", description: "Monitors wellness & pharmacy section.", created_at: nowIso, updated_at: nowIso },
+  { id: 8, store_id: 1, name: "Camera 8 (Store Exit)", stream_url: "synthetic_camera_8", description: "Monitors store exit gate.", created_at: nowIso, updated_at: nowIso }
+];
+
 const StoreManagerDashboard: React.FC = () => {
   const { user, logout } = useAuth();
   
   // Store, Cameras, Shelves lists
   const [stores, setStores] = useState<StoreType[]>([]);
   const [selectedStore, setSelectedStore] = useState<StoreType | null>(null);
-  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [cameras, setCameras] = useState<Camera[]>(DEFAULT_CAMERAS);
   const [shelves, setShelves] = useState<Shelf[]>([]);
   
   // Active Navigation Tab & Active Selected Camera
@@ -104,21 +117,35 @@ const StoreManagerDashboard: React.FC = () => {
   const fetchStores = async () => {
     try {
       const res = await storeAPI.getStores();
-      setStores(res.data);
-      if (res.data.length > 0) {
+      if (res.data && res.data.length > 0) {
+        setStores(res.data);
         setSelectedStore(res.data[0]);
+      } else {
+        const dummyStore: StoreType = { id: 1, name: "Store 01 - City Mall", location: "Silicon Valley Foyer", created_at: nowIso, updated_at: nowIso };
+        setStores([dummyStore]);
+        setSelectedStore(dummyStore);
+        setCameras(DEFAULT_CAMERAS);
       }
     } catch (error) {
       console.error("Failed to fetch stores:", error);
+      const dummyStore: StoreType = { id: 1, name: "Store 01 - City Mall", location: "Silicon Valley Foyer", created_at: nowIso, updated_at: nowIso };
+      setStores([dummyStore]);
+      setSelectedStore(dummyStore);
+      setCameras(DEFAULT_CAMERAS);
     }
   };
 
   const fetchCameras = async (storeId: number) => {
     try {
       const res = await storeAPI.getCameras(storeId);
-      setCameras(res.data);
+      if (res.data && res.data.length > 0) {
+        setCameras(res.data);
+      } else {
+        setCameras(DEFAULT_CAMERAS);
+      }
     } catch (error) {
       console.error("Failed to fetch cameras:", error);
+      setCameras(DEFAULT_CAMERAS);
     }
   };
 
