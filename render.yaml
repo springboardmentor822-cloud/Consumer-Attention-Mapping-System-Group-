@@ -20,7 +20,6 @@ services:
   - type: web
     name: cams-frontend
     runtime: static
-    region: singapore
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
@@ -31,5 +30,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        sync: false
         value: https://cams-backend.onrender.com
