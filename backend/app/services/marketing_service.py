@@ -4,8 +4,12 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-from app.models.store import Store, Zone, Shelf, Product, Camera, AttentionLog
+from app.models.store import Store, Zone, Shelf, Product, Camera, AttentionLog, MarketingCampaign
 from app.ai.live_analytics import get_all_trackers
+from app.ai.behavior_engine import (
+    calculate_product_attractiveness,
+    generate_recommendations,
+)
 
 
 def get_marketing_overview_data(db: Session, store_id: int = 1) -> Dict[str, Any]:
@@ -21,10 +25,9 @@ def get_marketing_overview_data(db: Session, store_id: int = 1) -> Dict[str, Any
     new_customers = total_visitors - returning_customers
     products_viewed = int(total_visitors * 1.85)
     products_picked = int(products_viewed * 0.42)
-    sales_generated = int(products_picked * 48.5)  # $ sales
+    sales_generated = int(products_picked * 48.5)
     conversion_rate = round((products_picked / max(1, products_viewed)) * 100, 1)
 
-    # Top zone calculation
     zone_visit_map = defaultdict(int)
     for l in logs:
         if l.zone:
@@ -47,9 +50,23 @@ def get_marketing_overview_data(db: Session, store_id: int = 1) -> Dict[str, Any
 
 
 def get_campaign_analytics_data(db: Session, store_id: int = 1) -> Dict[str, Any]:
-    return {
-        "top_campaign": "Summer Beverage Blitz '26",
-        "active_campaigns": [
+    db_campaigns = db.query(MarketingCampaign).filter(MarketingCampaign.store_id == store_id).all() if db else []
+    active_campaigns = []
+    if db_campaigns:
+        for c in db_campaigns:
+            active_campaigns.append({
+                "name": c.name,
+                "duration": c.duration,
+                "promoted_products": c.promoted_products,
+                "reach": c.reach,
+                "attention_score": c.attention_score,
+                "visitors": c.visitors,
+                "product_engagement": c.product_engagement,
+                "sales_lift": c.sales_lift,
+                "roi": c.roi
+            })
+    else:
+        active_campaigns = [
             {
                 "name": "Summer Beverage Blitz '26",
                 "duration": "Jul 15 - Aug 15",
@@ -71,25 +88,45 @@ def get_campaign_analytics_data(db: Session, store_id: int = 1) -> Dict[str, Any
                 "product_engagement": "64.0%",
                 "sales_lift": "+22.1%",
                 "roi": "285%"
-            },
-            {
-                "name": "Chef Cooking Essentials",
-                "duration": "Jul 01 - Jul 31",
-                "promoted_products": "Olive Oil, Gourmet Spices, Pasta Sauces",
-                "reach": 11400,
-                "attention_score": 81.0,
-                "visitors": 3650,
-                "product_engagement": "71.5%",
-                "sales_lift": "+28.4%",
-                "roi": "350%"
             }
-        ],
+        ]
+
+    top_campaign = active_campaigns[0]["name"] if active_campaigns else "N/A"
+
+    return {
+        "top_campaign": top_campaign,
+        "active_campaigns": active_campaigns,
         "performance_trend": [
             {"week": "Week 1", "reach": 3200, "engagement": 65, "sales_lift": 18},
             {"week": "Week 2", "reach": 5400, "engagement": 72, "sales_lift": 26},
             {"week": "Week 3", "reach": 8900, "engagement": 79, "sales_lift": 31},
             {"week": "Week 4", "reach": 14250, "engagement": 84, "sales_lift": 35}
         ]
+    }
+
+
+def get_marketing_visibility_data(db: Session, store_id: int = 1) -> Dict[str, Any]:
+    scores = calculate_product_attractiveness(db, store_id)
+    visibility_summary = []
+    for s in scores:
+        visibility_summary.append({
+            "product_name": s["product_name"],
+            "zone": s["zone"],
+            "visibility_score": s["shelf_visibility_score"],
+            "attention_duration": s["attention_duration"],
+            "marketing_effectiveness": s["marketing_effectiveness_score"],
+            "attractiveness_score": s["attractiveness_score"]
+        })
+    return {
+        "product_visibility": visibility_summary
+    }
+
+
+def get_marketing_recommendations_data(db: Session, store_id: int = 1) -> Dict[str, Any]:
+    all_recs = generate_recommendations(db, store_id)
+    promo_recs = [r for r in all_recs if r.get("category") in ["Promotional Placement", "Low Visibility High Conversion", "Underperforming High Attention"]]
+    return {
+        "promotional_recommendations": promo_recs
     }
 
 

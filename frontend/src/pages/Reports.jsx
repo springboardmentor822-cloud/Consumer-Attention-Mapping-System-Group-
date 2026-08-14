@@ -78,17 +78,54 @@ export default function Reports() {
     navigate(route);
   };
 
-  const handleDownloadCsv = () => {
-    window.open(`${api.defaults.baseURL || "http://localhost:8000"}/analytics/export/csv`, "_blank");
+  const handleDownloadCsv = async () => {
+    try {
+      const response = await api.get("/analytics/export/csv", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `store_analytics_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("CSV download failed:", err);
+      alert("Failed to download CSV report.");
+    }
   };
 
-  const handleDownloadExcel = () => {
-    window.open(`${api.defaults.baseURL || "http://localhost:8000"}/analytics/export/excel`, "_blank");
+  const handleDownloadExcel = async () => {
+    try {
+      const response = await api.get("/analytics/export/excel", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `store_analytics_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Excel download failed:", err);
+      alert("Failed to download Excel report.");
+    }
   };
 
-  const handleDownloadPdf = () => {
-    window.open(`${api.defaults.baseURL || "http://localhost:8000"}/analytics/export/pdf`, "_blank");
+  const handleDownloadPdf = async () => {
+    try {
+      const response = await api.get("/analytics/export/pdf", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `store_analytics_${new Date().toISOString().slice(0, 10)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      alert("Failed to download PDF report.");
+    }
   };
+
 
   const handleDownloadJson = () => {
     if (!data) return;

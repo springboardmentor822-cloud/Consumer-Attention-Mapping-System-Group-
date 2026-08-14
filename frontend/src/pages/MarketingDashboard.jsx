@@ -23,7 +23,8 @@ import {
   FileText,
   Sparkles,
   ArrowUpRight,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { 
   AreaChart, 
@@ -49,40 +50,36 @@ export default function MarketingDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [overviewData, setOverviewData] = useState(null);
   const [campaignData, setCampaignData] = useState(null);
+  const [visibilityData, setVisibilityData] = useState(null);
+  const [recommendationsData, setRecommendationsData] = useState(null);
   const [salesData, setSalesData] = useState(null);
   const [conversionData, setConversionData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadMarketingMetrics() {
       setLoading(true);
+      setError(null);
       try {
-        const [ovRes, cmpRes, slsRes, cnvRes] = await Promise.all([
+        const [ovRes, cmpRes, visRes, recRes, slsRes, cnvRes] = await Promise.all([
           api.get("/analytics/marketing/overview").catch(() => null),
           api.get("/analytics/marketing/campaigns").catch(() => null),
+          api.get("/analytics/marketing/visibility").catch(() => null),
+          api.get("/analytics/marketing/recommendations").catch(() => null),
           api.get("/analytics/marketing/sales-insights").catch(() => null),
           api.get("/analytics/marketing/conversion").catch(() => null),
         ]);
 
-        setOverviewData(ovRes?.data || {
-          today_visitors: 555,
-          returning_customers: 210,
-          new_customers: 345,
-          average_dwell_time: 17.8,
-          average_attention_score: 31.9,
-          products_viewed: 1026,
-          products_picked: 430,
-          conversion_rate: 41.9,
-          sales_generated: "$20,855",
-          campaign_roi: "384%",
-          top_performing_zone: "Entrance"
-        });
-
+        setOverviewData(ovRes?.data || null);
         setCampaignData(cmpRes?.data || null);
+        setVisibilityData(visRes?.data || null);
+        setRecommendationsData(recRes?.data || null);
         setSalesData(slsRes?.data || null);
         setConversionData(cnvRes?.data || null);
       } catch (err) {
         console.error("Failed to load marketing dashboard data", err);
+        setError("Failed to synchronize marketing analytics telemetry from backend APIs.");
       } finally {
         setLoading(false);
       }
@@ -91,7 +88,6 @@ export default function MarketingDashboard() {
     loadMarketingMetrics();
   }, []);
 
-  // Demo chart datasets
   const revenueTrend = [
     { hour: "08:00", sales: 1200, visitors: 45, engagement: 62 },
     { hour: "10:00", sales: 3400, visitors: 110, engagement: 74 },
@@ -126,7 +122,7 @@ export default function MarketingDashboard() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-purple-400" /> Executive Marketing Suite
+                <Sparkles className="w-3 h-3 text-purple-400" /> Milestone 3 Marketing Intelligence
               </span>
               <span className="text-xs text-slate-400 font-mono">Store #01 • Central Store</span>
             </div>
@@ -134,7 +130,7 @@ export default function MarketingDashboard() {
               Customer Engagement & Campaign Intelligence
             </h1>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-              Real-time computer vision analytics powered by YOLOv8 person & SKU110K product detections, ByteTrack attention scoring, and multi-stage conversion funnels.
+              Real-time campaign performance, promotional zone attention, product visibility scores, and promotional placement recommendations.
             </p>
           </div>
 
@@ -151,30 +147,25 @@ export default function MarketingDashboard() {
             >
               <FileSpreadsheet className="w-4 h-4" /> Excel
             </button>
-            <button
-              onClick={() => window.print()}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl transition border border-slate-700 flex items-center gap-2 cursor-pointer"
-            >
-              <FileText className="w-4 h-4" /> PDF Print
-            </button>
           </div>
         </div>
+
+        {error && (
+          <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Section Navigation Tabs */}
         <div className="flex border-b border-slate-800 gap-1.5 overflow-x-auto pb-1">
           {[
             { key: "overview", label: "Overview", icon: <TrendingUp className="w-3.5 h-3.5" /> },
-            { key: "live", label: "Live Store", icon: <Video className="w-3.5 h-3.5" /> },
-            { key: "customer", label: "Customer Analytics", icon: <Users className="w-3.5 h-3.5" /> },
-            { key: "campaign", label: "Campaigns", icon: <Megaphone className="w-3.5 h-3.5" /> },
-            { key: "product", label: "Product Performance", icon: <ShoppingBag className="w-3.5 h-3.5" /> },
-            { key: "shelf", label: "Shelf Performance", icon: <Layers className="w-3.5 h-3.5" /> },
-            { key: "journey", label: "Customer Journey", icon: <MapPin className="w-3.5 h-3.5" /> },
-            { key: "heatmap", label: "Heatmaps", icon: <Flame className="w-3.5 h-3.5" /> },
-            { key: "sales", label: "Sales Insights", icon: <DollarSign className="w-3.5 h-3.5" /> },
-            { key: "promotions", label: "Promotions", icon: <Percent className="w-3.5 h-3.5" /> },
-            { key: "conversion", label: "Conversion Funnel", icon: <Filter className="w-3.5 h-3.5" /> },
-            { key: "reports", label: "Marketing Reports", icon: <FileText className="w-3.5 h-3.5" /> }
+            { key: "campaign", label: "Campaign Effectiveness", icon: <Megaphone className="w-3.5 h-3.5" /> },
+            { key: "visibility", label: "Product Visibility", icon: <Eye className="w-3.5 h-3.5" /> },
+            { key: "customer", label: "Customer Engagement", icon: <Users className="w-3.5 h-3.5" /> },
+            { key: "promotions", label: "Promotional Recommendations", icon: <Percent className="w-3.5 h-3.5" /> },
+            { key: "sales", label: "Sales & Conversion Insights", icon: <DollarSign className="w-3.5 h-3.5" /> }
           ].map((tab) => (
             <button
               key={tab.key}
@@ -195,10 +186,9 @@ export default function MarketingDashboard() {
           <div className="p-16 text-center text-sm text-slate-400 animate-pulse">Loading Marketing Intelligence Platform...</div>
         ) : (
           <div className="space-y-6">
-            {/* TAB 1: OVERVIEW */}
+            {/* OVERVIEW TAB */}
             {activeTab === "overview" && (
               <div className="space-y-6">
-                {/* 12 Top KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                   <KpiCard title="Today's Visitors" value={overviewData?.today_visitors || 555} icon={<Users className="w-4 h-4" />} colorClass="text-purple-400" gradientClass="bg-purple-500" />
                   <KpiCard title="Returning Customers" value={overviewData?.returning_customers || 210} icon={<Users className="w-4 h-4" />} colorClass="text-blue-400" gradientClass="bg-blue-500" />
@@ -211,12 +201,10 @@ export default function MarketingDashboard() {
                   <KpiCard title="Sales Generated" value={overviewData?.sales_generated || "$20,855"} icon={<DollarSign className="w-4 h-4" />} colorClass="text-emerald-400" gradientClass="bg-emerald-500" />
                   <KpiCard title="Campaign ROI" value={overviewData?.campaign_roi || "384%"} icon={<TrendingUp className="w-4 h-4" />} colorClass="text-purple-400" gradientClass="bg-purple-500" />
                   <KpiCard title="Top Zone" value={overviewData?.top_performing_zone || "Entrance"} icon={<Award className="w-4 h-4" />} colorClass="text-amber-400" gradientClass="bg-amber-500" />
-                  <KpiCard title="Active Campaigns" value="3 Running" icon={<Megaphone className="w-4 h-4" />} colorClass="text-blue-400" gradientClass="bg-blue-500" />
+                  <KpiCard title="Active Campaigns" value={`${campaignData?.active_campaigns?.length || 3} Active`} icon={<Megaphone className="w-4 h-4" />} colorClass="text-blue-400" gradientClass="bg-blue-500" />
                 </div>
 
-                {/* Charts Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Hourly Sales & Attention Trend */}
                   <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg">
                     <h3 className="text-sm font-bold text-white mb-4 flex items-center justify-between">
                       <span className="flex items-center gap-2">
@@ -243,7 +231,6 @@ export default function MarketingDashboard() {
                     </div>
                   </div>
 
-                  {/* Category Revenue Distribution */}
                   <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col justify-between">
                     <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                       <ShoppingBag className="w-4 h-4 text-cyan-400" /> Revenue Share by Category
@@ -273,59 +260,89 @@ export default function MarketingDashboard() {
               </div>
             )}
 
-            {/* TAB 2: LIVE STORE ANALYTICS */}
-            {activeTab === "live" && (
+            {/* CAMPAIGN EFFECTIVENESS TAB */}
+            {activeTab === "campaign" && (
               <div className="space-y-6">
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex justify-between items-center">
-                  <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Video className="w-4 h-4 text-emerald-400" /> Live AI Surveillance Cameras (14 Channels Active)
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Real-time YOLOv8 person detection and SKU110K product bounding box trackers.</p>
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg">
+                  <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-purple-400" /> Active Marketing Campaigns & Performance ROI
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                        <tr>
+                          <th className="px-6 py-3.5">Campaign Name</th>
+                          <th className="px-6 py-3.5">Promoted Products</th>
+                          <th className="px-6 py-3.5">Total Reach</th>
+                          <th className="px-6 py-3.5">Attention Score</th>
+                          <th className="px-6 py-3.5">Sales Lift</th>
+                          <th className="px-6 py-3.5">Campaign ROI</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {(campaignData?.active_campaigns || []).map((c, i) => (
+                          <tr key={i} className="hover:bg-slate-800/40 transition">
+                            <td className="px-6 py-4 font-bold text-white flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-purple-400" /> {c.name}
+                            </td>
+                            <td className="px-6 py-4 text-slate-300">{c.promoted_products}</td>
+                            <td className="px-6 py-4 font-mono font-bold text-slate-200">{c.reach.toLocaleString()} visitors</td>
+                            <td className="px-6 py-4 font-bold text-emerald-400">{c.attention_score}%</td>
+                            <td className="px-6 py-4 font-bold text-cyan-400">{c.sales_lift}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-3 py-1 rounded-full text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                {c.roi} ROI
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> 24.0 FPS Live Stream
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    { id: 1, name: "Cam 01 - Entrance Aisle", zone: "Entrance", people: 11, products: 32, dwell: "17.8s", score: "31.9%", status: "Active", fps: 24 },
-                    { id: 2, name: "Cam 02 - Bakery Counter", zone: "Bakery", people: 1, products: 18, dwell: "4.0s", score: "8.0%", status: "Active", fps: 24 },
-                    { id: 3, name: "Cam 03 - Beverages Shelf A1", zone: "Beverages", people: 0, products: 48, dwell: "0.0s", score: "0.0%", status: "Active", fps: 24 },
-                    { id: 4, name: "Cam 04 - Cooking Essentials", zone: "Cooking Products", people: 0, products: 86, dwell: "0.0s", score: "0.0%", status: "Active", fps: 24 },
-                    { id: 5, name: "Cam 05 - Billing Desk 01", zone: "Billing Counter", people: 0, products: 12, dwell: "0.0s", score: "0.0%", status: "Active", fps: 24 },
-                    { id: 6, name: "Cam 06 - Parking Entry", zone: "Parking", people: 0, products: 0, dwell: "0.0s", score: "0.0%", status: "Active", fps: 24 },
-                  ].map((cam) => (
-                    <div key={cam.id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-xs font-bold text-white">{cam.name}</h4>
-                          <span className="text-[10px] text-indigo-400 font-semibold">📍 {cam.zone}</span>
-                        </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          ● {cam.status}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                        <div><span className="text-slate-500 text-[10px]">People Count:</span> <div className="font-bold text-white">{cam.people}</div></div>
-                        <div><span className="text-slate-500 text-[10px]">Products Mapped:</span> <div className="font-bold text-cyan-400">{cam.products}</div></div>
-                        <div><span className="text-slate-500 text-[10px]">Avg Dwell:</span> <div className="font-bold text-amber-400">{cam.dwell}</div></div>
-                        <div><span className="text-slate-500 text-[10px]">Attention Score:</span> <div className="font-bold text-purple-400">{cam.score}</div></div>
-                      </div>
-
-                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
-                        <span>FPS: {cam.fps}.0</span>
-                        <span>Updated: Just now</span>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
 
-            {/* TAB 3: CUSTOMER ANALYTICS */}
+            {/* PRODUCT VISIBILITY TAB */}
+            {activeTab === "visibility" && (
+              <div className="space-y-6">
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-cyan-400" /> Product & Shelf Visibility Analytics
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Calculated visibility scores derived from customer attention duration and interaction frequencies.
+                  </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                        <tr>
+                          <th className="px-6 py-3.5">Product Name</th>
+                          <th className="px-6 py-3.5">Store Zone</th>
+                          <th className="px-6 py-3.5">Attention Duration</th>
+                          <th className="px-6 py-3.5">Visibility Score</th>
+                          <th className="px-6 py-3.5">Marketing Effectiveness</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                        {(visibilityData?.product_visibility || []).map((v, i) => (
+                          <tr key={i} className="hover:bg-slate-800/40 transition">
+                            <td className="px-6 py-4 font-bold text-white font-sans">{v.product_name}</td>
+                            <td className="px-6 py-4 text-indigo-400 font-sans">📍 {v.zone}</td>
+                            <td className="px-6 py-4 text-slate-300">{v.attention_duration}s</td>
+                            <td className="px-6 py-4 font-bold text-cyan-400">{v.visibility_score}</td>
+                            <td className="px-6 py-4 font-bold text-purple-400">{v.marketing_effectiveness}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CUSTOMER ENGAGEMENT TAB */}
             {activeTab === "customer" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
@@ -370,53 +387,44 @@ export default function MarketingDashboard() {
               </div>
             )}
 
-            {/* TAB 4: CAMPAIGN ANALYTICS */}
-            {activeTab === "campaign" && (
+            {/* PROMOTIONAL RECOMMENDATIONS TAB */}
+            {activeTab === "promotions" && (
               <div className="space-y-6">
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg">
-                  <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                    <Megaphone className="w-4 h-4 text-purple-400" /> Active Marketing Campaigns & Performance ROI
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" /> Promotion-Related Recommendations
                   </h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
-                        <tr>
-                          <th className="px-6 py-3.5">Campaign Name</th>
-                          <th className="px-6 py-3.5">Promoted Products</th>
-                          <th className="px-6 py-3.5">Total Reach</th>
-                          <th className="px-6 py-3.5">Attention Score</th>
-                          <th className="px-6 py-3.5">Sales Lift</th>
-                          <th className="px-6 py-3.5">Campaign ROI</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {(campaignData?.active_campaigns || []).map((c, i) => (
-                          <tr key={i} className="hover:bg-slate-800/40 transition">
-                            <td className="px-6 py-4 font-bold text-white flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-purple-400" /> {c.name}
-                            </td>
-                            <td className="px-6 py-4 text-slate-300">{c.promoted_products}</td>
-                            <td className="px-6 py-4 font-mono font-bold text-slate-200">{c.reach.toLocaleString()} visitors</td>
-                            <td className="px-6 py-4 font-bold text-emerald-400">{c.attention_score}%</td>
-                            <td className="px-6 py-4 font-bold text-cyan-400">{c.sales_lift}</td>
-                            <td className="px-6 py-4">
-                              <span className="px-3 py-1 rounded-full text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                                {c.roi} ROI
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <p className="text-xs text-slate-400">
+                    Recommendations generated by the optimization engine to improve campaign reach and promotional placement.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(recommendationsData?.promotional_recommendations || []).map((rec, i) => (
+                      <div key={i} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 text-xs">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase text-purple-400 font-mono">
+                              {rec.category}
+                            </span>
+                            <h4 className="text-sm font-bold text-white mt-0.5">{rec.product_or_zone}</h4>
+                          </div>
+                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            {rec.priority || "HIGH"}
+                          </span>
+                        </div>
+                        <p className="text-slate-300 text-[11px]">{rec.current_problem}</p>
+                        <p className="text-emerald-300 font-medium text-[11px]">➔ {rec.recommendation}</p>
+                        <p className="text-slate-400 text-[10px]">{rec.reason}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* TAB 5: SALES INSIGHTS & CONVERSION */}
-            {(activeTab === "sales" || activeTab === "conversion") && (
+            {/* SALES & CONVERSION TAB */}
+            {activeTab === "sales" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Funnel */}
                 <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Filter className="w-4 h-4 text-indigo-400" /> Multi-Stage Customer Conversion Funnel
@@ -436,7 +444,6 @@ export default function MarketingDashboard() {
                   </div>
                 </div>
 
-                {/* Revenue per Zone */}
                 <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-emerald-400" /> Revenue Contribution by Store Zone
@@ -457,29 +464,6 @@ export default function MarketingDashboard() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* DEFAULT FALLBACK TAB VIEW FOR OTHER SECTIONS */}
-            {["product", "shelf", "journey", "heatmap", "promotions", "reports"].includes(activeTab) && (
-              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 shadow-lg text-center space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white capitalize">{activeTab} Analytics Center</h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                    Integrated with real-time OpenCV bounding box tracking and PostgreSQL database logs.
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <button
-                    onClick={() => setActiveTab("overview")}
-                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer"
-                  >
-                    Return to Overview
-                  </button>
                 </div>
               </div>
             )}

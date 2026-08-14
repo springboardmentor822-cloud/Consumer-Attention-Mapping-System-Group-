@@ -12,7 +12,6 @@ export const ROLE_LABELS = {
   [ROLES.ADMINISTRATOR]: "Administrator",
 };
 
-// Store Manager & Administrator can see and manage all records
 export function canSeeAllRecords(role) {
   return role === ROLES.STORE_MANAGER || role === ROLES.ADMINISTRATOR;
 }
@@ -26,7 +25,7 @@ export function canManageCameras(role) {
 }
 
 export function canManageUsers(role) {
-  return role === ROLES.STORE_MANAGER || role === ROLES.ADMINISTRATOR;
+  return role === ROLES.ADMINISTRATOR;
 }
 
 export function canViewAnalyse(role) {
@@ -61,15 +60,16 @@ export const ROLE_PAGE_ACCESS = {
     ...ANALYTICS_ROUTES, ...REPORT_ROUTES, ...USER_ROUTES, ...SYSTEM_ROUTES, ...MARKETING_ROUTES, ...ANALYST_ROUTES, ...STORE_MANAGER_ROUTES, "/admin"
   ],
   [ROLES.RETAIL_ANALYST]: [
-    "/dashboard", "/shelves", "/products", "/zones", "/cameras",
-    ...ANALYTICS_ROUTES, ...REPORT_ROUTES, ...MARKETING_ROUTES, ...ANALYST_ROUTES, ...SYSTEM_ROUTES, ...STORE_MANAGER_ROUTES
+    "/dashboard", "/shelves", "/products", "/zones",
+    ...ANALYTICS_ROUTES, ...REPORT_ROUTES, ...ANALYST_ROUTES, ...SYSTEM_ROUTES
   ],
   [ROLES.STORE_MANAGER]: [
     "/dashboard", "/store", "/shelves", "/products", "/zones", "/cameras", "/video-upload",
-    ...REPORT_ROUTES, ...MARKETING_ROUTES, ...ANALYST_ROUTES, ...STORE_MANAGER_ROUTES, ...SYSTEM_ROUTES
+    ...REPORT_ROUTES, ...STORE_MANAGER_ROUTES, ...SYSTEM_ROUTES
   ],
   [ROLES.MARKETING_MANAGER]: [
     "/dashboard", "/products", "/zones",
-    ...REPORT_ROUTES, ...MARKETING_ROUTES, ...ANALYTICS_ROUTES, ...SYSTEM_ROUTES, ...ANALYST_ROUTES, ...STORE_MANAGER_ROUTES
+    ...REPORT_ROUTES, ...MARKETING_ROUTES, ...SYSTEM_ROUTES
   ],
 };
+
