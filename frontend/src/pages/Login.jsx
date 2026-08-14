@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
@@ -22,6 +22,15 @@ export default function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  function formatError(err, defaultMsg) {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
+    }
+    return defaultMsg;
+  }
+
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
@@ -30,7 +39,7 @@ export default function Login() {
       await login(email, password);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.detail || "Login failed. Check your credentials.");
+      setError(formatError(err, "Login failed. Check your credentials."));
     } finally {
       setBusy(false);
     }
@@ -51,11 +60,12 @@ export default function Login() {
       await login(email, password);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.detail || "Registration failed.");
+      setError(formatError(err, "Registration failed."));
     } finally {
       setBusy(false);
     }
   }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f4f6fa] px-4">

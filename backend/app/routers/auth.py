@@ -18,17 +18,26 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    target_role = payload.role
+    if isinstance(target_role, str):
+        role_str = target_role.strip().lower().replace(" ", "_")
+        for r in UserRole:
+            if r.value == role_str or r.name.lower() == role_str:
+                target_role = r
+                break
+
     user = User(
         full_name=payload.full_name,
         email=clean_email,
         hashed_password=hash_password(payload.password),
-        role=payload.role,
+        role=target_role,
         is_active=True,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
+
 
 
 @router.post("/login", response_model=Token)
