@@ -148,20 +148,25 @@ try:
         db.add_all([p1, p2, p3])
         db.commit()
 
-    # 2.5 Seed Default Cameras if empty
-    default_cam = db.query(Camera).first()
-    if not default_cam:
-        default_cam = Camera(
-            label="Entrance Camera",
-            location="Entrance",
-            stream_url="http://127.0.0.1:8000/processed/2_1_crop.mp4",
-            status="online",
-            store_id=default_store.id
-        )
-        db.add(default_cam)
-        db.commit()
-        db.refresh(default_cam)
-        print("Default camera successfully seeded!")
+    # 2.5 Seed Default Cameras if count < 4
+    if db.query(Camera).count() < 4:
+        cams_data = [
+            {"label": "Entrance Camera", "location": "Entrance", "stream_url": "/processed/2_1_crop.mp4", "status": "online", "store_id": default_store.id},
+            {"label": "Backdoor Camera", "location": "Backdoor", "stream_url": "/processed/2_2_crop.mp4", "status": "online", "store_id": default_store.id},
+            {"label": "Billing Counter Camera", "location": "Billing Counter", "stream_url": "/processed/3_1_crop.mp4", "status": "online", "store_id": default_store.id},
+            {"label": "Outside Camera", "location": "Outside", "stream_url": "/processed/8_3_crop.mp4", "status": "online", "store_id": default_store.id},
+        ]
+        existing_labels = {c.label for c in db.query(Camera).all()}
+        new_cams = []
+        for cdict in cams_data:
+            if cdict["label"] not in existing_labels:
+                new_cams.append(Camera(**cdict))
+        if new_cams:
+            db.add_all(new_cams)
+            db.commit()
+        default_cam = db.query(Camera).first()
+        print("Default cameras successfully seeded!")
+
 
     # 3. Seed M3 Shopper Sessions & Trajectories if empty
     if db.query(ShopperSession).count() == 0:
