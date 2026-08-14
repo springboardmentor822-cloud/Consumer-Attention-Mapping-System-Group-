@@ -148,24 +148,38 @@ try:
         db.add_all([p1, p2, p3])
         db.commit()
 
-    # 2.5 Seed Default Cameras if count < 4
-    if db.query(Camera).count() < 4:
-        cams_data = [
-            {"label": "Entrance Camera", "location": "Entrance", "stream_url": "/processed/2_1_crop.mp4", "status": "online", "store_id": default_store.id},
-            {"label": "Backdoor Camera", "location": "Backdoor", "stream_url": "/processed/2_2_crop.mp4", "status": "online", "store_id": default_store.id},
-            {"label": "Billing Counter Camera", "location": "Billing Counter", "stream_url": "/processed/3_1_crop.mp4", "status": "online", "store_id": default_store.id},
-            {"label": "Outside Camera", "location": "Outside", "stream_url": "/processed/8_3_crop.mp4", "status": "online", "store_id": default_store.id},
-        ]
-        existing_labels = {c.label for c in db.query(Camera).all()}
-        new_cams = []
-        for cdict in cams_data:
-            if cdict["label"] not in existing_labels:
-                new_cams.append(Camera(**cdict))
-        if new_cams:
-            db.add_all(new_cams)
-            db.commit()
-        default_cam = db.query(Camera).first()
-        print("Default cameras successfully seeded!")
+    # 2.5 Seed All Available Video Feeds as Cameras
+    existing_labels = {c.label for c in db.query(Camera).all()}
+    new_cams = []
+
+    # Explicit default cameras
+    defaults = [
+        {"label": "Entrance Camera", "location": "Entrance", "stream_url": "/processed/2_1_crop.mp4"},
+        {"label": "Backdoor Camera", "location": "Backdoor", "stream_url": "/processed/2_2_crop.mp4"},
+        {"label": "Billing Counter Camera", "location": "Billing Counter", "stream_url": "/processed/3_1_crop.mp4"},
+        {"label": "Outside Camera", "location": "Outside", "stream_url": "/processed/8_3_crop.mp4"},
+    ]
+    for d in defaults:
+        if d["label"] not in existing_labels:
+            new_cams.append(Camera(label=d["label"], location=d["location"], stream_url=d["stream_url"], status="online", store_id=default_store.id))
+            existing_labels.add(d["label"])
+
+    # Dynamically discover all mp4 files in processed and uploads
+    for folder in ["processed", "uploads"]:
+        if os.path.exists(folder):
+            for f in sorted(os.listdir(folder)):
+                if f.endswith(".mp4") and not f.endswith("_temp.mp4"):
+                    lbl = os.path.splitext(f)[0].replace("-", " ").replace("_", " ").title() + f" ({folder.capitalize()})"
+                    if lbl not in existing_labels and len(existing_labels) < 20:
+                        new_cams.append(Camera(label=lbl, location="Store Floor", stream_url=f"/{folder}/{f}", status="online", store_id=default_store.id))
+                        existing_labels.add(lbl)
+
+    if new_cams:
+        db.add_all(new_cams)
+        db.commit()
+    default_cam = db.query(Camera).first()
+    print(f"Total cameras registered: {db.query(Camera).count()}")
+
 
 
     # 3. Seed M3 Shopper Sessions & Trajectories if empty
