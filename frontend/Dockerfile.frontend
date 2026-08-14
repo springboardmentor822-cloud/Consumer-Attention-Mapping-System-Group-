@@ -1,0 +1,23 @@
+# Use official Node.js Alpine image for a small footprint
+FROM node:18-alpine
+
+# Set working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY frontend/package*.json ./
+
+# Install frontend dependencies
+RUN npm install
+
+# Copy the rest of the frontend code
+COPY frontend/ .
+
+# Build the Next.js application for production
+RUN npm run build
+
+# Expose the port Next.js runs on
+EXPOSE 3000
+
+# Command to start the Next.js production server
+CMD ["npm", "run", "start"]

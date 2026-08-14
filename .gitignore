@@ -1,0 +1,100 @@
+# =========================
+# 1. Python & FastAPI Backend
+# =========================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging & logs
+*.egg-info/
+.installed.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# =========================
+# 2. Database & Local State
+# =========================
+# Ignore all SQLite database files so you don't commit local data
+*.db
+*.sqlite3
+*.sqlite
+cams_retail.db
+sql_app.db
+vision_retail.db
+
+# =========================
+# 3. Machine Learning / YOLOv8
+# =========================
+# Ignore PyTorch model weights (these files are huge)
+*.pt
+yolov8n.pt
+
+# Ignore Ultralytics default output directories
+runs/
+ultralytics/
+
+# =========================
+# 4. Next.js & Frontend
+# =========================
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Frontend Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# 5. Heavy Media & Datasets (Fixes the 1.73 GB Issue)
+# =========================
+# Ignore all raw video files used for camera simulations
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# =========================
+# 6. Environment Variables
+# =========================
+# Never commit your secrets or database credentials
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# 7. OS & Editor Files
+# =========================
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# VS Code & IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
