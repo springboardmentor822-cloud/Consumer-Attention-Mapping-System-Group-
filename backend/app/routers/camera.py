@@ -211,7 +211,7 @@ def list_uploaded_videos(_=Depends(require_role(*READ_ALL_ROLES))):
                 clean_name = os.path.splitext(f)[0].replace("-", " ").replace("_", " ").title()
                 videos.append({
                     "filename": f,
-                    "url": f"http://127.0.0.1:8000/processed/{f}",
+                    "url": f"/processed/{f}",
                     "raw_url": f"/processed/{f}",
                     "label": clean_name
                 })
@@ -222,7 +222,7 @@ def list_uploaded_videos(_=Depends(require_role(*READ_ALL_ROLES))):
                 clean_name = os.path.splitext(f)[0].replace("-", " ").replace("_", " ").title()
                 videos.append({
                     "filename": f,
-                    "url": f"http://127.0.0.1:8000/uploads/{f}",
+                    "url": f"/uploads/{f}",
                     "raw_url": f"/uploads/{f}",
                     "label": clean_name
                 })
@@ -235,10 +235,19 @@ def stream_camera_feed(camera_id: int, heatmap: bool = False, db: Session = Depe
     camera = db.query(Camera).filter(Camera.id == camera_id).first()
     if not camera:
         raise HTTPException(status_code=404, detail="Camera not found")
+    
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "X-Accel-Buffering": "no",
+    }
     return StreamingResponse(
         frame_generator(camera_id, camera.stream_url, heatmap),
-        media_type="multipart/x-mixed-replace; boundary=frame"
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers=headers
     )
+
 
 
 @router.get("/{store_id}", response_model=List[CameraOut])
