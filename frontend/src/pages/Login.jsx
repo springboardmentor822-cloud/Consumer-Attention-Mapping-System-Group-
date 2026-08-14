@@ -5,6 +5,33 @@ import { FiLock, FiUserPlus } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
 import { roles } from "../utils/permissions";
 
+/** Turns any auth failure into a sentence a human can act on.
+ *
+ * FastAPI reports a 401 as `detail: "Invalid email or password"` (a string)
+ * but a 422 as `detail: [{loc, msg, ...}]` (an array of objects). The form
+ * previously rendered `detail` directly, so every validation failure - most
+ * commonly a password under 8 characters - showed nothing useful and left
+ * you guessing why registration was rejected. This formats the array into
+ * "Password: String should have at least 8 characters" instead.
+ */
+function describeAuthError(err, fallback) {
+  const detail = err?.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        // loc is like ["body", "password"] - the last entry is the field.
+        const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
+        const label = typeof field === "string" ? field.replace(/_/g, " ") : null;
+        const message = item.msg ?? "is invalid";
+        return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}: ${message}` : message;
+      })
+      .join(". ");
+  }
+  if (typeof detail === "string") return detail;
+  if (err?.response?.status === 401) return "Invalid email or password.";
+  return fallback;
+}
+
 export default function Login() {
   const [mode, setMode] = useState("login");
   const [error, setError] = useState("");
@@ -25,7 +52,7 @@ export default function Login() {
       }
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.detail || "Unable to complete authentication");
+      setError(describeAuthError(err, "Unable to complete authentication"));
     }
   }
 
@@ -65,6 +92,11 @@ export default function Login() {
             <label className="block">
               <span className="text-sm text-slate-300">Password</span>
               <input type="password" {...field("password", { required: true, minLength: mode === "register" ? 8 : 1 })} className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-white focus-ring" />
+              {/* States the backend's real rule up front - it used to be
+                  discoverable only by submitting and getting a 422. */}
+              {mode === "register" && (
+                <span className="mt-1 block text-xs text-slate-500">At least 8 characters</span>
+              )}
             </label>
             {mode === "register" && (
               <label className="block">
