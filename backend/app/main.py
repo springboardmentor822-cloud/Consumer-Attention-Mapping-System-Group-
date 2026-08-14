@@ -341,13 +341,20 @@ os.makedirs("uploads", exist_ok=True)
 app.mount("/processed", StaticFiles(directory="processed"), name="processed")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins_raw.strip() == "*":
+    origins = ["*"]
+else:
+    origins = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 app.include_router(auth.router)
 app.include_router(store_router.router)

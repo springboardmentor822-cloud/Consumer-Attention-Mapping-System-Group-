@@ -13,6 +13,8 @@ services:
         value: production
       - key: SECRET_KEY
         generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: https://cams-frontend.onrender.com,http://localhost:5173
 
   # 2. React Frontend Static Site
   - type: web
@@ -29,7 +31,5 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        fromService:
-          type: web
-          name: cams-backend
-          property: host
+        sync: false
+        value: https://cams-backend.onrender.com

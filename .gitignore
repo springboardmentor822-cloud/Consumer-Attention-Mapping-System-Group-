@@ -36,5 +36,10 @@ backend/datasets/
 frontend/public/*.mp4
 !frontend/public/.gitkeep
 
+# Databases
+*.db
+*.sqlite3
+
 # Temporary directories
 temp_repo/
+
