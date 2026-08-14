@@ -17,8 +17,9 @@ services:
         value: https://cams-frontend.onrender.com,http://localhost:5173
 
   # 2. React Frontend Static Site
-  - type: static
+  - type: web
     name: cams-frontend
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
