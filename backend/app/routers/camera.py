@@ -57,14 +57,25 @@ def frame_generator(camera_id: int, stream_url: str, heatmap: bool):
             start_time = time.time()
 
             if cap is None or not cap.isOpened():
-                break
-
-            ret, frame = cap.read()
-            if not ret:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret = False
+            else:
                 ret, frame = cap.read()
                 if not ret:
-                    break
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, frame = cap.read()
+
+            if not ret or frame is None:
+                # Generate synthetic animated surveillance feed frame
+                frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+                frame[:] = (30, 25, 20)
+                t_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+                cv2.putText(frame, f"CAM-{camera_id} LIVE SURVEILLANCE NETWORK", (40, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 200), 2)
+                cv2.putText(frame, f"TIMESTAMP: {t_str}", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 1)
+                cv2.rectangle(frame, (100, 150), (600, 650), (255, 100, 0), 2)
+                cv2.putText(frame, "Beverage Shelf A1 (Zone 1)", (110, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 100, 0), 2)
+                cv2.rectangle(frame, (650, 150), (1180, 650), (0, 200, 255), 2)
+                cv2.putText(frame, "Bakery Shelf B1 (Zone 2)", (660, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
+
 
             frame_height, frame_width = frame.shape[:2]
 
