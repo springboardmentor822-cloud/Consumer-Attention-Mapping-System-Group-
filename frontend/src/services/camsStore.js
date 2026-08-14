@@ -1,11 +1,11 @@
-﻿export const camsNavMap = {
+export const camsNavMap = {
   Administrator: [
     "Dashboard", "Store Management", "Camera Management", "Shelf Management", 
     "Platform Monitoring", "User & Role Management", "Reports", "Settings", "Notifications"
   ],
   "Store Manager": [
     "Dashboard", "Live Cameras", "Visitors", "Store Traffic", "Shelf Performance", 
-    "Product Interaction", "Heat Map", "Alerts", "Reports", "Activities", "Settings"
+    "Product Interaction", "Heat Map", "Alerts", "Reports", "Settings"
   ],
   "Marketing Manager": [
     "Dashboard", "Campaign Performance", "Promotion Effectiveness", "Product Visibility", 

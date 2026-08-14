@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import AiVisionCamera from "../../../components/vision/AiVisionCamera";
 import {
+import ComponentErrorBoundary from "../../../components/ComponentErrorBoundary";
+
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
   ComposedChart, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter, ZAxis
 } from "recharts";
@@ -75,7 +77,8 @@ export function MarketingDashboardOverviewPage() {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance Trends</h3>
           <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={trendData}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis dataKey="name" stroke="#64748B" fontSize={10} />
@@ -85,6 +88,7 @@ export function MarketingDashboardOverviewPage() {
                 <Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={2} name="Engagement %" />
               </ComposedChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -111,7 +115,8 @@ export function MarketingDashboardOverviewPage() {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Attention vs Conversion Trend</h3>
           <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis type="number" dataKey="time" name="Attention (s)" stroke="#64748B" fontSize={10} />
@@ -121,6 +126,7 @@ export function MarketingDashboardOverviewPage() {
                 <Scatter name="Engagement Matrix" data={scatterData} fill="#F59E0B" />
               </ScatterChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -132,7 +138,8 @@ export function MarketingDashboardOverviewPage() {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Attractiveness Radar Index</h3>
           <div className="h-48 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                 <PolarGrid stroke="#273449" />
                 <PolarAngleAxis dataKey="subject" stroke="#94A3B8" fontSize={9} />
@@ -140,6 +147,7 @@ export function MarketingDashboardOverviewPage() {
                 <Radar name="Attractiveness Score" dataKey="score" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.4} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>

@@ -1,35 +1,52 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip, BarChart, Bar, CartesianGrid, XAxis, YAxis, Cell
 } from "recharts";
-import { zones, formatNumber, formatCurrency } from "../../services/centralData";
+import { formatNumber, formatCurrency, getCentralScaledData } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
-const totalZones = zones.length;
-const bestZone = zones.reduce((a, b) => a.attentionScore > b.attentionScore ? a : b);
-const worstZone = zones.reduce((a, b) => a.attentionScore < b.attentionScore ? a : b);
-const avgEngagement = (zones.reduce((s, z) => s + z.engagement, 0) / totalZones).toFixed(1);
-const avgRevenue = zones.reduce((s, z) => s + z.revenue, 0) / totalZones;
-
-const zoneKpis = [
-  { label: "Total Zones Tracked", value: totalZones, change: "Active", icon: "🏢" },
-  { label: "Top Performing Zone", value: bestZone.name, change: `${bestZone.attentionScore}% score`, icon: "🏆" },
-  { label: "Underperforming Zone", value: worstZone.name, change: `${worstZone.attentionScore}% score`, icon: "⚠️" },
-  { label: "Avg Engagement Score", value: `${avgEngagement}%`, change: "Optimal", icon: "✨" },
-  { label: "Avg Revenue per Zone", value: formatCurrency(avgRevenue), change: "+12.4% vs last period", icon: "💰" },
-];
 
 export default function AnalystZonePerformance() {
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+
+  const activeFilter = localPeriod || globalFilter;
+  const centralData = getCentralScaledData(activeFilter);
+  const zones = centralData.zones;
+
+  const totalZones = zones?.length || 0;
+  const bestZone = totalZones > 0 ? zones.reduce((a, b) => a.attentionScore > b.attentionScore ? a : b) : { name: "-", attentionScore: 0 };
+  const worstZone = totalZones > 0 ? zones.reduce((a, b) => a.attentionScore < b.attentionScore ? a : b) : { name: "-", attentionScore: 0 };
+  const avgEngagement = totalZones > 0 ? (zones.reduce((s, z) => s + z.engagement, 0) / totalZones).toFixed(1) : 0;
+  const avgRevenue = totalZones > 0 ? zones.reduce((s, z) => s + z.revenue, 0) / totalZones : 0;
+  // Dynamic AI Insight layout optimization logic
+  let aiInsightText = "";
+  if (!zones || zones.length === 0) {
+    aiInsightText = "Insufficient data for AI insight.";
+  } else {
+    const lowConvZone = zones.reduce((min, z) => z.conversionRate < min.conversionRate ? z : min, zones[0]);
+    const avgConvRate = (zones.reduce((s, z) => s + z.conversionRate, 0) / totalZones).toFixed(1);
+    aiInsightText = `Our dynamic spatial optimizer identifies a drop-off in the ${lowConvZone.name} zone. Despite attracting ${formatNumber(lowConvZone.visitors)} visitors with a traffic density of ${lowConvZone.trafficDensity}%, its conversion rate is currently ${lowConvZone.conversionRate}% (well below the store average of ${avgConvRate}%). We predict that introducing targeted endcap displays or adjusting vertical layouts in ${lowConvZone.name} could lift conversions by an estimated 15% and generate an additional ${formatCurrency(Math.round(lowConvZone.revenue * 0.15))} this period.`;
+  }
+
+  const zoneKpis = [
+    { label: "Total Zones Tracked", value: totalZones, change: "Active", icon: "🏢" },
+    { label: "Top Performing Zone", value: bestZone.name, change: `${bestZone.attentionScore}% score`, icon: "🏆" },
+    { label: "Underperforming Zone", value: worstZone.name, change: `${worstZone.attentionScore}% score`, icon: "⚠️" },
+    { label: "Avg Engagement Score", value: `${avgEngagement}%`, change: "Optimal", icon: "✨" },
+    { label: "Avg Revenue per Zone", value: formatCurrency(avgRevenue), change: "+12.4% vs last period", icon: "💰" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Zone Performance</h1>
-          <p className="text-slate-400 text-xs">Evaluate the effectiveness of every store zone based on customer engagement, traffic density, and sales conversions.</p>
         </div>
-        <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
-          <span>📅</span><span>Aug 1 – Aug 7, 2026</span>
-        </button>
+        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}
@@ -48,7 +65,8 @@ export default function AnalystZonePerformance() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Zone Metric Radar Comparison</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart data={zones.slice(0, 6)}>
                 <PolarGrid stroke="#1E293B" />
                 <PolarAngleAxis dataKey="name" stroke="#94A3B8" fontSize={9} />
@@ -59,13 +77,15 @@ export default function AnalystZonePerformance() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Conversion Rates by Zone</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={zones.slice(0, 7)}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="name" stroke="#64748B" fontSize={9} />
@@ -76,6 +96,7 @@ export default function AnalystZonePerformance() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -114,7 +135,7 @@ export default function AnalystZonePerformance() {
         <div>
           <h4 className="text-xs font-bold text-white uppercase tracking-wider">AI Zone Layout Optimizer</h4>
           <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">
-            The low attention-to-dwell ratio in the Electronics zone (Z-05) suggests customers spend time looking around but struggle with spatial conversions. Moving high-visibility promo cards to Z-05's center aisle is predicted to lift conversion rate by +3.4% and generate an additional $5,400 monthly.
+            {aiInsightText}
           </p>
         </div>
       </div>

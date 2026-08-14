@@ -1,6 +1,8 @@
 ﻿import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, PieChart, Pie, Cell
 } from "recharts";
@@ -73,7 +75,8 @@ export default function RetailAnalystOverviewPage() {
                   <span className="text-[10px] bg-[#1E293B] text-slate-300 px-2.5 py-1 rounded-lg font-mono">Last 7 Days</span>
                 </div>
                 <div className="h-56 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                     <LineChart data={behaviorTrend}>
                       <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                       <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -82,6 +85,7 @@ export default function RetailAnalystOverviewPage() {
                       <Line type="monotone" dataKey="traffic" stroke="#06B6D4" strokeWidth={2.5} />
                     </LineChart>
                   </ResponsiveContainer>
+</ComponentErrorBoundary>
                 </div>
               </div>
 
@@ -90,7 +94,8 @@ export default function RetailAnalystOverviewPage() {
                   <h3 className="text-xs font-black text-white uppercase tracking-wider">CUSTOMER BEHAVIOR OVERVIEW</h3>
                 </div>
                 <div className="h-40 w-full flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={segmentationData} innerRadius={35} outerRadius={55} paddingAngle={5} dataKey="value">
                         {segmentationData.map((entry, index) => (
@@ -99,6 +104,7 @@ export default function RetailAnalystOverviewPage() {
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
+</ComponentErrorBoundary>
                 </div>
               </div>
             </div>

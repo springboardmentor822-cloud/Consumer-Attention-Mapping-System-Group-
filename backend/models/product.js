@@ -33,6 +33,29 @@ const Product = sequelize.define('Product', {
   price: {
     type: DataTypes.FLOAT
   },
+  selling_price: {
+    type: DataTypes.FLOAT
+  },
+  cost_price: {
+    type: DataTypes.FLOAT
+  },
+  profit: {
+    type: DataTypes.FLOAT
+  },
+  stock_qty: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  promo: {
+    type: DataTypes.STRING(100),
+    defaultValue: 'None'
+  },
+  store: {
+    type: DataTypes.STRING(100)
+  },
+  shelf: {
+    type: DataTypes.STRING(50)
+  },
   size: {
     type: DataTypes.STRING(50)
   },

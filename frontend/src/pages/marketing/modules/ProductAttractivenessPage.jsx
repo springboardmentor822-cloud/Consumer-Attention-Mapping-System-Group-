@@ -1,5 +1,7 @@
-﻿import React from "react";
+import React from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import ComponentErrorBoundary from "../../../components/ComponentErrorBoundary";
+
 
 export default function ProductAttractivenessPage() {
   const ragData = [
@@ -16,7 +18,6 @@ export default function ProductAttractivenessPage() {
       <div className="bg-[#111827] border border-[#273449] rounded-2xl p-4 flex justify-between items-center">
         <div>
           <h2 className="text-base font-extrabold text-white">✨ Product Attractiveness RAG Index</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Radar distribution of visual appeal, dwell time, and pick-up likelihood</p>
         </div>
       </div>
 
@@ -24,7 +25,8 @@ export default function ProductAttractivenessPage() {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-4">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Attractiveness Vector Map</h3>
           <div className="h-64 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={ragData}>
                 <PolarGrid stroke="#273449" />
                 <PolarAngleAxis dataKey="subject" stroke="#94A3B8" fontSize={10} />
@@ -32,6 +34,7 @@ export default function ProductAttractivenessPage() {
                 <Radar name="Product Score" dataKey="score" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.35} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 

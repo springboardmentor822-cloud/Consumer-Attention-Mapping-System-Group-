@@ -6,44 +6,48 @@ import {
 import { useCams } from "../../services/CamsContext";
 import { dailyTrafficTrend, zones, formatNumber, getCentralScaledData } from "../../services/centralData";
 import StoreHeatmapModel from "../../components/StoreHeatmapModel";
-import CustomDateSelector from "../../components/CustomDateSelector";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
 export default function StoreTraffic() {
-  const { telemetry } = useCams();
+  const { globalFilter } = useCams(); // Read unified global filter from context
+  const filter = globalFilter;
+  const selectedPeriod = filter.dateRange;
 
-  // Widget Date Filter States
-  const [heatmapPeriod, setHeatmapPeriod] = useState("Last 7 Days");
-  const [flowPeriod, setFlowPeriod] = useState("Last 7 Days");
-  const [zonePeriod, setZonePeriod] = useState("Last 7 Days");
-  const [velocityPeriod, setVelocityPeriod] = useState("Last 7 Days");
-  const [dailyPeriod, setDailyPeriod] = useState("Last 7 Days");
-  const [matrixPeriod, setMatrixPeriod] = useState("Last 7 Days");
-
-  // 1. Traffic Flow Over Time (Centralized Sync)
-  const trafficFlowTime = getCentralScaledData(flowPeriod).visitorsByHour;
-
-  // 2. Traffic by Zone (Centralized Sync)
-  const zonesScaled = getCentralScaledData(zonePeriod).customersByZone;
-
-  // 3. Entry & Exit Velocity (Centralized Sync)
-  const entryExitScaled = getCentralScaledData(velocityPeriod).entryExitPoints;
-
-  // 4. Daily Traffic Trend (Centralized Sync)
-  const dailyMult = getCentralScaledData(dailyPeriod).mult;
+  // All data computed from the single filter
+  const telemetry = getCentralScaledData(filter).kpis;
+  const trafficFlowTime = getCentralScaledData(filter).visitorsByHour;
+  const zonesScaled = getCentralScaledData(filter).customersByZone;
+  const entryExitScaled = getCentralScaledData(filter).entryExitPoints;
+  const dailyMult = getCentralScaledData(filter).mult;
   const dailyTrendScaled = dailyTrafficTrend.map(d => ({
     ...d,
     scaledVisitors: Math.round(d.visitors * (dailyMult > 1 ? dailyMult * 0.15 : dailyMult))
   }));
-
-  // 5. Zone Traffic Summary Matrix (Centralized Sync)
-  const matrixVisitors = getCentralScaledData(matrixPeriod).kpis.totalVisitors;
+  const matrixVisitors = getCentralScaledData(filter).kpis.totalVisitors;
   const matrixScaled = zones.map((z, idx) => ({
     ...z,
     scaledVisitors: Math.round(matrixVisitors * (0.22 - idx * 0.025))
   }));
 
+  // Yesterday vs Today camera-performance comparison data
+  const dataYesterday = getCentralScaledData("Yesterday");
+  const dataToday = getCentralScaledData("Today");
+
+  const cameraComparison = [
+    { id: "CAM-01", name: "Main Central Aisle", yesterday: Math.round(dataYesterday.kpis.totalVisitors * 0.40), today: Math.round(dataToday.kpis.totalVisitors * 0.40) },
+    { id: "CAM-02", name: "Produce & Scale Station", yesterday: Math.round(dataYesterday.kpis.totalVisitors * 0.25), today: Math.round(dataToday.kpis.totalVisitors * 0.25) },
+    { id: "CAM-03", name: "Checkout Counter #1", yesterday: Math.round(dataYesterday.kpis.totalVisitors * 0.20), today: Math.round(dataToday.kpis.totalVisitors * 0.20) },
+    { id: "CAM-04", name: "Checkout Counter #2", yesterday: Math.round(dataYesterday.kpis.totalVisitors * 0.15), today: Math.round(dataToday.kpis.totalVisitors * 0.15) }
+  ];
+
+
   return (
     <div className="space-y-6 font-sans text-xs pb-6">
+      {/* HEADER */}
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <h1 className="text-xl font-black text-white tracking-wide">Traffic Analytics</h1>
+      </div>
+
       {/* 1. TOP KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
@@ -92,6 +96,51 @@ export default function StoreTraffic() {
         </div>
       </div>
 
+      {/* YESTERDAY VS TODAY CAMERA PERFORMANCE COMPARISON */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
+        <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Yesterday vs Today Camera Performance Comparison</h3>
+          </div>
+          <span className="text-[10px] text-slate-500">Live Traffic Feed Analysis</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {cameraComparison.map((cam) => {
+            const pctChange = cam.yesterday > 0 
+              ? (((cam.today - cam.yesterday) / cam.yesterday) * 100).toFixed(1) 
+              : "0.0";
+            const isPositive = parseFloat(pctChange) >= 0;
+
+            return (
+              <div key={cam.id} className="bg-[#070C18] border border-[#1E293B] p-4 rounded-xl space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 block">{cam.id}</span>
+                    <strong className="text-white text-xs truncate block max-w-[150px]">{cam.name}</strong>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    isPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                  }`}>
+                    {isPositive ? "↑" : "↓"} {Math.abs(pctChange)}%
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-center text-[11px] pt-1">
+                  <div className="bg-[#0F172A] p-2 rounded border border-[#1E293B]">
+                    <span className="text-[9px] text-slate-500 block">Yesterday</span>
+                    <strong className="text-slate-300 font-mono">{cam.yesterday}</strong>
+                  </div>
+                  <div className="bg-[#0F172A] p-2 rounded border border-[#1E293B]">
+                    <span className="text-[9px] text-slate-500 block">Today</span>
+                    <strong className="text-emerald-400 font-mono">{cam.today}</strong>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 2. STORE HEATMAP DISPLAYED DIRECTLY ON STORE TRAFFIC PAGE (REQUIREMENT 2) */}
       <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
         <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
@@ -99,7 +148,6 @@ export default function StoreTraffic() {
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Store Heatmap & Traffic Flow Matrix</h3>
           </div>
-          <CustomDateSelector value={heatmapPeriod} onChange={setHeatmapPeriod} />
         </div>
 
         <StoreHeatmapModel />
@@ -111,10 +159,10 @@ export default function StoreTraffic() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic Flow Over Time</h3>
-            <CustomDateSelector value={flowPeriod} onChange={setFlowPeriod} />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={trafficFlowTime}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
@@ -123,6 +171,7 @@ export default function StoreTraffic() {
                 <Line type="monotone" dataKey="visitors" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Visitors" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -130,10 +179,10 @@ export default function StoreTraffic() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic by Zone</h3>
-            <CustomDateSelector value={zonePeriod} onChange={setZonePeriod} />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={zonesScaled} layout="vertical">
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={9} />
@@ -144,6 +193,7 @@ export default function StoreTraffic() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -154,7 +204,6 @@ export default function StoreTraffic() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Entry & Exit Velocity</h3>
-            <CustomDateSelector value={velocityPeriod} onChange={setVelocityPeriod} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             {entryExitScaled.map((pt, i) => (
@@ -171,10 +220,10 @@ export default function StoreTraffic() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic by Day</h3>
-            <CustomDateSelector value={dailyPeriod} onChange={setDailyPeriod} />
           </div>
           <div className="h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyTrendScaled}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -183,6 +232,7 @@ export default function StoreTraffic() {
                 <Bar dataKey="scaledVisitors" fill="#2563EB" radius={[4, 4, 0, 0]} name="Visitors" />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -191,7 +241,6 @@ export default function StoreTraffic() {
       <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
         <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Zone Traffic Summary Matrix</h3>
-          <CustomDateSelector value={matrixPeriod} onChange={setMatrixPeriod} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[11px]">

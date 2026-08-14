@@ -6,7 +6,7 @@ const getCameras = async (req, res) => {
   try {
     let where = {};
     
-    if (req.user.role === 'store_manager') {
+    if (req.user && req.user.role === 'store_manager') {
       const stores = await Store.findAll({
         where: { manager_id: req.user.id },
         attributes: ['id']
@@ -46,7 +46,7 @@ const createCamera = async (req, res) => {
     }
 
     // Check permission
-    if (req.user.role === 'store_manager' && store.manager_id !== req.user.id) {
+    if (req.user && req.user.role === 'store_manager' && store.manager_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -97,7 +97,7 @@ const updateCamera = async (req, res) => {
     }
 
     const store = await Store.findByPk(camera.store_id);
-    if (req.user.role === 'store_manager' && store.manager_id !== req.user.id) {
+    if (req.user && req.user.role === 'store_manager' && store.manager_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'

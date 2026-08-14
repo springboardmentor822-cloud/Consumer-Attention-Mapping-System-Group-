@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import AiVisionCamera from "../../components/vision/AiVisionCamera";
 
 export default function StoreManagerDashboard({ user, onLogout }) {
@@ -32,7 +32,7 @@ export default function StoreManagerDashboard({ user, onLogout }) {
         </div>
 
         <nav className="flex items-center space-x-2 overflow-x-auto pt-3 pb-1 border-t border-[#1E293B]/50 mt-3 scrollbar-none">
-          {["Dashboard", "Live Cameras", "Visitors", "Store Traffic", "Shelf Performance", "Product Interaction", "Heat Map", "Alerts", "Reports", "Activities", "Settings"].map((tab) => (
+          {["Dashboard", "Live Cameras", "Visitors", "Store Traffic", "Shelf Performance", "Product Interaction", "Heat Map", "Alerts", "Reports", "Settings"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}

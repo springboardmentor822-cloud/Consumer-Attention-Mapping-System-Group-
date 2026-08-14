@@ -34,29 +34,88 @@
 // ═══════════════════════════════════════════════════════════════════════
 // 1. STORES & INFRASTRUCTURE
 // ═══════════════════════════════════════════════════════════════════════
-export const stores = [
-  { id: "STR-101", name: "Downtown Flagship", address: "123 Main St, New York", manager: "Jane Smith", cameras: 32, shelves: 148, zones: 12, status: "Active", openSince: "2021-03-15", sqft: 28000 },
-  { id: "STR-102", name: "Westside Mall", address: "456 West Blvd, Los Angeles", manager: "Alex Rivera", cameras: 24, shelves: 112, zones: 9, status: "Active", openSince: "2022-01-20", sqft: 22000 },
-  { id: "STR-103", name: "Metro Center", address: "789 Central Ave, Chicago", manager: "Sam Chen", cameras: 18, shelves: 86, zones: 7, status: "Maintenance", openSince: "2023-06-10", sqft: 16000 },
-];
+function loadLocalStorageData(key, initialData) {
+  if (typeof window === "undefined") return initialData;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+    localStorage.setItem(key, JSON.stringify(initialData));
+    return initialData;
+  } catch (e) {
+    return initialData;
+  }
+}
 
-export const cameras = [
-  { id: "CAM-01", storeId: "STR-101", location: "Main Entrance", status: "Online", fps: 30, resolution: "1080p", zone: "Entrance A", model: "Axis P3255-LVE", lastCalibrated: "2026-07-28" },
-  { id: "CAM-02", storeId: "STR-101", location: "Bakery Endcap", status: "Online", fps: 30, resolution: "4K", zone: "Bakery A1", model: "Hikvision DS-2CD2386G2", lastCalibrated: "2026-07-25" },
-  { id: "CAM-03", storeId: "STR-101", location: "Cosmetics Wall", status: "Online", fps: 28, resolution: "1080p", zone: "Cosmetics D4", model: "Axis P3255-LVE", lastCalibrated: "2026-07-30" },
-  { id: "CAM-04", storeId: "STR-101", location: "Checkout Line", status: "Offline", fps: 0, resolution: "1080p", zone: "Checkout C2", model: "Dahua IPC-HFW2831T", lastCalibrated: "2026-07-20" },
-  { id: "CAM-05", storeId: "STR-101", location: "Dairy Section", status: "Online", fps: 30, resolution: "4K", zone: "Dairy B2", model: "Hikvision DS-2CD2386G2", lastCalibrated: "2026-07-29" },
-  { id: "CAM-06", storeId: "STR-101", location: "Electronics Corner", status: "Online", fps: 25, resolution: "1080p", zone: "Electronics E1", model: "Axis M3106-LV", lastCalibrated: "2026-07-22" },
-];
+export const stores = [];
+export const cameras = [];
+export const shelves = [];
+export const zones = [];
+export const products = [];
+export const promotions = [];
 
-export const shelves = [
-  { id: "SHL-001", storeId: "STR-101", zone: "Bakery A1", category: "Bread & Pastry", products: 24, capacity: 30, stockLevel: 80, lastRestocked: "2026-08-04 09:30" },
-  { id: "SHL-002", storeId: "STR-101", zone: "Dairy B2", category: "Dairy & Eggs", products: 36, capacity: 40, stockLevel: 90, lastRestocked: "2026-08-04 08:15" },
-  { id: "SHL-003", storeId: "STR-101", zone: "Produce C1", category: "Fresh Produce", products: 42, capacity: 50, stockLevel: 68, lastRestocked: "2026-08-04 07:00" },
-  { id: "SHL-004", storeId: "STR-101", zone: "Cosmetics D4", category: "Beauty & Personal Care", products: 58, capacity: 60, stockLevel: 95, lastRestocked: "2026-08-04 10:00" },
-  { id: "SHL-005", storeId: "STR-101", zone: "Electronics E1", category: "Electronics", products: 32, capacity: 40, stockLevel: 72, lastRestocked: "2026-08-03 16:00" },
-  { id: "SHL-006", storeId: "STR-101", zone: "Household F1", category: "Household", products: 28, capacity: 35, stockLevel: 65, lastRestocked: "2026-08-03 14:30" },
-];
+export function syncModuleArrays() {
+  const loadedStores = loadLocalStorageData("cams_stores_v2", [
+    { id: "STR-101", name: "Downtown Flagship", address: "123 Main St, New York", manager: "Jane Smith", cameras: 32, shelves: 148, zones: 12, status: "Active", openSince: "2021-03-15", sqft: 28000 },
+    { id: "STR-102", name: "Westside Mall", address: "456 West Blvd, Los Angeles", manager: "Alex Rivera", cameras: 24, shelves: 112, zones: 9, status: "Active", openSince: "2022-01-20", sqft: 22000 },
+    { id: "STR-103", name: "Metro Center", address: "789 Central Ave, Chicago", manager: "Sam Chen", cameras: 18, shelves: 86, zones: 7, status: "Maintenance", openSince: "2023-06-10", sqft: 16000 },
+  ]);
+  const loadedCameras = loadLocalStorageData("cams_cameras_v2", [
+    { id: "CAM-01", storeId: "STR-101", location: "Main Entrance", name: "Entrance Wide Angle", status: "Online", fps: 30, resolution: "1080p", zone: "Produce", model: "Axis P3255-LVE", lastCalibrated: "2026-07-28", coordsX: 4.0, coordsY: 4.0 },
+    { id: "CAM-02", storeId: "STR-101", location: "Bakery Endcap", name: "Bakery Endcap Camera", status: "Online", fps: 30, resolution: "4K", zone: "Bakery", model: "Hikvision DS-2CD2386G2", lastCalibrated: "2026-07-25", coordsX: 12.0, coordsY: 8.0 },
+    { id: "CAM-03", storeId: "STR-101", location: "Cosmetics Wall", name: "Cosmetics Wall Camera", status: "Online", fps: 28, resolution: "1080p", zone: "Cosmetics", model: "Axis P3255-LVE", lastCalibrated: "2026-07-30", coordsX: 32.0, coordsY: 14.0 },
+    { id: "CAM-04", storeId: "STR-101", location: "Checkout Line", name: "Checkout Line Camera", status: "Online", fps: 30, resolution: "1080p", zone: "Checkout", model: "Dahua IPC-HFW2831T", lastCalibrated: "2026-07-20", coordsX: 40.0, coordsY: 30.0 },
+    { id: "CAM-05", storeId: "STR-101", location: "Dairy Section", name: "Dairy Section Camera", status: "Online", fps: 30, resolution: "4K", zone: "Dairy", model: "Hikvision DS-2CD2386G2", lastCalibrated: "2026-07-29", coordsX: 8.0, coordsY: 22.0 },
+    { id: "CAM-06", storeId: "STR-101", location: "Electronics Corner", name: "Electronics Corner Camera", status: "Online", fps: 25, resolution: "1080p", zone: "Electronics", model: "Axis M3106-LV", lastCalibrated: "2026-07-22", coordsX: 22.0, coordsY: 18.0 },
+  ]);
+  const loadedShelves = loadLocalStorageData("cams_shelves_v2", [
+    { id: "SH-101", name: "Shelf A1 - Bread & Pastry", store: "STR-101", storeId: "STR-101", zone: "Bakery", category: "Bakery", coordsX: 14.0, coordsY: 5.2, width: 2.0, height: 1.6, capacity: 80, attachedCamera: "CAM-02", status: "Active", attentionScore: 86, occupancyRate: 84 },
+    { id: "SH-102", name: "Shelf B2 - Dairy & Eggs", store: "STR-101", storeId: "STR-101", zone: "Dairy", category: "Dairy", coordsX: 8.5, coordsY: 18.3, width: 3.2, height: 2.0, capacity: 150, attachedCamera: "CAM-05", status: "Active", attentionScore: 89, occupancyRate: 95 },
+    { id: "SH-103", name: "Shelf C1 - Fresh Produce", store: "STR-101", storeId: "STR-101", zone: "Produce", category: "Produce", coordsX: 22.4, coordsY: 12.1, width: 1.8, height: 1.5, capacity: 100, attachedCamera: "CAM-01", status: "Active", attentionScore: 82, occupancyRate: 88 },
+    { id: "SH-104", name: "Shelf D4 - Cosmetics Wall", store: "STR-101", storeId: "STR-101", zone: "Cosmetics", category: "Cosmetics", coordsX: 30.1, coordsY: 15.6, width: 2.8, height: 1.8, capacity: 200, attachedCamera: "CAM-03", status: "Active", attentionScore: 91, occupancyRate: 90 },
+    { id: "SH-105", name: "Shelf E1 - Electronics Display", store: "STR-101", storeId: "STR-101", zone: "Electronics", category: "Electronics", coordsX: 16.2, coordsY: 8.7, width: 2.4, height: 1.8, capacity: 120, attachedCamera: "CAM-06", status: "Active", attentionScore: 94, occupancyRate: 92 },
+    { id: "SH-106", name: "Shelf F1 - Household Cleaner", store: "STR-101", storeId: "STR-101", zone: "Household", category: "Household", coordsX: 34.5, coordsY: 20.2, width: 3.0, height: 2.2, capacity: 180, attachedCamera: "CAM-06", status: "Active", attentionScore: 74, occupancyRate: 78 }
+  ]);
+  const loadedZones = loadLocalStorageData("cams_zones_v2", [
+    { id: "ZN-01", name: "Bakery", store: "STR-101", status: "Active" },
+    { id: "ZN-02", name: "Dairy", store: "STR-101", status: "Active" },
+    { id: "ZN-03", name: "Produce", store: "STR-101", status: "Active" },
+    { id: "ZN-04", name: "Cosmetics", store: "STR-101", status: "Active" },
+    { id: "ZN-05", name: "Electronics", store: "STR-101", status: "Active" },
+    { id: "ZN-06", name: "Household", store: "STR-101", status: "Active" },
+    { id: "ZN-07", name: "Frozen Foods", store: "STR-101", status: "Active" },
+    { id: "ZN-08", name: "Checkout", store: "STR-101", status: "Active" },
+  ]);
+  const loadedProducts = loadLocalStorageData("cams_products_v2", [
+    { id: "P-001", name: "Artisan Sourdough Bread", sku: "SKU-1001", category: "Bakery", sellingPrice: 7.50, price: 7.50, costPrice: 5.00, cost: 5.00, profit: 2.50, stockQty: 45, shelf: "SH-104", store: "STR-101", promo: "Summer Sale Spectacular", status: "Active", subcategory: "Bread", brand: "Bakers Pride", views: 3420, pickups: 2180, purchases: 1640, convRate: 47.9, revenue: 12300, attentionScore: 96, avgDwell: 4.8 },
+    { id: "P-002", name: "Organic Almond Milk", sku: "SKU-1002", category: "Dairy", sellingPrice: 7.00, price: 7.00, costPrice: 4.50, cost: 4.50, profit: 2.50, stockQty: 60, shelf: "SH-103", store: "STR-101", promo: "Weekend Bonanza", status: "Active", subcategory: "Milk", brand: "BioNature", views: 2810, pickups: 1720, purchases: 1280, convRate: 45.6, revenue: 8960, attentionScore: 91, avgDwell: 3.2 },
+    { id: "P-003", name: "Premium Greek Yogurt", sku: "SKU-1003", category: "Dairy", sellingPrice: 7.00, price: 7.00, costPrice: 4.00, cost: 4.00, profit: 3.00, stockQty: 80, shelf: "SH-103", store: "STR-101", promo: "None", status: "Active", subcategory: "Yogurt", brand: "Chobani", views: 2540, pickups: 1580, purchases: 1120, convRate: 44.1, revenue: 7840, attentionScore: 89, avgDwell: 2.8 },
+    { id: "P-004", name: "Free-Range Eggs (12pk)", sku: "SKU-1004", category: "Dairy", sellingPrice: 7.00, price: 7.00, costPrice: 3.80, cost: 3.80, profit: 3.20, stockQty: 50, shelf: "SH-103", store: "STR-101", promo: "None", status: "Active", subcategory: "Eggs", brand: "Eggland", views: 2280, pickups: 1640, purchases: 1380, convRate: 60.5, revenue: 9660, attentionScore: 87, avgDwell: 1.4 },
+    { id: "P-005", name: "Avocado (Hass, 4-pack)", sku: "SKU-1005", category: "Produce", sellingPrice: 8.00, price: 8.00, costPrice: 5.20, cost: 5.20, profit: 2.80, stockQty: 30, shelf: "SH-102", store: "STR-101", promo: "None", status: "Active", subcategory: "Fruits", brand: "FreshGrow", views: 2120, pickups: 1320, purchases: 940, convRate: 44.3, revenue: 7520, attentionScore: 85, avgDwell: 2.2 },
+    { id: "P-006", name: "Luxury Face Serum", sku: "SKU-1006", category: "Cosmetics", sellingPrice: 35.00, price: 35.00, costPrice: 20.00, cost: 20.00, profit: 15.00, stockQty: 15, shelf: "SH-201", store: "STR-101", promo: "None", status: "Active", subcategory: "Skincare", brand: "Estee", views: 1980, pickups: 1420, purchases: 680, convRate: 34.3, revenue: 23800, attentionScore: 92, avgDwell: 5.8 },
+    { id: "P-007", name: "Wireless Earbuds Pro", sku: "SKU-1007", category: "Electronics", sellingPrice: 80.00, price: 80.00, costPrice: 55.00, cost: 55.00, profit: 25.00, stockQty: 25, shelf: "SH-301", store: "STR-101", promo: "New Arrival Launch", status: "Active", subcategory: "Audio", brand: "Sony", views: 1860, pickups: 1080, purchases: 420, convRate: 22.6, revenue: 33600, attentionScore: 88, avgDwell: 6.4 },
+    { id: "P-008", name: "Multi-Surface Cleaner", sku: "SKU-1008", category: "Household", sellingPrice: 8.00, price: 8.00, costPrice: 5.00, cost: 5.00, profit: 3.00, stockQty: 75, shelf: "SH-302", store: "STR-101", promo: "None", status: "Active", subcategory: "Cleaner", brand: "Clorox", views: 940, pickups: 420, purchases: 340, convRate: 36.2, revenue: 2720, attentionScore: 58, avgDwell: 1.2 },
+    { id: "P-009", name: "Organic Granola Mix", sku: "SKU-1009", category: "Bakery", sellingPrice: 8.00, price: 8.00, costPrice: 5.50, cost: 5.50, profit: 2.50, stockQty: 40, shelf: "SH-104", store: "STR-101", promo: "None", status: "Active", subcategory: "Cereal", brand: "BioNature", views: 1640, pickups: 980, purchases: 720, convRate: 43.9, revenue: 5760, attentionScore: 82, avgDwell: 3.1 },
+    { id: "P-010", name: "Fresh Salmon Fillet", sku: "SKU-1010", category: "Produce", sellingPrice: 20.00, price: 20.00, costPrice: 13.00, cost: 13.00, profit: 7.00, stockQty: 25, shelf: "SH-102", store: "STR-101", promo: "None", status: "Active", subcategory: "Fish", brand: "OceanCatch", views: 1420, pickups: 890, purchases: 640, convRate: 45.1, revenue: 12800, attentionScore: 84, avgDwell: 3.8 }
+  ]);
+  const loadedPromos = loadLocalStorageData("cams_promotions_v2", [
+    { id: "PRM-001", name: "Summer Sale Spectacular", zone: "Bakery", category: "Bakery", type: "Discount", value: "20% Off", lift: "+28%", revenue: 15000, status: "Active", startDate: "2026-08-01", endDate: "2026-08-31", products: ["P-001"] },
+    { id: "PRM-002", name: "Weekend Bonanza", zone: "Dairy", category: "Dairy", type: "Bundle", value: "Buy 2 Get 1", lift: "+15%", revenue: 9800, status: "Active", startDate: "2026-08-05", endDate: "2026-08-28", products: ["P-002"] },
+    { id: "PRM-003", name: "New Arrival Launch", zone: "Electronics", category: "Electronics", type: "Display", value: "Demo Highlight", lift: "+35%", revenue: 45000, status: "Active", startDate: "2026-08-10", endDate: "2026-08-25", products: ["P-007"] }
+  ]);
+
+  // Update in place
+  stores.length = 0; stores.push(...loadedStores);
+  cameras.length = 0; cameras.push(...loadedCameras);
+  shelves.length = 0; shelves.push(...loadedShelves);
+  zones.length = 0; zones.push(...loadedZones);
+  products.length = 0; products.push(...loadedProducts);
+  promotions.length = 0; promotions.push(...loadedPromos);
+}
+
+// Initial invocation
+if (typeof window !== "undefined") {
+  syncModuleArrays();
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // 2. CUSTOMERS & TRAFFIC  (used by ALL portals)
@@ -144,16 +203,7 @@ export const dropoffPoints = [
 // ═══════════════════════════════════════════════════════════════════════
 // 3. ZONES & DWELL TIME
 // ═══════════════════════════════════════════════════════════════════════
-export const zones = [
-  { id: "Z-01", name: "Bakery", visitors: 4200, dwellTime: 24.2, attentionScore: 94, conversionRate: 22.4, revenue: 18400, engagement: 88, trafficDensity: 82, color: "#10B981" },
-  { id: "Z-02", name: "Dairy", visitors: 3800, dwellTime: 18.6, attentionScore: 88, conversionRate: 19.1, revenue: 14200, engagement: 82, trafficDensity: 78, color: "#3B82F6" },
-  { id: "Z-03", name: "Produce", visitors: 3200, dwellTime: 15.4, attentionScore: 82, conversionRate: 16.8, revenue: 11800, engagement: 76, trafficDensity: 72, color: "#06B6D4" },
-  { id: "Z-04", name: "Cosmetics", visitors: 2900, dwellTime: 22.1, attentionScore: 91, conversionRate: 24.6, revenue: 21400, engagement: 92, trafficDensity: 68, color: "#8B5CF6" },
-  { id: "Z-05", name: "Electronics", visitors: 2100, dwellTime: 28.4, attentionScore: 86, conversionRate: 14.2, revenue: 32600, engagement: 78, trafficDensity: 52, color: "#F59E0B" },
-  { id: "Z-06", name: "Household", visitors: 1800, dwellTime: 8.2, attentionScore: 62, conversionRate: 8.4, revenue: 4200, engagement: 48, trafficDensity: 38, color: "#EF4444" },
-  { id: "Z-07", name: "Frozen Foods", visitors: 2400, dwellTime: 12.6, attentionScore: 72, conversionRate: 18.2, revenue: 9800, engagement: 64, trafficDensity: 58, color: "#14B8A6" },
-  { id: "Z-08", name: "Checkout", visitors: 5200, dwellTime: 6.8, attentionScore: 68, conversionRate: 92.4, revenue: 0, engagement: 42, trafficDensity: 90, color: "#F97316" },
-];
+// Zones array is initialized and updated dynamically in-place from localStorage
 
 export const dwellDistribution = [
   { range: "0-2 min", visitors: 1820 },
@@ -193,18 +243,7 @@ export const bottlenecks = [
 // ═══════════════════════════════════════════════════════════════════════
 // 4. PRODUCTS & CATEGORIES
 // ═══════════════════════════════════════════════════════════════════════
-export const products = [
-  { id: "P-001", name: "Artisan Sourdough Bread", category: "Bread & Pastry", zone: "Bakery A1", views: 3420, pickups: 2180, purchases: 1640, convRate: 47.9, revenue: 12300, attentionScore: 96, avgDwell: 4.8, price: 7.50 },
-  { id: "P-002", name: "Organic Almond Milk", category: "Dairy & Eggs", zone: "Dairy B2", views: 2810, pickups: 1720, purchases: 1280, convRate: 45.6, revenue: 8960, attentionScore: 91, avgDwell: 3.2, price: 7.00 },
-  { id: "P-003", name: "Premium Greek Yogurt", category: "Dairy & Eggs", zone: "Dairy B2", views: 2540, pickups: 1580, purchases: 1120, convRate: 44.1, revenue: 7840, attentionScore: 89, avgDwell: 2.8, price: 7.00 },
-  { id: "P-004", name: "Free-Range Eggs (12pk)", category: "Dairy & Eggs", zone: "Dairy B2", views: 2280, pickups: 1640, purchases: 1380, convRate: 60.5, revenue: 9660, attentionScore: 87, avgDwell: 1.4, price: 7.00 },
-  { id: "P-005", name: "Avocado (Hass, 4-pack)", category: "Fresh Produce", zone: "Produce C1", views: 2120, pickups: 1320, purchases: 940, convRate: 44.3, revenue: 7520, attentionScore: 85, avgDwell: 2.2, price: 8.00 },
-  { id: "P-006", name: "Luxury Face Serum", category: "Beauty & Personal Care", zone: "Cosmetics D4", views: 1980, pickups: 1420, purchases: 680, convRate: 34.3, revenue: 23800, attentionScore: 92, avgDwell: 5.8, price: 35.00 },
-  { id: "P-007", name: "Wireless Earbuds Pro", category: "Electronics", zone: "Electronics E1", views: 1860, pickups: 1080, purchases: 420, convRate: 22.6, revenue: 33600, attentionScore: 88, avgDwell: 6.4, price: 80.00 },
-  { id: "P-008", name: "Multi-Surface Cleaner", category: "Household", zone: "Household F1", views: 940, pickups: 420, purchases: 340, convRate: 36.2, revenue: 2720, attentionScore: 58, avgDwell: 1.2, price: 8.00 },
-  { id: "P-009", name: "Organic Granola Mix", category: "Bread & Pastry", zone: "Bakery A1", views: 1640, pickups: 980, purchases: 720, convRate: 43.9, revenue: 5760, attentionScore: 82, avgDwell: 3.1, price: 8.00 },
-  { id: "P-010", name: "Fresh Salmon Fillet", category: "Fresh Produce", zone: "Deli", views: 1420, pickups: 890, purchases: 640, convRate: 45.1, revenue: 12800, attentionScore: 84, avgDwell: 3.8, price: 20.00 },
-];
+// Products array is initialized and updated dynamically in-place from localStorage
 
 export const categories = [
   { name: "Bread & Pastry", products: 24, totalViews: 8420, totalPickups: 5240, totalPurchases: 3820, convRate: 45.4, revenue: 28680, attentionScore: 92, avgDwell: 4.2, engagement: 88, trend: 12.4 },
@@ -428,33 +467,591 @@ export const formatPct = (n) => `${n.toFixed(1)}%`;
 // ═══════════════════════════════════════════════════════════════════════
 // SINGLE SOURCE OF TRUTH FOR DATE-FILTERED TELEMETRY DATA
 // ═══════════════════════════════════════════════════════════════════════
-export function getCentralScaledData(period) {
-  let mult = 1.0;
-  if (period === "Yesterday") mult = 0.92;
-  else if (period === "Last 7 Days") mult = 6.4;
-  else if (period === "Last 30 Days") mult = 26.5;
-  else if (period === "Custom Date Range") mult = 1.8;
+// Base products list for mock data generation
+export const MOCK_PRODUCTS = [
+  { id: "P-001", name: "Artisan Sourdough Bread", price: 7.50, category: "Bread & Pastry", zone: "Bakery A1" },
+  { id: "P-002", name: "Organic Almond Milk", price: 7.00, category: "Dairy & Eggs", zone: "Dairy B2" },
+  { id: "P-003", name: "Premium Greek Yogurt", price: 7.00, category: "Dairy & Eggs", zone: "Dairy B2" },
+  { id: "P-004", name: "Free-Range Eggs (12pk)", price: 7.00, category: "Dairy & Eggs", zone: "Dairy B2" },
+  { id: "P-005", name: "Avocado (Hass, 4-pack)", price: 8.00, category: "Fresh Produce", zone: "Produce C1" },
+  { id: "P-006", name: "Luxury Face Serum", price: 35.00, category: "Beauty & Personal Care", zone: "Cosmetics D4" },
+  { id: "P-007", name: "Wireless Earbuds Pro", price: 80.00, category: "Electronics", zone: "Electronics E1" },
+  { id: "P-008", name: "Multi-Surface Cleaner", price: 8.00, category: "Household", zone: "Household F1" },
+  { id: "P-009", name: "Organic Granola Mix", price: 8.00, category: "Bread & Pastry", zone: "Bakery A1" },
+  { id: "P-010", name: "Fresh Salmon Fillet", price: 20.00, category: "Fresh Produce", zone: "Deli" },
+];
 
-  const totalVisitors = Math.round(1427 * mult);
+const MOCK_STORES = [
+  "Downtown Flagship",
+  "Westside Mall",
+  "Metro Center"
+];
+
+const MOCK_ZONES = [
+  "Bakery",
+  "Dairy",
+  "Produce",
+  "Cosmetics",
+  "Electronics",
+  "Household",
+  "Frozen Foods",
+  "Checkout"
+];
+
+function seededRandom(seed) {
+  var x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function getDatesForPeriod(period, customRange) {
+  const dates = [];
+  const today = new Date(2026, 7, 11); // August 11, 2026 local time
+
+  let start = new Date(today);
+  let end = new Date(today);
+
+  if (period === "Today") {
+    start = new Date(today);
+    end = new Date(today);
+  } else if (period === "Yesterday") {
+    start.setDate(today.getDate() - 1);
+    end.setDate(today.getDate() - 1);
+  } else if (period === "Last 7 Days") {
+    start.setDate(today.getDate() - 6);
+    end = new Date(today);
+  } else if (period === "Last 30 Days") {
+    start.setDate(today.getDate() - 29);
+    end = new Date(today);
+  } else if (period === "This Month") {
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end = new Date(today);
+  } else if (period === "Custom Date Range" && customRange?.startDate && customRange?.endDate) {
+    const partsStart = customRange.startDate.split("-").map(Number);
+    const partsEnd = customRange.endDate.split("-").map(Number);
+    start = new Date(partsStart[0], partsStart[1] - 1, partsStart[2]);
+    end = new Date(partsEnd[0], partsEnd[1] - 1, partsEnd[2]);
+  } else {
+    start.setDate(today.getDate() - 6);
+    end = new Date(today);
+  }
+
+  const cur = new Date(start);
+  while (cur <= end) {
+    const yyyy = cur.getFullYear();
+    const mm = String(cur.getMonth() + 1).padStart(2, '0');
+    const dd = String(cur.getDate()).padStart(2, '0');
+    dates.push(`${yyyy}-${mm}-${dd}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+export function generateCustomerTransactionHistory(period, customRange) {
+  const dates = getDatesForPeriod(period, customRange);
+  const numDays = dates.length;
+
+  // Stable visitor targeting
+  const totalTargetVisits = numDays === 1 ? 25 : numDays <= 7 ? 70 : 150;
+  const visitsPerDay = Math.max(2, Math.floor(totalTargetVisits / numDays));
+
+  const customerList = [];
+  const transactionList = [];
+
+  let custSeq = 1;
+  let txnSeq = 1;
+
+  dates.forEach((dateStr) => {
+    let seed = 0;
+    for (let i = 0; i < dateStr.length; i++) {
+      seed += dateStr.charCodeAt(i);
+    }
+
+    for (let v = 0; v < visitsPerDay; v++) {
+      const vSeed = seed + v * 37;
+
+      const rand1 = seededRandom(vSeed);
+      const rand2 = seededRandom(vSeed + 1);
+      const rand3 = seededRandom(vSeed + 2);
+      const rand4 = seededRandom(vSeed + 3);
+      const rand5 = seededRandom(vSeed + 4);
+
+      // Select store dynamically from loaded stores
+      const storeIndex = Math.floor(rand1 * stores.length);
+      const storeObj = stores[storeIndex] || { name: "Downtown Flagship" };
+      const store = storeObj.name;
+
+      const entryHour = 8 + Math.floor(rand2 * 13);
+      const entryMin = Math.floor(rand3 * 60);
+      const entryTime = `${String(entryHour).padStart(2, '0')}:${String(entryMin).padStart(2, '0')}`;
+
+      const dwellTime = 10 + Math.floor(rand4 * 56);
+      
+      let exitHour = entryHour;
+      let exitMin = entryMin + dwellTime;
+      if (exitMin >= 60) {
+        exitHour += Math.floor(exitMin / 60);
+        exitMin = exitMin % 60;
+      }
+      const exitTime = `${String(exitHour).padStart(2, '0')}:${String(exitMin).padStart(2, '0')}`;
+
+      // Select products dynamically from loaded products
+      const numViewed = 2 + Math.floor(rand5 * 5);
+      const viewedIndices = [];
+      for (let i = 0; i < numViewed; i++) {
+        const pIdx = Math.floor(seededRandom(vSeed + 5 + i) * products.length);
+        if (!viewedIndices.includes(pIdx)) {
+          viewedIndices.push(pIdx);
+        }
+      }
+      const productsViewed = viewedIndices.map(idx => products[idx]).filter(Boolean);
+
+      const isPurchased = seededRandom(vSeed + 20) < 0.40;
+      let purchaseStatus = "No Purchase";
+      let productsPurchased = [];
+      let purchaseAmount = 0;
+      let transactionId = null;
+
+      // Deterministically assign zone
+      let zoneObj = zones[Math.floor(seededRandom(vSeed + 30) * zones.length)] || { name: "Bakery" };
+      let zone = zoneObj.name;
+      if (productsViewed.length > 0) {
+        const prodCat = productsViewed[0].category;
+        if (prodCat.includes("Bread") || prodCat.includes("Bakery")) zone = "Bakery";
+        else if (prodCat.includes("Dairy")) zone = "Dairy";
+        else if (prodCat.includes("Produce")) zone = "Produce";
+        else if (prodCat.includes("Beauty") || prodCat.includes("Cosmetics")) zone = "Cosmetics";
+        else if (prodCat.includes("Electronics")) zone = "Electronics";
+        else if (prodCat.includes("Household")) zone = "Household";
+        else if (prodCat.includes("Frozen")) zone = "Frozen Foods";
+      }
+
+      if (isPurchased && productsViewed.length > 0) {
+        purchaseStatus = "Purchased";
+        const numPurchased = Math.min(productsViewed.length, 1 + Math.floor(seededRandom(vSeed + 21) * 3));
+        const purchasedIndices = [];
+        for (let i = 0; i < numPurchased; i++) {
+          const idx = Math.floor(seededRandom(vSeed + 22 + i) * productsViewed.length);
+          if (!purchasedIndices.includes(idx)) {
+            purchasedIndices.push(idx);
+          }
+        }
+        productsPurchased = purchasedIndices.map(idx => productsViewed[idx]);
+        purchaseAmount = productsPurchased.reduce((sum, p) => sum + (p.price || p.sellingPrice), 0);
+        transactionId = `TXN-${String(txnSeq++).padStart(6, '0')}`;
+      }
+
+      const customerId = `CUST-${String(custSeq++).padStart(6, '0')}`;
+
+      customerList.push({
+        customerId,
+        visitDate: dateStr,
+        entryTime,
+        exitTime,
+        dwellTime,
+        productsViewed,
+        productsPurchased,
+        purchaseStatus,
+        purchaseAmount,
+        transactionId: transactionId || "—",
+        store,
+        zone
+      });
+
+      if (purchaseStatus === "Purchased") {
+        const txnProductsNames = productsPurchased.map(p => p.name).join(", ");
+        const quantity = productsPurchased.length;
+        // Compute actual profit (Selling Price - Cost Price)
+        const profit = parseFloat(productsPurchased.reduce((sum, p) => sum + ((p.price || p.sellingPrice) - (p.cost || p.costPrice || (p.price || p.sellingPrice) * 0.65)), 0).toFixed(2));
+        
+        const payVal = seededRandom(vSeed + 40);
+        const paymentStatus = payVal < 0.90 ? "Completed" : payVal < 0.98 ? "Pending" : "Refunded";
+
+        transactionList.push({
+          transactionId,
+          customerId,
+          date: dateStr,
+          time: exitTime,
+          products: txnProductsNames,
+          quantity,
+          amount: purchaseAmount,
+          profit,
+          paymentStatus
+        });
+      }
+    }
+  });
+
+  return { customerList, transactionList };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SINGLE SOURCE OF TRUTH FOR DATE-FILTERED TELEMETRY DATA
+// ═══════════════════════════════════════════════════════════════════════
+// Helper to compute KPIs for Yesterday vs Today comparisons
+export function getCentralKPIsForPeriod(period, customRange, filterStore, filterCamera, filterZone, filterCategory) {
+  let customerList, transactionList;
+  const dbCusts = window.db_customers;
+  const dbTxns = window.db_transactions;
+  if (dbCusts && dbTxns) {
+    const dates = getDatesForPeriod(period, customRange);
+    customerList = dbCusts.filter(c => dates.includes(c.visitDate));
+    transactionList = dbTxns.filter(t => dates.includes(t.date));
+  } else {
+    const res = generateCustomerTransactionHistory(period, customRange);
+    customerList = res.customerList;
+    transactionList = res.transactionList;
+  }
+
+  // Apply filters
+  if (filterStore !== "All") {
+    const storeObj = stores.find(s => s.id === filterStore || s.name === filterStore);
+    if (storeObj) {
+      customerList = customerList.filter(c => c.store === storeObj.name);
+      const custIds = new Set(customerList.map(c => c.customerId));
+      transactionList = transactionList.filter(t => custIds.has(t.customerId));
+    }
+  }
+
+  let cameraZone = null;
+  if (filterCamera !== "All") {
+    const cam = cameras.find(c => c.id === filterCamera);
+    if (cam) cameraZone = cam.zone;
+  }
+
+  const targetZone = filterZone !== "All" ? filterZone : cameraZone;
+  if (targetZone) {
+    customerList = customerList.filter(c => c.zone.toLowerCase().includes(targetZone.toLowerCase()));
+    const custIds = new Set(customerList.map(c => c.customerId));
+    transactionList = transactionList.filter(t => custIds.has(t.customerId));
+  }
+
+  if (filterCategory !== "All") {
+    customerList = customerList.filter(c => 
+      c.productsViewed.some(p => p.category.toLowerCase().includes(filterCategory.toLowerCase()))
+    );
+    const custIds = new Set(customerList.map(c => c.customerId));
+    transactionList = transactionList.filter(t => custIds.has(t.customerId));
+  }
+
+  const totalCustomers = customerList.length;
+  const purchasedCustomers = customerList.filter(c => c.purchaseStatus === "Purchased").length;
+  const totalSales = transactionList.reduce((sum, t) => sum + t.amount, 0);
+  const totalProfit = parseFloat(transactionList.reduce((sum, t) => sum + t.profit, 0).toFixed(2));
+  const avgDwellTime = totalCustomers > 0 
+    ? parseFloat((customerList.reduce((sum, c) => sum + c.dwellTime, 0) / totalCustomers).toFixed(1)) 
+    : 0;
+  const conversionRate = totalCustomers > 0 
+    ? parseFloat(((purchasedCustomers / totalCustomers) * 100).toFixed(1)) 
+    : 0;
+
+  return { totalCustomers, totalSales, totalProfit, avgDwellTime, conversionRate };
+}
+
+export function getDynamicAiInsights(kpis) {
+  const visitors = kpis.totalVisitors;
+  const sales = kpis.salesRevenue;
+  const conv = kpis.conversionRate;
+  const dwell = kpis.avgDwellTime;
+
+  return [
+    {
+      id: 1,
+      title: "Optimizing High-Dwell Low-Conversion Shelves",
+      desc: `Cosmetics has high average dwell time (${dwell} min) but conversion stands at only ${conv}%. Co-locating promotional products will lift conversion rate.`,
+      confidence: 98,
+      impact: Math.round(sales * 0.12),
+      category: "Layout",
+      priority: conv < 20 ? "High" : "Medium",
+      status: "New"
+    },
+    {
+      id: 2,
+      title: "Adjusting staffing for peak traffic times",
+      desc: `Traffic flow peak detected at ${kpis.peakHour || "5:00 PM"} with ${kpis.peakHourTraffic || 300} visitors. Adjusting personnel allocations will improve conversion.`,
+      confidence: 94,
+      impact: Math.round(sales * 0.08),
+      category: "Operations",
+      priority: "Medium",
+      status: "In Progress"
+    },
+    {
+      id: 3,
+      title: "Cross-merchandising opportunity",
+      desc: `Transactional analysis of ${kpis.totalCustomers} visitors indicates high affinity between Bakery and Dairy. Consider bundle promotions.`,
+      confidence: 88,
+      impact: Math.round(sales * 0.05),
+      category: "Merchandising",
+      priority: "Low",
+      status: "New"
+    }
+  ];
+}
+
+export function getCentralScaledData(periodOrFilter, customRange = null) {
+  let period = "Last 7 Days";
+  let filterStore = "All";
+  let filterCamera = "All";
+  let filterZone = "All";
+  let filterCategory = "All";
+
+  if (periodOrFilter && typeof periodOrFilter === "object") {
+    period = periodOrFilter.dateRange ?? "Last 7 Days";
+    filterStore = periodOrFilter.store ?? "All";
+    filterCamera = periodOrFilter.camera ?? "All";
+    filterZone = periodOrFilter.zone ?? "All";
+    filterCategory = periodOrFilter.category ?? "All";
+    customRange = periodOrFilter;
+  } else if (typeof periodOrFilter === "string") {
+    period = periodOrFilter;
+  }
+
+  // Ensure sync module arrays is called to fetch newest state from localStorage
+  if (typeof window !== "undefined") {
+    syncModuleArrays();
+  }
+
+  let mult = 1.0;
+  if (period === "Today")          mult = 0.14;
+  else if (period === "Yesterday") mult = 0.92;
+  else if (period === "Last 7 Days")  mult = 6.4;
+  else if (period === "Last 30 Days") mult = 26.5;
+  else if (period === "This Month") {
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+    mult = parseFloat((dayOfMonth * 0.95).toFixed(2));
+  }
+  else if (period === "Custom Date Range") {
+    if (customRange?.startDate && customRange?.endDate) {
+      const diffTime = Math.abs(new Date(customRange.endDate) - new Date(customRange.startDate));
+      const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+      mult = parseFloat((days * 0.95).toFixed(2));
+    } else {
+      mult = 1.8;
+    }
+  }
+
+  // Generate customer & transaction records (from DB if populated, otherwise deterministic fallback)
+  const dbCusts = window.db_customers;
+  const dbTxns = window.db_transactions;
+
+  let baseCustomers, baseTransactions;
+  if (dbCusts && dbTxns) {
+    const dates = getDatesForPeriod(period, customRange);
+    baseCustomers = dbCusts.filter(c => dates.includes(c.visitDate));
+    baseTransactions = dbTxns.filter(t => dates.includes(t.date));
+  } else {
+    const res = generateCustomerTransactionHistory(period, customRange);
+    baseCustomers = res.customerList;
+    baseTransactions = res.transactionList;
+  }
+
+  // Merge live sessions if they exist (only for Today/Yesterday/Last 7 Days periods where live data fits)
+  const liveSessions = window.cams_live_sessions || [];
+  
+  // Transform live sessions to transaction list format
+  const liveTransactions = [];
+  liveSessions.forEach(s => {
+    if (s.purchaseStatus === "Purchased" && s.transactionId !== "—") {
+      const txnProductsNames = s.productsPurchased.map(p => p.name).join(", ");
+      const quantity = s.productsPurchased.length;
+      const profit = parseFloat(s.productsPurchased.reduce((sum, p) => sum + ((p.price || p.sellingPrice) - (p.cost || p.costPrice || (p.price || p.sellingPrice) * 0.65)), 0).toFixed(2));
+      liveTransactions.push({
+        transactionId: s.transactionId,
+        customerId: s.customerId,
+        date: s.visitDate,
+        time: s.exitTime,
+        products: txnProductsNames,
+        quantity,
+        amount: s.purchaseAmount,
+        profit,
+        paymentStatus: "Completed"
+      });
+    }
+  });
+
+  let customerList = [...liveSessions, ...baseCustomers];
+  let transactionList = [...liveTransactions, ...baseTransactions];
+
+  // Map Camera ID to Zone Name
+  let cameraZone = null;
+  if (filterCamera !== "All") {
+    const cam = cameras.find(c => c.id === filterCamera);
+    if (cam) cameraZone = cam.zone;
+  }
+
+  // Apply filters
+  if (filterStore !== "All") {
+    const storeObj = stores.find(s => s.id === filterStore || s.name === filterStore);
+    if (storeObj) {
+      customerList = customerList.filter(c => c.store === storeObj.name);
+      const custIds = new Set(customerList.map(c => c.customerId));
+      transactionList = transactionList.filter(t => custIds.has(t.customerId));
+    }
+  }
+
+  const targetZone = filterZone !== "All" ? filterZone : cameraZone;
+  if (targetZone) {
+    customerList = customerList.filter(c => c.zone.toLowerCase().includes(targetZone.toLowerCase()));
+    const custIds = new Set(customerList.map(c => c.customerId));
+    transactionList = transactionList.filter(t => custIds.has(t.customerId));
+  }
+
+  if (filterCategory !== "All") {
+    customerList = customerList.filter(c => 
+      c.productsViewed.some(p => p.category.toLowerCase().includes(filterCategory.toLowerCase()))
+    );
+    const custIds = new Set(customerList.map(c => c.customerId));
+    transactionList = transactionList.filter(t => custIds.has(t.customerId));
+  }
+
+  const totalCustomers = customerList.length;
+  const purchasedCustomers = customerList.filter(c => c.purchaseStatus === "Purchased").length;
+  const nonPurchasingCustomers = customerList.filter(c => c.purchaseStatus === "No Purchase").length;
+  const unitsSold = transactionList.reduce((sum, t) => sum + t.quantity, 0);
+  const totalSales = transactionList.reduce((sum, t) => sum + t.amount, 0);
+  const totalProfit = parseFloat(transactionList.reduce((sum, t) => sum + t.profit, 0).toFixed(2));
+
+  const avgDwellTime = totalCustomers > 0 
+    ? parseFloat((customerList.reduce((sum, c) => sum + c.dwellTime, 0) / totalCustomers).toFixed(1)) 
+    : 18.4;
+
+  const conversionRate = totalCustomers > 0 
+    ? parseFloat(((purchasedCustomers / totalCustomers) * 100).toFixed(1)) 
+    : 18.2;
+
   const peakTraffic = Math.round(320 * mult);
+
+  // Compute Yesterday / Same-Length Previous Period Baseline for Historical Shifts
+  let prevPeriod = "Yesterday";
+  let prevRange = null;
+
+  if (period === "Today") {
+    prevPeriod = "Yesterday";
+  } else if (period === "Yesterday") {
+    prevPeriod = "Custom Date Range";
+    prevRange = { startDate: "2026-08-09", endDate: "2026-08-09" };
+  } else if (period === "Last 7 Days") {
+    prevPeriod = "Custom Date Range";
+    prevRange = { startDate: "2026-07-29", endDate: "2026-08-04" };
+  } else if (period === "Last 30 Days") {
+    prevPeriod = "Custom Date Range";
+    prevRange = { startDate: "2026-07-01", endDate: "2026-07-30" };
+  } else if (period === "This Month") {
+    prevPeriod = "Custom Date Range";
+    prevRange = { startDate: "2026-07-01", endDate: "2026-07-31" };
+  } else if (period === "Custom Date Range" && customRange?.startDate && customRange?.endDate) {
+    const diffTime = Math.abs(new Date(customRange.endDate) - new Date(customRange.startDate));
+    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    const prevEnd = new Date(customRange.startDate);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - days + 1);
+
+    prevPeriod = "Custom Date Range";
+    prevRange = {
+      startDate: `${prevStart.getFullYear()}-${String(prevStart.getMonth() + 1).padStart(2, '0')}-${String(prevStart.getDate()).padStart(2, '0')}`,
+      endDate: `${prevEnd.getFullYear()}-${String(prevEnd.getMonth() + 1).padStart(2, '0')}-${String(prevEnd.getDate()).padStart(2, '0')}`
+    };
+  }
+
+  const prevKPIs = getCentralKPIsForPeriod(prevPeriod, prevRange, filterStore, filterCamera, filterZone, filterCategory);
+
+  const calculateChange = (current, previous) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return parseFloat((((current - previous) / previous) * 100).toFixed(1));
+  };
+
+  const totalVisitorsChange = calculateChange(totalCustomers, prevKPIs.totalCustomers);
+  const salesRevenueChange = calculateChange(totalSales, prevKPIs.totalSales);
+  const avgDwellTimeChange = calculateChange(avgDwellTime, prevKPIs.avgDwellTime);
+  const conversionRateChange = calculateChange(conversionRate, prevKPIs.conversionRate);
+  const productsPickedChange = calculateChange(Math.round(2140 * mult), Math.round(2140 * (mult * 0.9)));
+
+  // Generate dynamic AI insights
+  const kpisTemp = {
+    totalVisitors: totalCustomers,
+    salesRevenue: totalSales,
+    conversionRate,
+    avgDwellTime,
+    peakHour: "5:00 PM – 7:00 PM",
+    peakHourTraffic: peakTraffic,
+    totalCustomers
+  };
+  const dynInsights = getDynamicAiInsights(kpisTemp);
+  aiInsights.length = 0;
+  aiInsights.push(...dynInsights);
+
+  // Compute customersByZone dynamically
+  const zoneCounts = {};
+  customerList.forEach(c => {
+    zoneCounts[c.zone] = (zoneCounts[c.zone] || 0) + 1;
+  });
+  const customersByZone = Object.keys(zoneCounts).map((zName, idx) => {
+    const colors = ["#2563EB", "#10B981", "#8B5CF6", "#F59E0B", "#06B6D4", "#F97316", "#14B8A6", "#EF4444"];
+    return {
+      zone: zName,
+      name: zName,
+      val: zoneCounts[zName],
+      count: zoneCounts[zName],
+      scaledVisitors: zoneCounts[zName],
+      fill: colors[idx % colors.length],
+      color: colors[idx % colors.length]
+    };
+  });
+
+  // Compute topPickedProducts dynamically
+  const productPurchaseCounts = {};
+  customerList.forEach(c => {
+    c.productsPurchased.forEach(p => {
+      productPurchaseCounts[p.name] = (productPurchaseCounts[p.name] || 0) + 1;
+    });
+  });
+  const topPickedProducts = Object.keys(productPurchaseCounts)
+    .map(name => {
+      const prod = products.find(p => p.name === name) || {};
+      return {
+        name,
+        category: prod.category || "General",
+        picked: productPurchaseCounts[name],
+        change: "↑ " + Math.floor(seededRandom(name.charCodeAt(0)) * 15 + 5) + "%",
+        color: "text-emerald-400"
+      };
+    })
+    .sort((a, b) => b.picked - a.picked)
+    .slice(0, 5)
+    .map((p, idx) => ({ rank: idx + 1, ...p }));
 
   return {
     mult,
+    customerList,
+    transactionList,
     kpis: {
-      totalVisitors,
-      totalVisitorsChange: 12.4,
-      currentCustomers: 42,
-      avgDwellTime: 18.4,
-      avgDwellTimeChange: 8.2,
+      totalVisitors: totalCustomers,
+      totalVisitorsChange,
+      currentCustomers: Math.round(42 * (mult > 1 ? 1 : mult)),
+      avgDwellTime,
+      avgDwellTimeChange,
+      avgAttentionTime: parseFloat((avgDwellTime * 0.35).toFixed(1)),
+      avgAttentionTimeChange: avgDwellTimeChange,
+      avgOrderValue: purchasedCustomers > 0 ? parseFloat((totalSales / purchasedCustomers).toFixed(2)) : 42.50,
+      avgOrderValueChange: salesRevenueChange,
       productsPicked: Math.round(2140 * mult),
-      productsPickedChange: 11.2,
-      conversionRate: 18.2,
-      conversionRateChange: 5.1,
-      cameraStatus: "3/4 Online",
-      salesRevenue: Math.round(14850 * mult),
-      salesRevenueChange: 22.3,
+      productsPickedChange,
+      conversionRate,
+      conversionRateChange,
+      cameraStatus: "5/6 Online",
+      salesRevenue: totalSales,
+      salesRevenueChange,
       peakHourTraffic: peakTraffic,
       peakHour: "5:00 PM – 7:00 PM",
+
+      // Store Manager specific metrics
+      totalCustomers,
+      purchasedCustomers,
+      nonPurchasingCustomers,
+      unitsSold,
+      todaySales: totalSales,
+      todayProfit: totalProfit,
     },
     visitorsByHour: [
       { time: "9 AM", val: Math.round(peakTraffic * 0.25), visitors: Math.round(peakTraffic * 0.25) },
@@ -471,35 +1068,313 @@ export function getCentralScaledData(period) {
       { time: "8 PM", val: Math.round(peakTraffic * 0.55), visitors: Math.round(peakTraffic * 0.55) },
       { time: "9 PM", val: Math.round(peakTraffic * 0.30), visitors: Math.round(peakTraffic * 0.30) }
     ],
-    customersByZone: [
-      { zone: "Entrance", name: "Entrance", val: Math.round(totalVisitors * 0.22), count: Math.round(totalVisitors * 0.22), scaledVisitors: Math.round(totalVisitors * 0.22), fill: "#2563EB", color: "#2563EB" },
-      { zone: "Bakery", name: "Bakery", val: Math.round(totalVisitors * 0.18), count: Math.round(totalVisitors * 0.18), scaledVisitors: Math.round(totalVisitors * 0.18), fill: "#10B981", color: "#10B981" },
-      { zone: "Dairy", name: "Dairy", val: Math.round(totalVisitors * 0.17), count: Math.round(totalVisitors * 0.17), scaledVisitors: Math.round(totalVisitors * 0.17), fill: "#8B5CF6", color: "#8B5CF6" },
-      { zone: "Produce", name: "Produce", val: Math.round(totalVisitors * 0.14), count: Math.round(totalVisitors * 0.14), scaledVisitors: Math.round(totalVisitors * 0.14), fill: "#F59E0B", color: "#F59E0B" },
-      { zone: "Cosmetics", name: "Cosmetics", val: Math.round(totalVisitors * 0.10), count: Math.round(totalVisitors * 0.10), scaledVisitors: Math.round(totalVisitors * 0.10), fill: "#06B6D4", color: "#06B6D4" },
-      { zone: "Electronics", name: "Electronics", val: Math.round(totalVisitors * 0.09), count: Math.round(totalVisitors * 0.09), scaledVisitors: Math.round(totalVisitors * 0.09), fill: "#F97316", color: "#F97316" }
-    ],
+    customersByZone,
     segmentationData: [
-      { name: "New Visitors", value: Math.round(totalVisitors * 0.63), color: "#2563EB" },
-      { name: "Returning Visitors", value: Math.round(totalVisitors * 0.37), color: "#10B981" }
+      { name: "New Visitors", value: Math.round(totalCustomers * 0.63), color: "#2563EB" },
+      { name: "Returning Visitors", value: Math.round(totalCustomers * 0.37), color: "#10B981" }
     ],
     productInteraction: [
-      { name: "Picked", value: Math.round(totalVisitors * 0.15), color: "#10B981" },
-      { name: "Viewed", value: Math.round(totalVisitors * 0.35), color: "#2563EB" },
-      { name: "Returned", value: Math.round(totalVisitors * 0.05), color: "#F59E0B" },
-      { name: "Compared", value: Math.round(totalVisitors * 0.08), color: "#8B5CF6" }
+      { name: "Picked", value: purchasedCustomers, color: "#10B981" },
+      { name: "Viewed", value: totalCustomers, color: "#2563EB" },
+      { name: "Returned", value: Math.round(totalCustomers * 0.12), color: "#F59E0B" },
+      { name: "Compared", value: Math.round(totalCustomers * 0.22), color: "#8B5CF6" }
     ],
-    topPickedProducts: [
-      { rank: 1, name: "Artisan Sourdough Bread", category: "Bakery", picked: Math.round(totalVisitors * 0.015), change: "↑ 12%", color: "text-emerald-400" },
-      { rank: 2, name: "Organic Almond Milk", category: "Dairy", picked: Math.round(totalVisitors * 0.012), change: "↑ 7%", color: "text-emerald-400" },
-      { rank: 3, name: "Free-Range Eggs (12pk)", category: "Dairy", picked: Math.round(totalVisitors * 0.011), change: "↑ 3%", color: "text-emerald-400" },
-      { rank: 4, name: "Premium Greek Yogurt", category: "Dairy", picked: Math.round(totalVisitors * 0.010), change: "↑ 8%", color: "text-emerald-400" },
-      { rank: 5, name: "Avocado (Hass, 4-pack)", category: "Produce", picked: Math.round(totalVisitors * 0.008), change: "↑ 5%", color: "text-emerald-400" }
-    ],
+    topPickedProducts,
     entryExitPoints: [
       { name: "Main Entrance", entries: Math.round(8420 * mult), exits: Math.round(7980 * mult), pct: 58.2, scaledEntries: Math.round(8420 * mult) },
       { name: "Side Entrance (Parking)", entries: Math.round(3640 * mult), exits: Math.round(3890 * mult), pct: 25.4, scaledEntries: Math.round(3640 * mult) },
       { name: "Mall Connector", entries: Math.round(2360 * mult), exits: Math.round(2410 * mult), pct: 16.4, scaledEntries: Math.round(2360 * mult) }
-    ]
+    ],
+    dailyTrafficTrend: dailyTrafficTrend.map(d => ({
+      ...d,
+      visitors: Math.round(d.visitors * (mult > 1 ? mult * 0.15 : mult)),
+      newVisitors: Math.round(d.newVisitors * (mult > 1 ? mult * 0.15 : mult)),
+      returning: Math.round(d.returning * (mult > 1 ? mult * 0.15 : mult)),
+      scaledVisitors: Math.round(d.visitors * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    hourlyTraffic: hourlyTraffic.map(h => ({
+      ...h,
+      traffic: Math.round(h.traffic * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    journeyFunnel: journeyFunnel.map(j => ({
+      ...j,
+      count: Math.round(j.count * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    commonPaths: commonPaths.map(p => ({
+      ...p,
+      freq: Math.round(p.freq * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    zoneTransitions: zoneTransitions.map(t => ({
+      ...t,
+      count: Math.round(t.count * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    dropoffPoints: dropoffPoints.map(d => ({
+      ...d,
+      count: Math.round(d.count * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    zones: zones.map(z => {
+      const zCusts = customerList.filter(c => c.zone === z.name);
+      const zTxns = transactionList.filter(t => {
+        const cust = customerList.find(c => c.customerId === t.customerId);
+        return cust && cust.zone === z.name;
+      });
+      const zRev = zTxns.reduce((sum, t) => sum + t.amount, 0);
+      const zPurchased = zCusts.filter(c => c.purchaseStatus === "Purchased").length;
+      const zConv = zCusts.length > 0 ? parseFloat(((zPurchased / zCusts.length) * 100).toFixed(1)) : 0;
+      return {
+        ...z,
+        visitors: zCusts.length,
+        scaledVisitors: zCusts.length,
+        revenue: zRev,
+        conversionRate: zConv,
+        dwellTime: zCusts.length > 0 
+          ? parseFloat((zCusts.reduce((sum, c) => sum + c.dwellTime, 0) / zCusts.length).toFixed(1)) 
+          : 15.0,
+        attentionScore: Math.round(75 + seededRandom(z.name.charCodeAt(0)) * 20),
+        color: z.color || "#10B981"
+      };
+    }),
+    dwellDistribution: dwellDistribution.map(d => ({
+      ...d,
+      visitors: Math.round(d.visitors * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    dwellTrend: dwellTrend.map(dt => ({
+      ...dt,
+      avgDwell: parseFloat((dt.avgDwell * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1))
+    })),
+    storeHeatmap: storeHeatmap.map(h => ({
+      ...h,
+      heat: Math.min(100, Math.max(10, Math.round(h.heat * (mult > 5 ? 1.05 : mult < 1 ? 0.6 : 0.9))))
+    })),
+    bottlenecks: bottlenecks.map(b => ({
+      ...b,
+      density: Math.min(99, Math.round(b.density * (mult > 1 ? 1.02 : 0.88)))
+    })),
+    products: products.map(p => {
+      const pViews = customerList.filter(c => c.productsViewed.some(pv => pv.id === p.id)).length;
+      const pPurchased = customerList.filter(c => c.productsPurchased.some(pp => pp.id === p.id)).length;
+      const pRev = transactionList.reduce((sum, t) => {
+        const cust = customerList.find(c => c.customerId === t.customerId);
+        if (cust && cust.productsPurchased.some(pp => pp.id === p.id)) {
+          return sum + p.price;
+        }
+        return sum;
+      }, 0);
+      return {
+        ...p,
+        views: pViews || Math.round(15 * mult),
+        pickups: pViews ? Math.round(pViews * 0.6) : Math.round(9 * mult),
+        purchases: pPurchased || Math.round(5 * mult),
+        convRate: pViews > 0 ? parseFloat(((pPurchased / pViews) * 100).toFixed(1)) : 0,
+        revenue: pRev || Math.round(pPurchased * p.price),
+        attentionScore: Math.round(80 + seededRandom(p.id.charCodeAt(2)) * 18),
+        avgDwell: parseFloat((2.5 + seededRandom(p.id.charCodeAt(2)) * 3.5).toFixed(1))
+      };
+    }),
+    customerSegments: customerSegments.map(s => ({
+      ...s,
+      count: Math.round(s.count * (mult > 1 ? mult * 0.15 : mult)),
+      revenue: Math.round(s.revenue * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    attentionTrend: attentionTrend.map(a => ({
+      ...a,
+      totalAttn: Math.round(a.totalAttn * (mult > 1 ? mult * 0.15 : mult)),
+      highAttnVisitors: Math.round(a.highAttnVisitors * (mult > 1 ? mult * 0.15 : mult))
+    })),
+    attentionByZone: attentionByZone.map(az => ({
+      ...az,
+      share: Math.round(az.share)
+    })),
+    gazeDirectionData: gazeDirectionData,
+    aiInsights: dynInsights
   };
+}
+
+export async function fetchAllFromDatabase() {
+  try {
+    const fetchWithFallback = async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return json.data || json;
+    };
+
+    const [dbStores, dbCameras, dbShelves, dbZones, dbProducts, dbPromotions, dbCustomers, dbTransactions] = await Promise.all([
+      fetchWithFallback("http://localhost:5001/api/stores"),
+      fetchWithFallback("http://localhost:5001/api/cameras"),
+      fetchWithFallback("http://localhost:5001/api/shelves"),
+      fetchWithFallback("http://localhost:5001/api/products"),
+      fetchWithFallback("http://localhost:5001/api/zones"),
+      fetchWithFallback("http://localhost:5001/api/promotions"),
+      fetchWithFallback("http://localhost:5001/api/customers"),
+      fetchWithFallback("http://localhost:5001/api/transactions")
+    ]);
+
+    if (dbStores && dbStores.length > 0) {
+      stores.length = 0;
+      stores.push(...dbStores.map(s => ({
+        id: s.store_id || `STR-${s.id}`,
+        name: s.name,
+        address: s.address,
+        manager: s.manager_id ? `Manager #${s.manager_id}` : "Jane Smith",
+        cameras: 6,
+        shelves: 12,
+        zones: 8,
+        status: s.status === 'active' ? 'Active' : s.status === 'maintenance' ? 'Maintenance' : 'Inactive',
+        openSince: "2021-03-15",
+        sqft: s.total_area_sqft
+      })));
+    }
+
+    if (dbCameras && dbCameras.length > 0) {
+      cameras.length = 0;
+      cameras.push(...dbCameras.map(c => {
+        const matchingStore = dbStores.find(st => st.id === c.store_id);
+        const storeId = matchingStore ? (matchingStore.store_id || `STR-${matchingStore.id}`) : "STR-101";
+        return {
+          id: c.camera_id,
+          storeId: storeId,
+          location: c.location || "Aisle B",
+          name: c.name,
+          status: c.is_active ? "Online" : "Offline",
+          fps: c.fps || 30,
+          resolution: c.resolution || "1080p",
+          zone: c.zones && c.zones.length > 0 ? c.zones[0] : "Checkout",
+          model: c.camera_type || "fixed",
+          lastCalibrated: "2026-07-28",
+          coordsX: c.position_x || 4.0,
+          coordsY: c.position_y || 4.0
+        };
+      }));
+    }
+
+    if (dbShelves && dbShelves.length > 0) {
+      shelves.length = 0;
+      shelves.push(...dbShelves.map(s => {
+        const matchingStore = dbStores.find(st => st.id === s.store_id);
+        const storeName = matchingStore ? matchingStore.name : "Downtown Flagship";
+        const storeId = matchingStore ? (matchingStore.store_id || `STR-${matchingStore.id}`) : "STR-101";
+        return {
+          id: s.shelf_id,
+          name: s.name || `Shelf ${s.shelf_number} - ${s.zone}`,
+          store: storeName,
+          storeId: storeId,
+          zone: s.zone || "Bakery",
+          category: s.zone || "Bakery",
+          coordsX: s.position_x || 10.0,
+          coordsY: s.position_y || 10.0,
+          width: s.width || 2.0,
+          height: s.height || 1.6,
+          capacity: s.capacity || 100,
+          attachedCamera: s.attachedCamera || "CAM-01",
+          status: "Active",
+          dims: `${s.width || 2.0}m x ${s.height || 1.6}m x 0.6m`,
+          dimsX: s.width,
+          dimsY: s.height,
+          attentionScore: s.attentionScore || 85,
+          occupancyRate: s.occupancyRate || 80
+        };
+      }));
+    }
+
+    if (dbZones && dbZones.length > 0) {
+      zones.length = 0;
+      zones.push(...dbZones.map(z => {
+        const matchingStore = dbStores.find(st => st.id === z.store_id);
+        const storeId = matchingStore ? (matchingStore.store_id || `STR-${matchingStore.id}`) : "STR-101";
+        return {
+          id: z.zone_id,
+          name: z.name,
+          store: storeId,
+          status: z.status || "Active",
+          color: z.color || "#10B981"
+        };
+      }));
+    }
+
+    if (dbProducts && dbProducts.length > 0) {
+      products.length = 0;
+      products.push(...dbProducts.map(p => {
+        const matchingStore = dbStores.find(st => st.name === p.store || st.store_id === p.store);
+        const storeName = matchingStore ? matchingStore.name : "Downtown Flagship";
+        const storeId = matchingStore ? (matchingStore.store_id || `STR-${matchingStore.id}`) : "STR-101";
+        return {
+          id: p.product_id,
+          name: p.name,
+          sku: p.sku,
+          category: p.category || "General",
+          sellingPrice: p.selling_price || p.price || 10.0,
+          price: p.price || 10.0,
+          costPrice: p.cost_price || (p.price * 0.7) || 7.0,
+          cost: p.cost_price || (p.price * 0.7) || 7.0,
+          profit: p.profit || (p.price - (p.cost_price || p.price * 0.7)) || 3.0,
+          stockQty: p.stock_qty || 50,
+          shelf: p.shelf || "SH-101",
+          store: storeName,
+          storeId: storeId,
+          promo: p.promo || "None",
+          status: p.status === 'active' ? 'Active' : 'Inactive',
+          subcategory: p.subcategory || "",
+          brand: p.brand || ""
+        };
+      }));
+    }
+
+    if (dbPromotions && dbPromotions.length > 0) {
+      promotions.length = 0;
+      promotions.push(...dbPromotions.map(p => ({
+        id: p.promo_id,
+        name: p.name,
+        zone: p.zone,
+        category: p.category,
+        type: p.type,
+        value: p.value,
+        lift: p.lift,
+        revenue: p.revenue,
+        status: p.status,
+        startDate: p.start_date,
+        endDate: p.end_date,
+        products: p.products || []
+      })));
+    }
+
+    if (dbCustomers && dbCustomers.length > 0) {
+      window.db_customers = dbCustomers.map(c => ({
+        id: c.id,
+        customerId: c.customer_id,
+        visitDate: c.visit_date,
+        entryTime: c.entry_time,
+        exitTime: c.exit_time,
+        dwellTime: c.dwell_time,
+        purchaseStatus: c.purchase_status,
+        purchaseAmount: c.purchase_amount,
+        transactionId: c.transaction_id,
+        store: c.store || "Downtown Flagship",
+        zone: c.zone || "Bakery",
+        productsViewed: c.products_viewed || [],
+        productsPurchased: c.products_purchased || [],
+        isActive: c.is_active
+      }));
+    }
+
+    if (dbTransactions && dbTransactions.length > 0) {
+      window.db_transactions = dbTransactions.map(t => ({
+        transactionId: t.transaction_id,
+        customerId: t.customer_id,
+        date: t.date,
+        time: t.time,
+        products: t.products,
+        quantity: t.quantity,
+        amount: t.amount,
+        profit: t.profit,
+        paymentStatus: t.payment_status
+      }));
+    }
+
+    console.log("✅ Successfully populated centralData arrays from PostgreSQL");
+    return true;
+  } catch (err) {
+    console.error("❌ Failed to fetch authoritative data from backend:", err);
+    return false;
+  }
 }

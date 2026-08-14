@@ -6,7 +6,7 @@ const getStores = async (req, res) => {
     const where = {};
     
     // Store managers can only see their stores
-    if (req.user.role === 'store_manager') {
+    if (req.user && req.user.role === 'store_manager') {
       where.manager_id = req.user.id;
     }
     
@@ -45,7 +45,7 @@ const createStore = async (req, res) => {
 
     const storeData = {
       ...req.body,
-      manager_id: req.user.role === 'admin' ? req.body.manager_id : req.user.id
+      manager_id: (req.user && req.user.role === 'admin') ? req.body.manager_id : (req.user ? req.user.id : null)
     };
 
     const store = await Store.create(storeData);
@@ -77,7 +77,7 @@ const updateStore = async (req, res) => {
     }
 
     // Check permission
-    if (req.user.role === 'store_manager' && store.manager_id !== req.user.id) {
+    if (req.user && req.user.role === 'store_manager' && store.manager_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'

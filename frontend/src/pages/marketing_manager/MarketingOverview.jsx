@@ -2,46 +2,103 @@ import React, { useState } from "react";
 import {
   ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ScatterChart, Scatter, ZAxis, LineChart, Cell
+  ScatterChart, Scatter, ZAxis, Cell
 } from "recharts";
 import { useCams } from "../../services/CamsContext";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import { formatNumber, getCentralScaledData } from "../../services/centralData";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function MarketingOverview() {
-  const { dateRange, setDateRange, telemetry } = useCams();
-  const [selectedCampaignFilter, setSelectedCampaignFilter] = useState("All Campaigns");
+  const { telemetry, globalFilter } = useCams();
 
-  // Dynamic Scale multiplier based on dateRange
-  let scale = 1.0;
-  if (dateRange === "Today") scale = 0.14;
-  else if (dateRange === "Yesterday") scale = 0.13;
-  else if (dateRange === "Last 7 Days") scale = 1.0;
-  else if (dateRange === "Last 30 Days") scale = 4.2;
-  else if (dateRange === "This Month") scale = 3.8;
-  else if (dateRange === "Custom Date Range") scale = 2.0;
+  // Local Page Period & Campaign States (null means inherit global filter)
+  const [localPeriod, setLocalPeriod] = useState(null);
+  const [localCustomRange, setLocalCustomRange] = useState(null);
+  const [selectedCampaign, setSelectedCampaign] = useState("All Active Campaigns");
 
-  // Datasets scaled dynamically by period selection
+  const globalPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
+  const globalCustomRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
+
+  // Widget-specific Date Overrides
+  const [w1Period, setW1Period] = useState(null);
+  const [w2Period, setW2Period] = useState(null);
+  const [w3Period, setW3Period] = useState(null);
+  const [w4Period, setW4Period] = useState(null);
+
+  const handleGlobalDateChange = (newPeriod, customData = null) => {
+    setLocalPeriod(newPeriod);
+    setLocalCustomRange(customData);
+    // Reset widget overrides so master filter applies
+    setW1Period(null);
+    setW2Period(null);
+    setW3Period(null);
+    setW4Period(null);
+  };
+
+  // Helper to compute scale multiplier
+  const getScale = (p, cRange) => {
+    if (p === "Today") return 0.15;
+    if (p === "Yesterday") return 0.14;
+    if (p === "Last 7 Days") return 1.0;
+    if (p === "Last 30 Days") return 4.1;
+    if (p === "Custom Date Range" && cRange?.startDate && cRange?.endDate) {
+      const diffDays = Math.max(1, Math.round((new Date(cRange.endDate) - new Date(cRange.startDate)) / (1000 * 60 * 60 * 24)));
+      return parseFloat((diffDays / 7).toFixed(2));
+    }
+    return 1.0;
+  };
+
+  // Campaign-specific Multipliers
+  const campaignMult = {
+    "All Active Campaigns": 1.0,
+    "Summer Sale": 0.42,
+    "Weekend Bonanza": 0.28,
+    "New Arrival Launch": 0.30
+  }[selectedCampaign] || 1.0;
+
+  const baseScale = getScale(globalPeriod, globalCustomRange) * campaignMult;
+
+  // Widget 1 Scale
+  const scale1 = getScale(w1Period || globalPeriod, w1Period ? null : globalCustomRange) * campaignMult;
+  // Widget 2 Scale
+  const scale2 = getScale(w2Period || globalPeriod, w2Period ? null : globalCustomRange) * campaignMult;
+  // Widget 3 Scale
+  const scale3 = getScale(w3Period || globalPeriod, w3Period ? null : globalCustomRange) * campaignMult;
+
+  // 1. KPI Cards
+  const totalCampaignsCount = selectedCampaign === "All Active Campaigns" ? 12 : 1;
+  const totalImpressionsVal = Math.round(245000 * baseScale);
+  const promoRevenueVal = Math.round(24800 * baseScale);
+
+  // 2. Datasets
   const campaignPerformanceData = [
-    { name: "Summer Sale", impressions: Math.round(1650 * scale), engagement: 31, conversion: 15 },
-    { name: "Weekend Bonanza", impressions: Math.round(2200 * scale), engagement: 22, conversion: 11 },
-    { name: "New Arrival Launch", impressions: Math.round(1500 * scale), engagement: 28, conversion: 14 },
-    { name: "Festive Offer", impressions: Math.round(1850 * scale), engagement: 33, conversion: 19 },
-    { name: "Clearance Sale", impressions: Math.round(2050 * scale), engagement: 29, conversion: 12 }
-  ];
+    { name: "Summer Sale", impressions: Math.round(165000 * scale1), engagement: 34.5, conversion: 16.2 },
+    { name: "Weekend Bonanza", impressions: Math.round(120000 * scale1), engagement: 28.9, conversion: 12.7 },
+    { name: "New Arrival Launch", impressions: Math.round(145000 * scale1), engagement: 33.1, conversion: 14.8 },
+    { name: "Festive Offer", impressions: Math.round(85000 * scale1), engagement: 26.7, conversion: 11.3 },
+    { name: "Clearance Sale", impressions: Math.round(65000 * scale1), engagement: 19.3, conversion: 8.6 }
+  ].filter(c => selectedCampaign === "All Active Campaigns" || c.name === selectedCampaign);
 
   const promoEffectivenessData = [
-    { metric: "Footfall", before: Math.round(12.5 * scale), after: Math.round(18.5 * scale) },
+    { metric: "Footfall", before: Math.round(12.5 * scale2), after: Math.round(18.5 * scale2) },
     { metric: "Attention (s)", before: 4.1, after: 6.8 },
     { metric: "Engagement %", before: 21, after: 33 },
     { metric: "Conversion %", before: 9.2, after: 14.6 },
-    { metric: "Revenue ($K)", before: Math.round(5.6 * scale), after: Math.round(8.9 * scale) }
+    { metric: "Revenue ($K)", before: Math.round(5.6 * scale2), after: Math.round(8.9 * scale2) }
   ];
 
-  const funnelData = [
-    { stage: "Impressions", count: Math.round(245000 * scale).toLocaleString(), width: "w-full", bg: "bg-purple-600" },
-    { stage: "Viewed", count: Math.round(125500 * scale).toLocaleString(), width: "w-[85%]", bg: "bg-blue-500" },
-    { stage: "Engaged", count: Math.round(80200 * scale).toLocaleString(), width: "w-[68%]", bg: "bg-teal-500" },
-    { stage: "Interested", count: Math.round(35800 * scale).toLocaleString(), width: "w-[50%]", bg: "bg-amber-500" },
-    { stage: "Converted", count: Math.round(17900 * scale).toLocaleString(), width: "w-[35%]", bg: "bg-rose-500" }
+  // 3. Marketing Conversion Funnel (Requirement 9: Impressions -> Views -> Engagement -> Clicks -> Product Views -> Purchases -> Conversions)
+  const totalBaseImp = Math.round(300000 * scale3);
+  const funnelStages = [
+    { stage: "Impressions", count: totalBaseImp, convPrev: "100%", widthPct: 100, color: "from-[#8B5CF6] to-[#6366F1]" },
+    { stage: "Views", count: Math.round(totalBaseImp * 0.70), convPrev: "70.0% from Imp", widthPct: 86, color: "from-[#6366F1] to-[#3B82F6]" },
+    { stage: "Engagement", count: Math.round(totalBaseImp * 0.48), convPrev: "68.6% from Views", widthPct: 72, color: "from-[#3B82F6] to-[#06B6D4]" },
+    { stage: "Clicks", count: Math.round(totalBaseImp * 0.32), convPrev: "66.7% from Eng", widthPct: 58, color: "from-[#06B6D4] to-[#10B981]" },
+    { stage: "Product Views", count: Math.round(totalBaseImp * 0.22), convPrev: "68.8% from Clicks", widthPct: 44, color: "from-[#10B981] to-[#F59E0B]" },
+    { stage: "Purchases", count: Math.round(totalBaseImp * 0.14), convPrev: "63.6% from Prod Views", widthPct: 32, color: "from-[#F59E0B] to-[#EC4899]" },
+    { stage: "Conversions", count: Math.round(totalBaseImp * 0.10), convPrev: "71.4% from Purchases", widthPct: 22, color: "from-[#EC4899] to-[#EF4444]" }
   ];
 
   const visibilityByShelfData = [
@@ -61,56 +118,98 @@ export default function MarketingOverview() {
   ];
 
   const scatterData = [
-    { x: 9, y: 17, z: 100, name: "Summer Sale" },
-    { x: 10, y: 19, z: 120, name: "Weekend Bonanza" },
-    { x: 11, y: 18, z: 110, name: "New Arrival" },
-    { x: 6, y: 11, z: 80, name: "Festive Offer" },
-    { x: 4, y: 7, z: 60, name: "Clearance Sale" }
+    { x: 9, y: 17, z: 100, name: "Summer Sale", campaign: "Summer Sale 2025", eng: "34.5%", conv: "16.2%" },
+    { x: 10, y: 19, z: 120, name: "Weekend Bonanza", campaign: "Weekend Bonanza", eng: "28.9%", conv: "12.7%" },
+    { x: 11, y: 18, z: 110, name: "New Arrival", campaign: "New Arrival Launch", eng: "33.1%", conv: "14.8%" },
+    { x: 6, y: 11, z: 80, name: "Festive Offer", campaign: "Festive Offer", eng: "26.7%", conv: "11.3%" }
   ];
 
   const topCampaigns = [
-    { id: 1, name: "Summer Sale", imp: Math.round(820 * scale) + "K", eng: "34.5%", conv: "16.2%", roi: "4.2x" },
-    { id: 2, name: "New Arrival Launch", imp: Math.round(610 * scale) + "K", eng: "33.1%", conv: "14.8%", roi: "3.8x" },
-    { id: 3, name: "Weekend Bonanza", imp: Math.round(540 * scale) + "K", eng: "28.9%", conv: "12.7%", roi: "3.2x" },
-    { id: 4, name: "Festive Offer", imp: Math.round(310 * scale) + "K", eng: "26.7%", conv: "11.3%", roi: "2.6x" }
-  ];
+    { id: 1, name: "Summer Sale", imp: formatNumber(Math.round(165000 * baseScale)), eng: "34.5%", conv: "16.2%", roi: "4.2x" },
+    { id: 2, name: "New Arrival Launch", imp: formatNumber(Math.round(145000 * baseScale)), eng: "33.1%", conv: "14.8%", roi: "3.8x" },
+    { id: 3, name: "Weekend Bonanza", imp: formatNumber(Math.round(120000 * baseScale)), eng: "28.9%", conv: "12.7%", roi: "3.2x" },
+    { id: 4, name: "Festive Offer", imp: formatNumber(Math.round(85000 * baseScale)), eng: "26.7%", conv: "11.3%", roi: "2.6x" }
+  ].filter(c => selectedCampaign === "All Active Campaigns" || c.name === selectedCampaign);
+  const centralData = getCentralScaledData(globalPeriod, globalCustomRange);
+  const zones = centralData?.zones || [];
+  const productsList = centralData?.products || [];
 
-  const topRecommendations = [
-    { title: "Increase visibility of Product C on Shelf B", tag: "High Impact", tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
-    { title: "Extend Weekend Bonanza promotion", tag: "Medium Impact", tagColor: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
-    { title: "Relocate low-performing endcap display", tag: "High Impact", tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" }
-  ];
+  const topRecommendations = [];
+  if (productsList.length > 0 && zones.length > 0) {
+    const lowConvProduct = [...productsList].sort((a, b) => a.convRate - b.convRate)[0];
+    const topZone = [...zones].sort((a, b) => b.revenue - a.revenue)[0];
+    const lowDwellZone = [...zones].sort((a, b) => a.dwellTime - b.dwellTime)[0];
+
+    topRecommendations.push({
+      title: `Increase visibility of ${lowConvProduct.name} on displays`,
+      tag: "High Impact",
+      tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+    });
+    topRecommendations.push({
+      title: `Co-locate impulse products in high-revenue ${topZone.name} zone`,
+      tag: "Medium Impact",
+      tagColor: "bg-blue-500/10 text-blue-400 border-blue-500/30"
+    });
+    topRecommendations.push({
+      title: `Restructure layout of low-retention ${lowDwellZone.name} zone`,
+      tag: "High Impact",
+      tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+    });
+  } else {
+    topRecommendations.push({
+      title: "Insufficient data for AI insight",
+      tag: "Low Impact",
+      tagColor: "bg-purple-500/10 text-purple-400 border-purple-500/30"
+    });
+  }
+  // Custom Scatter Tooltip (Requirement 10)
+  const CustomScatterTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-[#070C18] border border-[#1E293B] p-3 rounded-xl shadow-2xl font-mono text-xs space-y-1 z-50">
+          <p className="font-bold text-emerald-400 text-sm">{data.campaign}</p>
+          <p className="text-slate-300">Attention Time: <strong className="text-white">{data.x}s</strong></p>
+          <p className="text-slate-300">Conversion Rate: <strong className="text-white">{data.y}%</strong></p>
+          <p className="text-slate-300">Engagement: <strong className="text-blue-400">{data.eng}</strong></p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-6 font-sans text-xs pb-8">
-      {/* HEADER WITH TITLE ONLY AND PERIOD/FILTER CONTROLS */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl">
-        <h1 className="text-xl font-black text-white tracking-wide">Marketing Manager Dashboard</h1>
+      {/* GLOBAL MASTER HEADER WITH CAMPAIGN SELECTOR & MASTER DATE FILTER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl shadow-xl">
+        <div>
+          <h1 className="text-xl font-black text-white tracking-wide">Marketing Manager Dashboard</h1>
+          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+            Active Campaign Scope: <span className="text-amber-400 font-bold">{selectedCampaign}</span>
+          </p>
+        </div>
 
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedCampaignFilter}
-            onChange={(e) => setSelectedCampaignFilter(e.target.value)}
-            className="bg-[#0A1020] border border-[#273449] text-amber-400 font-bold px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:border-amber-500 cursor-pointer"
-          >
-            <option value="All Campaigns">All Active Campaigns</option>
-            <option value="Summer Sale">Summer Sale</option>
-            <option value="Weekend Bonanza">Weekend Bonanza</option>
-            <option value="New Arrival Launch">New Arrival Launch</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto">
+          {/* Campaign Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 font-mono">Campaign:</span>
+            <select
+              value={selectedCampaign}
+              onChange={(e) => setSelectedCampaign(e.target.value)}
+              className="bg-[#070C18] border border-[#1E293B] text-amber-400 font-bold px-3 py-1.5 rounded-xl text-xs outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option value="All Active Campaigns">All Active Campaigns</option>
+              <option value="Summer Sale">Summer Sale</option>
+              <option value="Weekend Bonanza">Weekend Bonanza</option>
+              <option value="New Arrival Launch">New Arrival Launch</option>
+            </select>
+          </div>
 
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="bg-[#0A1020] border border-[#273449] text-amber-400 font-bold px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:border-amber-500 cursor-pointer"
-          >
-            <option value="Today">Today</option>
-            <option value="Yesterday">Yesterday</option>
-            <option value="Last 7 Days">Last 7 Days</option>
-            <option value="Last 30 Days">Last 30 Days</option>
-            <option value="This Month">This Month</option>
-            <option value="Custom Date Range">Custom Date Range</option>
-          </select>
+          {/* Master Global Date Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 font-mono">Global Period:</span>
+            <CustomDateSelector value={globalPeriod} onChange={handleGlobalDateChange} />
+          </div>
         </div>
       </div>
 
@@ -118,13 +217,13 @@ export default function MarketingOverview() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-1">
           <span className="text-slate-400 text-[10px] block font-medium">Total Campaigns</span>
-          <h2 className="text-xl font-black text-white font-mono">12 Active</h2>
+          <h2 className="text-xl font-black text-white font-mono">{totalCampaignsCount} Active</h2>
           <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 20% vs prev</span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-1">
           <span className="text-slate-400 text-[10px] block font-medium">Total Impressions</span>
-          <h2 className="text-xl font-black text-white font-mono">{Math.round(245 * scale)}K</h2>
+          <h2 className="text-xl font-black text-white font-mono">{formatNumber(totalImpressionsVal)}</h2>
           <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 18.6% vs prev</span>
         </div>
 
@@ -148,19 +247,21 @@ export default function MarketingOverview() {
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-1">
           <span className="text-slate-400 text-[10px] block font-medium">Promotional Revenue</span>
-          <h2 className="text-xl font-black text-white font-mono">${Math.round(24800 * scale).toLocaleString()}</h2>
+          <h2 className="text-xl font-black text-white font-mono">${formatNumber(promoRevenueVal)}</h2>
           <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 22.1% vs prev</span>
         </div>
       </div>
 
-      {/* 2. ANALYTICAL SECTION - STRICTLY TWO COMPONENTS PER ROW */}
-
       {/* ROW 1: Campaign Performance | Promotion Effectiveness */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance Overview</h3>
+          <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance Overview</h3>
+            <CustomDateSelector value={w1Period || globalPeriod} onChange={(p) => setW1Period(p)} />
+          </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={campaignPerformanceData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="name" stroke="#64748B" fontSize={8} />
@@ -171,13 +272,18 @@ export default function MarketingOverview() {
                 <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="#10B981" strokeWidth={2} name="Conversion %" />
               </ComposedChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Promotion Effectiveness Lift (Before vs. After)</h3>
+          <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Promotion Effectiveness Lift</h3>
+            <CustomDateSelector value={w2Period || globalPeriod} onChange={(p) => setW2Period(p)} />
+          </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={promoEffectivenessData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="metric" stroke="#64748B" fontSize={8} />
@@ -187,33 +293,49 @@ export default function MarketingOverview() {
                 <Bar dataKey="after" fill="#F59E0B" radius={[3, 3, 0, 0]} name="After Promo" />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
 
       {/* ROW 2: Marketing Conversion Funnel | Product Visibility Score by Shelf */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Marketing Conversion Funnel</h3>
-          <div className="space-y-3 pt-2">
-            {funnelData.map((f, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-slate-300 font-bold">{f.stage}</span>
-                  <span className="text-white font-bold">{f.count}</span>
+        {/* REQUIREMENT 9: PROFESSIONAL 7-STAGE MARKETING CONVERSION FUNNEL */}
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
+          <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Marketing Conversion Funnel</h3>
+            <CustomDateSelector value={w3Period || globalPeriod} onChange={(p) => setW3Period(p)} />
+          </div>
+
+          <div className="space-y-2 pt-1">
+            {funnelStages.map((f, idx) => (
+              <div key={idx} className="flex flex-col items-center">
+                <div
+                  className={`w-full py-2 px-3 bg-gradient-to-r ${f.color} rounded-xl shadow-lg border border-white/10 flex items-center justify-between transition-all duration-300`}
+                  style={{ width: `${f.widthPct}%` }}
+                >
+                  <span className="font-extrabold text-white text-[11px] tracking-wider uppercase truncate">{f.stage}</span>
+                  <div className="text-right">
+                    <span className="font-mono font-black text-white text-[11px] block">{formatNumber(f.count)}</span>
+                    <span className="text-[9px] text-white/90 font-bold block">{f.convPrev}</span>
+                  </div>
                 </div>
-                <div className="h-3 w-full bg-[#070C18] rounded-full overflow-hidden border border-[#1E293B]">
-                  <div className={`h-full ${f.bg} ${f.width} rounded-full`}></div>
-                </div>
+                {idx < funnelStages.length - 1 && (
+                  <div className="text-slate-500 text-[9px]">▼</div>
+                )}
               </div>
             ))}
           </div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Visibility Score by Shelf</h3>
+          <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Visibility Score by Shelf</h3>
+            <CustomDateSelector value={w4Period || globalPeriod} onChange={(p) => setW4Period(p)} />
+          </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={visibilityByShelfData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="shelf" stroke="#64748B" fontSize={8} />
@@ -226,6 +348,7 @@ export default function MarketingOverview() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -235,7 +358,8 @@ export default function MarketingOverview() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Attractiveness Radar</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="#1E293B" />
                 <PolarAngleAxis dataKey="subject" stroke="#64748B" fontSize={8} />
@@ -245,22 +369,26 @@ export default function MarketingOverview() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
+        {/* REQUIREMENT 10: ATTENTION VS CONVERSION SCATTER WITH ENHANCED TOOLTIP */}
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Attention vs. Conversion Scatter Analysis</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="x" name="Attention (s)" stroke="#64748B" fontSize={8} />
                 <YAxis dataKey="y" name="Conversion %" stroke="#64748B" fontSize={8} />
                 <ZAxis dataKey="z" range={[60, 200]} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} cursor={{ strokeDasharray: "3 3" }} />
+                <Tooltip content={<CustomScatterTooltip />} cursor={{ strokeDasharray: "3 3" }} />
                 <Scatter name="Campaigns" data={scatterData} fill="#10B981" />
               </ScatterChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>

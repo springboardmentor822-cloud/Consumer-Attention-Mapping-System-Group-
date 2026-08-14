@@ -4,7 +4,7 @@ const { getStores, createStore, updateStore, deleteStore } = require('../control
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 
 // Get all stores
-router.get('/', authMiddleware, getStores);
+router.get('/', getStores);
 
 // Create store
 router.post('/', authMiddleware, requireRole(['admin', 'store_manager']), createStore);

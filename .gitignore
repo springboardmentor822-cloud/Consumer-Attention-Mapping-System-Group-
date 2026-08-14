@@ -33,3 +33,10 @@ yarn-error.log*
 Thumbs.db
 Consumer_Attention_Mapping_System_1/
 log*
+
+# Large model weights
+*.pt
+
+# Agent configurations
+.agents/
+

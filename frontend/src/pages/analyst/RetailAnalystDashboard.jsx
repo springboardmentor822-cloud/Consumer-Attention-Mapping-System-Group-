@@ -1,5 +1,7 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function RetailAnalystDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState("Dashboard");
@@ -41,7 +43,7 @@ export default function RetailAnalystDashboard({ user, onLogout }) {
         </div>
 
         <nav className="flex items-center space-x-2 overflow-x-auto pt-3 pb-1 border-t border-[#1E293B]/50 mt-3 scrollbar-none">
-          {["Dashboard", "Consumer Journey Analysis", "Attention Analytics", "Consumer Segmentation", "Shopping Behavior Analysis", "Dwell Time Analysis", "Traffic Flow Analysis", "Zone Performance", "Product Analytics", "Category Performance", "AI Insights", "Reports", "Export Data", "Settings"].map((tab) => (
+          {["Dashboard", "Consumer Behavior Intelligence", "Shopping Behavior Analysis", "Dwell Time Analysis", "Traffic Flow Analysis", "Zone Performance", "Product Analytics", "Category Performance", "AI Insights", "Reports", "Export Data", "Settings"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -73,7 +75,8 @@ export default function RetailAnalystDashboard({ user, onLogout }) {
           <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-4">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">CONSUMER JOURNEY & ATTENTION SPAN</h3>
             <div className="h-56 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={ragData}>
                   <PolarGrid stroke="#273449" />
                   <PolarAngleAxis dataKey="subject" stroke="#94A3B8" fontSize={9} />
@@ -81,6 +84,7 @@ export default function RetailAnalystDashboard({ user, onLogout }) {
                   <Radar name="Attractiveness Score" dataKey="score" stroke="#A855F7" fill="#A855F7" fillOpacity={0.4} />
                 </RadarChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
 

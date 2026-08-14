@@ -1,14 +1,23 @@
 import React, { useState } from "react";
-import { reportHistory, scheduledReports } from "../../services/centralData";
-
-const kpis = [
-  { label: "Reports Generated", value: "142", change: "+12 this month", icon: "📄" },
-  { label: "Scheduled Reports", value: scheduledReports.length, change: "Active distributions", icon: "⏰" },
-  { label: "Downloads This Week", value: "38", change: "↑ 14%", icon: "📥" },
-  { label: "Active Subscriptions", value: "8", change: "External stakeholders", icon: "👥" },
-];
+import { reportHistory, scheduledReports, getCentralScaledData, formatNumber } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import CustomDateSelector from "../../components/CustomDateSelector";
 
 export default function AnalystReports() {
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+
+  const activeFilter = localPeriod || globalFilter;
+  const centralData = getCentralScaledData(activeFilter);
+  const mult = centralData.mult;
+
+  const kpis = [
+    { label: "Reports Generated", value: formatNumber(Math.round(142 * (mult > 1 ? mult * 0.2 : mult))), change: "+12 this month", icon: "📄" },
+    { label: "Scheduled Reports", value: scheduledReports.length, change: "Active distributions", icon: "⏰" },
+    { label: "Downloads This Week", value: formatNumber(Math.round(38 * (mult > 1 ? mult * 0.2 : mult))), change: "↑ 14%", icon: "📥" },
+    { label: "Active Subscriptions", value: "8", change: "External stakeholders", icon: "👥" },
+  ];
+
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedTemplate, setSelectedTemplate] = useState("Executive Summary");
   const [selectedFormat, setSelectedFormat] = useState("PDF");
@@ -22,11 +31,8 @@ export default function AnalystReports() {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Reports & Export</h1>
-          <p className="text-slate-400 text-xs">Generate, schedule, and distribute comprehensive retail analytics and performance summaries.</p>
         </div>
-        <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
-          <span>📅</span><span>Aug 1 – Aug 7, 2026</span>
-        </button>
+        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}

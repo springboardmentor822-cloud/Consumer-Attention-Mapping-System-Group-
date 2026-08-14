@@ -1,5 +1,7 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import ComponentErrorBoundary from "../../../components/ComponentErrorBoundary";
+
 
 export default function ProductVisibilityPage() {
   const [shelves, setShelves] = useState([
@@ -17,7 +19,6 @@ export default function ProductVisibilityPage() {
       <div className="bg-[#111827] border border-[#273449] rounded-2xl p-4 flex justify-between items-center">
         <div>
           <h2 className="text-base font-extrabold text-white">👁️ Product Visibility Analytics</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Track and update shelf-level eye gaze fixations & visibility scores</p>
         </div>
       </div>
 
@@ -25,7 +26,8 @@ export default function ProductVisibilityPage() {
         <div className="lg:col-span-2 bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-4">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Visibility Score Index by Shelf</h3>
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={shelves}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={10} domain={[0, 100]} />
@@ -34,6 +36,7 @@ export default function ProductVisibilityPage() {
                 <Bar dataKey="score" fill="#3B82F6" radius={[0, 4, 4, 0]} name="Visibility Score" />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 

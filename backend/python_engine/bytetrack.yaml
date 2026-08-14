@@ -1,0 +1,33 @@
+# CAMS ByteTrack configuration — robust multi-person retail tracking
+# Tuned for:
+#   - Maximum recall of all visible persons simultaneously
+#   - Stable track IDs through partial occlusion, crossing, and edge entry
+#   - Resilient lost-track buffering (~3 s at 30 fps)
+
+tracker_type: bytetrack
+
+# ── Detection confidence thresholds ────────────────────────────────────────────
+# High-confidence detections feed Stage-1 matching directly.
+# Low-confidence detections are held in a tentative pool and matched in Stage-2
+# so partially-visible or edge-entering people are not silently dropped.
+track_high_thresh: 0.20    # Stage-1 match: any detection >= 0.20 enters main matching
+track_low_thresh:  0.05    # Stage-2 match: low-score pool threshold (edge / occluded)
+new_track_thresh:  0.15    # Minimum confidence to create a brand-new track
+
+# ── Track buffer ────────────────────────────────────────────────────────────────
+# Frames a lost track is kept alive before ByteTrack officially discards it.
+# 90 frames = ~3 s at 30 fps.  Handles shelf occlusion and temporary exits.
+track_buffer: 90
+
+# ── Association IoU threshold ───────────────────────────────────────────────────
+# Stage-1 maximum IoU cost to allow a match.
+# Lowered from 0.70 → 0.85 to tolerate larger bbox shifts during
+# partial occlusion, frame-edge entry, and person-crossing events.
+# NOTE: in ByteTrack the parameter controls the *cost* threshold (1 - IoU);
+# ultralytics maps match_thresh directly as the upper IoU-cost bound.
+match_thresh: 0.85
+
+# ── Score fusion ────────────────────────────────────────────────────────────────
+# Fuse detection confidence with IoU distance for matching — stabilises
+# re-association of weak / partial-body detections.
+fuse_score: True

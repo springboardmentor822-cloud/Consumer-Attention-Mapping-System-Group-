@@ -1,0 +1,22 @@
+# CAMS Detection Engine — Python Dependencies
+# Install with: pip install -r requirements_detection.txt
+
+# Core detection
+ultralytics>=8.2.0        # YOLOv8 + built-in ByteTrack
+opencv-python>=4.8.0      # Video frame capture and processing
+
+# FastAPI + WebSocket server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+python-multipart>=0.0.9
+
+# Environment configuration
+python-dotenv>=1.0.0
+
+# Numerical (already pulled in by ultralytics, listed explicitly)
+numpy>=1.24.0
+
+# Optional: GPU acceleration (uncomment if CUDA GPU is available)
+# torch>=2.0.0+cu118       # CUDA 11.8 — match your CUDA version
+# torchvision>=0.15.0+cu118

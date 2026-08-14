@@ -20,7 +20,6 @@ export default function AnalystSettings() {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Settings</h1>
-          <p className="text-slate-400 text-xs">Configure analytical view thresholds, chart preferences, email notifications, and general user configuration.</p>
         </div>
         <button className="bg-[#0F172A] border border-[#1E293B] px-4 py-1.5 rounded-xl text-cyan-400 text-xs font-bold font-mono">
           SYSTEM: ONLINE

@@ -34,7 +34,6 @@ export default function AnalystExportData() {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Export Data</h1>
-          <p className="text-slate-400 text-xs">Configure and download raw or aggregated analytical telemetry datasets for offline modeling and business intelligence tools.</p>
         </div>
         <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
           <span>💾</span><span>Export Session Active</span>

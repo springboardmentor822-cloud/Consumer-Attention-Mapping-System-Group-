@@ -1,5 +1,7 @@
-﻿import React from "react";
+import React from "react";
 import {
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
@@ -118,7 +120,8 @@ export default function StoreManagerOverview() {
             </button>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={trafficOverTime}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
@@ -127,6 +130,7 @@ export default function StoreManagerOverview() {
                 <Line type="monotone" dataKey="visitors" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Visitors" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -139,7 +143,8 @@ export default function StoreManagerOverview() {
             </button>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={visitorsByZone}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
@@ -152,6 +157,7 @@ export default function StoreManagerOverview() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -164,7 +170,8 @@ export default function StoreManagerOverview() {
             </button>
           </div>
           <div className="h-40 w-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={customerDistribution} innerRadius={45} outerRadius={65} dataKey="value">
                   {customerDistribution.map((entry, index) => (
@@ -174,6 +181,7 @@ export default function StoreManagerOverview() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
             <div className="absolute text-center">
               <span className="text-[9px] text-slate-400 block">Total</span>
               <strong className="text-xs text-white block">12,845</strong>

@@ -75,9 +75,6 @@ export default function AdminNotifications() {
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time system events, AI analytics alerts, device failures, security incidents, report generation triggers, and user management updates.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

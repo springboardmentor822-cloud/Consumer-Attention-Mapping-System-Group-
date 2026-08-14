@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import BoxFilter from "./BoxFilter";
+import { useCams } from "../services/CamsContext";
 
 const BASE_CARDS = [
   { id: "bakery", name: "Bakery", icon: "🍞", x: 12, y: 18 },
@@ -76,9 +78,10 @@ function getRadialGradientStyle(heat) {
   }
 }
 
-export default function StoreHeatmapModel() {
+export default function StoreHeatmapModel({ customRangeLabel }) {
   const [activeView, setActiveView] = useState("Heatmap View");
-  const [dateFilter, setDateFilter] = useState("Last 7 Days");
+  const { globalFilter } = useCams();
+  const [localFilter, setLocalFilter] = useState("Global");
 
   const [agents, setAgents] = useState([
     { id: 1, x: 44, y: 15, targetX: 44, targetY: 38, zone: "beverages" },
@@ -91,15 +94,35 @@ export default function StoreHeatmapModel() {
     { id: 8, x: 77, y: 18, targetX: 77, targetY: 18, zone: "household" },
   ]);
 
-  const activePreset = HEATMAP_PRESETS[dateFilter] || HEATMAP_PRESETS["Last 7 Days"];
+  const activeFilter = localFilter === "Global" ? (globalFilter?.dateRange || "Last 7 Days") : localFilter;
+
+  const handleFilterChange = (newFilter) => {
+    setLocalFilter(newFilter);
+  };
+
+  const getPreset = (filter) => {
+    if (HEATMAP_PRESETS[filter]) {
+      return HEATMAP_PRESETS[filter];
+    }
+    if (filter === "Custom Date Range") {
+      return {
+        dateLabel: customRangeLabel || "Custom Date Range",
+        people: { bakery: 12, dairy: 10, beverages: 28, snacks: 20, household: 11, produce: 15, frozen: 13, personal: 6, entrance: 22, checkout: 28, exit: 16 },
+        heat: { bakery: 52, dairy: 45, beverages: 95, snacks: 88, household: 62, produce: 68, frozen: 58, personal: 52, entrance: 82, checkout: 96, exit: 52 }
+      };
+    }
+    return HEATMAP_PRESETS["Today"];
+  };
+
+  const activePreset = getPreset(activeFilter);
   const [zoneHeat, setZoneHeat] = useState(activePreset.heat);
   const [zonePeople, setZonePeople] = useState(activePreset.people);
 
   useEffect(() => {
-    const preset = HEATMAP_PRESETS[dateFilter] || HEATMAP_PRESETS["Last 7 Days"];
+    const preset = getPreset(activeFilter);
     setZoneHeat(preset.heat);
     setZonePeople(preset.people);
-  }, [dateFilter]);
+  }, [activeFilter, customRangeLabel]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -175,22 +198,11 @@ export default function StoreHeatmapModel() {
           </div>
         </div>
 
-        {/* Date Filters Buttons & Date Range Label */}
-        <div className="flex flex-wrap items-center gap-2 font-mono">
-          <div className="flex items-center bg-[#0B132B] p-1 rounded-xl border border-[#1E293B] text-xs">
-            {["Today", "Yesterday", "Last 7 Days", "Last 30 Days"].map(df => (
-              <button
-                key={df}
-                onClick={() => setDateFilter(df)}
-                className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                  dateFilter === df
-                    ? "bg-[#1E293B] text-blue-400 border border-blue-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {df}
-              </button>
-            ))}
+        {/* Date Filter Box Override & Date Range Label */}
+        <div className="flex flex-wrap items-center gap-3 font-mono">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Override:</span>
+            <BoxFilter value={localFilter} onChange={handleFilterChange} />
           </div>
 
           <div className="px-3 py-1.5 bg-[#0B132B] border border-[#1E293B] rounded-xl text-xs text-slate-300 flex items-center gap-2">

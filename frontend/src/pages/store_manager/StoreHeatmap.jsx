@@ -1,25 +1,65 @@
 import React, { useState } from "react";
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useCams } from "../../services/CamsContext";
-import { zones } from "../../services/centralData";
+import { zones, getCentralScaledData } from "../../services/centralData";
 import StoreHeatmapModel from "../../components/StoreHeatmapModel";
 import CustomDateSelector from "../../components/CustomDateSelector";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function StoreHeatmap() {
-  const { telemetry } = useCams();
-  const [heatmapType, setHeatmapType] = useState("density"); // density | movement | dwell | attention | engagement
-  const [period, setPeriod] = useState("Last 7 Days");
+  const { telemetry, liveTrackedPersons, globalFilter } = useCams();
+
+  const [heatmapType, setHeatmapType] = useState("density"); // density | movement | dwell | attention
+  const [localPeriod, setLocalPeriod] = useState(null);
+  const [localCustomRange, setLocalCustomRange] = useState(null);
+
+  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
+  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
+
+  const handleDateChange = (newPeriod, customData = null) => {
+    setLocalPeriod(newPeriod);
+    if (newPeriod === "Custom Date Range" && customData) {
+      setLocalCustomRange(customData);
+    } else if (newPeriod !== "Custom Date Range") {
+      setLocalCustomRange(null);
+    }
+  };
+
+  // Synchronized Central Dataset
+  const centralData = getCentralScaledData(selectedPeriod, customRange);
+  const mult = centralData.mult;
 
   const kpis = [
-    { label: "Overall Dwell Score", value: "89/100", change: "↑ 8.2%", icon: "⏱️" },
-    { label: "Avg Attention Score", value: `${telemetry.avgAttentionTime}s`, change: `↑ ${telemetry.avgAttentionTimeChange}%`, icon: "⭐" },
+    { label: "Overall Dwell Score", value: `${Math.min(99, Math.round(89 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)))}/100`, change: "↑ 8.2%", icon: "⏱️" },
+    { label: "Avg Attention Score", value: `${(telemetry.avgAttentionTime * (mult > 5 ? 1.1 : mult < 1 ? 0.95 : 1.0)).toFixed(1)}s`, change: `↑ ${telemetry.avgAttentionTimeChange}%`, icon: "⭐" },
     { label: "Active Hotspots", value: "8 Zones", change: "Density Peak", icon: "🔥" },
-    { label: "Busiest Corridor", value: "Snacks Shelf", change: "96% density", icon: "🍿" },
-    { label: "Zone Engagement", value: "84%", change: "Optimal", icon: "🎯" }
+    { label: "Busiest Corridor", value: "Snacks Shelf", change: `${Math.min(99, Math.round(96 * (mult > 5 ? 1.02 : 1.0)))}% density`, icon: "🍿" },
+    { label: "Zone Engagement", value: `${Math.min(99, Math.round(84 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)))}%`, change: "Optimal", icon: "🎯" }
   ];
+
+  // Dynamic Zone Metrics based on central mult
+  const scaledZones = zones.map(z => ({
+    ...z,
+    trafficDensity: Math.min(99, Math.round(z.trafficDensity * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))),
+    dwellTime: Math.min(99, Math.round(z.dwellTime * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))),
+    attentionScore: Math.min(99, Math.round(z.attentionScore * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0)))
+  }));
 
   return (
     <div className="space-y-6 font-sans text-xs pb-6">
+      {/* PAGE HEADER & DATE FILTER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl gap-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-black text-white tracking-wide">Heatmap Analytics & Spatial Density</h1>
+          {selectedPeriod === "Custom Date Range" && customRange?.label && (
+            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+              📅 {customRange.label}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {kpis.map((k, i) => (
@@ -34,19 +74,22 @@ export default function StoreHeatmap() {
         ))}
       </div>
 
-      {/* Main Model Heatmap Blueprint */}
+      {/* Main Model Heatmap Blueprint (SYNCHRONIZED HEATMAP MODEL) */}
       <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
         <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Supermarket Real-Time AI Heatmap Matrix</h3>
           <div className="flex items-center gap-2">
-            <CustomDateSelector value={period} onChange={setPeriod} />
             <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold rounded-full">
               ● LIVE TRACKING
             </span>
           </div>
         </div>
         
-        <StoreHeatmapModel />
+        <StoreHeatmapModel
+          dateFilter={selectedPeriod}
+          customRangeLabel={customRange?.label}
+          onDateChange={handleDateChange}
+        />
       </div>
 
       {/* Zone comparison metric chart */}
@@ -71,17 +114,19 @@ export default function StoreHeatmap() {
         </div>
 
         <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={zones.slice(0, 6)}>
+          <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
+            <BarChart data={scaledZones.slice(0, 6)}>
               <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
               <XAxis dataKey="name" stroke="#64748B" fontSize={9} />
               <YAxis stroke="#64748B" fontSize={9} />
               <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
               <Bar dataKey={heatmapType === "dwell" ? "dwellTime" : heatmapType === "attention" ? "attentionScore" : "trafficDensity"} radius={[4, 4, 0, 0]}>
-                {zones.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                {scaledZones.map((entry, index) => <Cell key={index} fill={entry.color} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+</ComponentErrorBoundary>
         </div>
       </div>
     </div>

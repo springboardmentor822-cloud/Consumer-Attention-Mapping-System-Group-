@@ -1,5 +1,7 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import {
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, ComposedChart,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter, ZAxis
 } from "recharts";
@@ -62,7 +64,6 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-white">Marketing Performance Overview</h1>
-            <p className="text-xs text-slate-400">Track campaigns, promotions and consumer engagement</p>
           </div>
           <div className="flex items-center space-x-3">
             <div className="bg-[#111A2E] border border-[#1E293B] rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs text-slate-300">
@@ -109,7 +110,8 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
               <span className="text-[10px] bg-[#131E3A] text-slate-400 px-2 py-1 rounded-lg">Last 7 Days ▼</span>
             </div>
             <div className="h-52 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={campaignPerformanceData}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" stroke="#64748B" fontSize={9} />
@@ -121,6 +123,7 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
                   <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} />
                 </ComposedChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
 
@@ -130,7 +133,8 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
               <span className="text-[10px] bg-[#131E3A] text-slate-400 px-2 py-1 rounded-lg">Last 7 Days ▼</span>
             </div>
             <div className="h-52 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <BarChart data={promotionEffectivenessData}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="metric" stroke="#64748B" fontSize={8} />
@@ -140,6 +144,7 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
                   <Bar dataKey="after" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
 
@@ -173,7 +178,8 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
               <span className="text-[10px] bg-[#131E3A] text-slate-400 px-2 py-1 rounded-lg">Last 7 Days ▼</span>
             </div>
             <div className="h-52 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <BarChart layout="vertical" data={visibilityScoreData}>
                   <XAxis type="number" stroke="#64748B" fontSize={9} domain={[0, 100]} />
                   <YAxis type="category" dataKey="shelf" stroke="#64748B" fontSize={10} />
@@ -181,6 +187,7 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
                   <Bar dataKey="score" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
 
@@ -190,7 +197,8 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
               <span className="text-[10px] bg-[#131E3A] text-slate-400 px-2 py-1 rounded-lg">Last 7 Days ▼</span>
             </div>
             <div className="h-52 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                   <PolarGrid stroke="#1E293B" />
                   <PolarAngleAxis dataKey="subject" stroke="#94A3B8" fontSize={9} />
@@ -199,6 +207,7 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
                   <Radar name="Product B" dataKey="ProductB" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} />
                 </RadarChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
 
@@ -208,7 +217,8 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
               <span className="text-[10px] bg-[#131E3A] text-slate-400 px-2 py-1 rounded-lg">Last 7 Days ▼</span>
             </div>
             <div className="h-52 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                   <XAxis type="number" dataKey="time" name="Avg. Attention (s)" stroke="#64748B" fontSize={9} />
@@ -218,6 +228,7 @@ export default function MarketingManagerDashboard({ user, onLogout }) {
                   <Scatter name="Conversion Score" data={scatterData} fill="#10B981" />
                 </ScatterChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
         </div>

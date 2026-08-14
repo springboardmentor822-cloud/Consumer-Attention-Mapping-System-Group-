@@ -8,6 +8,10 @@ import {
   attentionOverview, attentionTrend, attentionByZone, attentionHeatmap,
   gazeDirectionData, products, heatColor, formatNumber
 } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 const a = attentionOverview;
 const kpis = [
@@ -28,15 +32,17 @@ const gazeRadar = [
 const topAttentionProducts = products.slice().sort((a, b) => b.attentionScore - a.attentionScore).slice(0, 6);
 
 export default function AnalystAttentionAnalytics() {
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Attention Analytics</h1>
-          <p className="text-slate-400 text-xs">Measure where customers focus attention — heatmaps, gaze analysis, zone scores, product focus & dwell patterns.</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2"><span>📅</span><span>Aug 1 – Aug 7, 2026</span></button>
+          <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
         </div>
       </div>
 
@@ -76,7 +82,8 @@ export default function AnalystAttentionAnalytics() {
         <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Attention Trends Over Time</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <AreaChart data={attentionTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -86,6 +93,7 @@ export default function AnalystAttentionAnalytics() {
                 <Area type="monotone" dataKey="dwell" fill="#06B6D4" fillOpacity={0.1} stroke="#06B6D4" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="flex gap-4 text-[10px] font-mono">
             <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-purple-500 inline-block rounded" /> Attention (s)</span>
@@ -99,7 +107,8 @@ export default function AnalystAttentionAnalytics() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Gaze Direction Analysis</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart data={gazeRadar}>
                 <PolarGrid stroke="#1E293B" />
                 <PolarAngleAxis dataKey="dir" stroke="#94A3B8" fontSize={8} />
@@ -107,6 +116,7 @@ export default function AnalystAttentionAnalytics() {
                 <Radar dataKey="score" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.4} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="space-y-1.5">
             {gazeDirectionData.map((g, i) => (
@@ -121,7 +131,8 @@ export default function AnalystAttentionAnalytics() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Zone Attention Scores</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={attentionByZone} layout="vertical">
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={9} domain={[0, 100]} />
@@ -130,6 +141,7 @@ export default function AnalystAttentionAnalytics() {
                 <Bar dataKey="score" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 

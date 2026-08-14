@@ -1,12 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, ComposedChart, Area
 } from "recharts";
 import {
   journeyFunnel, zoneTransitions, dropoffPoints, commonPaths,
-  customerSegments, dailyTrafficTrend, formatNumber
+  customerSegments, dailyTrafficTrend, formatNumber, getCentralScaledData
 } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 const completionTrend = [
   { day: "Mon", completion: 81.2, duration: 20.1, dropoff: 18.8 },
@@ -33,32 +37,86 @@ const visitorSegs = [
   { name: "Deep Browsers (40+ min)", count: 1440, pct: 10.0, conv: "34.1%", color: "#F59E0B" },
 ];
 
-const journeyInsights = [
-  { title: "High drop-off at Product Interaction stage", desc: "22.3% of visitors leave after discovering products without interacting. Improve shelf signage and product demos.", impact: "High", tagColor: "text-rose-400 bg-rose-500/10 border-rose-500/30" },
-  { title: "Bakery → Dairy path drives highest conversion", desc: "Customers following Bakery → Dairy route convert at 32.4%, 14.2% above average. Optimize signage to guide more traffic.", impact: "High", tagColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" },
-  { title: "Weekend journeys are 28% longer with higher completion", desc: "Saturday visitors average 24.6 min vs 20.1 min weekday. Extended browsing correlates with 6.8% higher conversion.", impact: "Medium", tagColor: "text-blue-400 bg-blue-500/10 border-blue-500/30" },
-  { title: "Electronics zone creates journey dead-ends", desc: "49% of electronics visitors exit without transitioning. Add cross-sell displays at zone exits.", impact: "Medium", tagColor: "text-amber-400 bg-amber-500/10 border-amber-500/30" },
-];
-
-const kpis = [
-  { label: "Journey Completion", value: "84.2%", change: "↑ 3.8%", icon: "✅" },
-  { label: "Avg Duration", value: "22.4 min", change: "↑ 1.2 min", icon: "⏱️" },
-  { label: "Drop-off Rate", value: "15.8%", change: "↓ 2.1%", icon: "📉" },
-  { label: "Zone Transitions", value: "4.6 avg", change: "↑ 0.4", icon: "🔄" },
-  { label: "Touchpoints", value: "8.2 avg", change: "↑ 1.1", icon: "📍" },
-  { label: "Unique Paths", value: "142", change: "↑ 18", icon: "🗺️" },
-];
-
 export default function AnalystCustomerJourney() {
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+
+  const activeFilter = localPeriod || globalFilter;
+  const centralData = getCentralScaledData(activeFilter);
+  const mult = centralData?.mult || 1.0;
+  const centralKpis = centralData?.kpis || {};
+
+  const funnelData = centralData?.journeyFunnel || journeyFunnel;
+  const transitionsData = centralData?.zoneTransitions || zoneTransitions;
+  const dropoffsData = centralData?.dropoffPoints || dropoffPoints;
+  const pathsData = centralData?.commonPaths || commonPaths;
+
+  // Let's compute KPIs dynamically
+  const kpis = [
+    { label: "Journey Completion", value: `${centralKpis.conversionRate ? (centralKpis.conversionRate * 4.6).toFixed(1) : "84.2"}%`, change: "↑ 3.8%", icon: "✅" },
+    { label: "Avg Duration", value: `${(22.4 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1)} min`, change: "↑ 1.2 min", icon: "⏱️" },
+    { label: "Drop-off Rate", value: `${(15.8 * (mult > 5 ? 0.92 : mult < 1 ? 1.08 : 1.0)).toFixed(1)}%`, change: "↓ 2.1%", icon: "📉" },
+    { label: "Zone Transitions", value: `${(4.6 * (mult > 5 ? 1.02 : 1.0)).toFixed(1)} avg`, change: "↑ 0.4", icon: "🔄" },
+    { label: "Touchpoints", value: `${(8.2 * (mult > 5 ? 1.03 : 1.0)).toFixed(1)} avg`, change: "↑ 1.1", icon: "📍" },
+    { label: "Unique Paths", value: Math.round(142 * mult), change: "↑ 18", icon: "🗺️" },
+  ];
+
+  // Dynamic journey insights
+  const journeyInsights = [];
+  if (!funnelData || funnelData.length === 0) {
+    // Insufficient data
+  } else {
+    const dropoffList = [];
+    for (let i = 0; i < funnelData.length - 1; i++) {
+      const dropPct = (1 - funnelData[i + 1].count / funnelData[i].count) * 100;
+      dropoffList.push({ stage: funnelData[i].stage, nextStage: funnelData[i + 1].stage, dropPct, count: funnelData[i].count - funnelData[i + 1].count });
+    }
+    const maxDrop = dropoffList.sort((a, b) => b.dropPct - a.dropPct)[0];
+    if (maxDrop) {
+      journeyInsights.push({
+        title: `High drop-off at ${maxDrop.stage} stage`,
+        desc: `${maxDrop.dropPct.toFixed(1)}% of visitors leave after ${maxDrop.stage} without transitioning to ${maxDrop.nextStage} (${formatNumber(maxDrop.count)} shoppers lost). Recommend interactive elements to hold engagement.`,
+        impact: "High",
+        tagColor: "text-rose-400 bg-rose-500/10 border-rose-500/30"
+      });
+    }
+
+    if (pathsData && pathsData.length > 0) {
+      const topPath = [...pathsData].sort((a, b) => b.freq - a.freq)[0];
+      journeyInsights.push({
+        title: `Aisle pathway guides highest conversion`,
+        desc: `Customers following route "${topPath.path}" convert at ${topPath.convRate}%, which is significantly higher than alternative paths. Optimize signage to guide more traffic.`,
+        impact: "High",
+        tagColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+      });
+    }
+
+    journeyInsights.push({
+      title: `Extended dwell times drive conversion`,
+      desc: `Shoppers with journeys longer than ${(22.4 * mult).toFixed(1)} min convert at a +${Math.round(6.8 * mult)}% higher rate. Adding digital displays directly increases browsing time.`,
+      impact: "Medium",
+      tagColor: "text-blue-400 bg-blue-500/10 border-blue-500/30"
+    });
+
+    if (dropoffsData && dropoffsData.length > 0) {
+      const critZone = [...dropoffsData].sort((a, b) => b.pct - a.pct)[0];
+      journeyInsights.push({
+        title: `${critZone.zone} zone creates journey dead-ends`,
+        desc: `${critZone.pct}% of visitors in ${critZone.zone} exit the store path without transitioning further. Place cross-sell displays or discount endcaps near the exit path.`,
+        impact: "Medium",
+        tagColor: "text-amber-400 bg-amber-500/10 border-amber-500/30"
+      });
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Customer Journey Analysis</h1>
-          <p className="text-slate-400 text-xs">Track complete customer journeys from store entry to checkout — movement, navigation paths, time at each stage & funnel progression.</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2"><span>📅</span><span>Aug 1 – Aug 7, 2026</span></button>
+          <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
           <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2"><span>🏪</span><span>All Stores</span></button>
         </div>
       </div>
@@ -79,7 +137,7 @@ export default function AnalystCustomerJourney() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shopping Journey Funnel</h3>
           <div className="space-y-3 pt-1">
-            {journeyFunnel.map((s, i) => (
+            {funnelData.map((s, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex justify-between text-[10px] font-mono">
                   <span className="text-slate-300 font-bold">{s.stage}</span>
@@ -88,7 +146,7 @@ export default function AnalystCustomerJourney() {
                 <div className="h-3 w-full bg-[#070C18] rounded-full overflow-hidden border border-[#1E293B] flex justify-center">
                   <div className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full" style={{ width: `${s.pct}%` }} />
                 </div>
-                {i < journeyFunnel.length - 1 && <div className="text-[9px] text-slate-500 font-mono text-right">↓ {((1 - journeyFunnel[i + 1].pct / s.pct) * 100).toFixed(1)}% drop</div>}
+                {i < funnelData.length - 1 && <div className="text-[9px] text-slate-500 font-mono text-right">↓ {((1 - funnelData[i + 1].pct / s.pct) * 100).toFixed(1)}% drop</div>}
               </div>
             ))}
           </div>
@@ -97,7 +155,7 @@ export default function AnalystCustomerJourney() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Zone Transition Map</h3>
           <div className="space-y-2">
-            {zoneTransitions.map((t, i) => (
+            {transitionsData.map((t, i) => (
               <div key={i} className="p-2.5 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[11px] font-mono">
                   <span className="text-cyan-400 font-bold">{t.from}</span><span className="text-slate-500">→</span><span className="text-purple-400 font-bold">{t.to}</span>
@@ -114,7 +172,7 @@ export default function AnalystCustomerJourney() {
         <div className="lg:col-span-3 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Drop-off Analysis</h3>
           <div className="space-y-2">
-            {dropoffPoints.map((d, i) => (
+            {dropoffsData.map((d, i) => (
               <div key={i} className={`p-2.5 rounded-xl border ${d.severity === "critical" ? "bg-rose-500/5 border-rose-500/20" : d.severity === "high" ? "bg-amber-500/5 border-amber-500/20" : "bg-[#070C18] border-[#1E293B]"}`}>
                 <div className="flex justify-between items-start">
                   <span className="text-[10px] text-white font-bold leading-tight">{d.zone}</span>
@@ -135,7 +193,8 @@ export default function AnalystCustomerJourney() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Journey Completion Trends</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={completionTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -146,6 +205,7 @@ export default function AnalystCustomerJourney() {
                 <Line type="monotone" dataKey="dropoff" stroke="#EF4444" strokeWidth={2} strokeDasharray="5 5" />
               </ComposedChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="flex gap-4 text-[10px] font-mono">
             <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-cyan-500 inline-block rounded" /> Completion %</span>
@@ -190,7 +250,7 @@ export default function AnalystCustomerJourney() {
         <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Most Common Navigation Paths</h3>
           <div className="space-y-2">
-            {commonPaths.map((p, i) => (
+            {pathsData.map((p, i) => (
               <div key={i} className="p-3 bg-[#070C18] border border-[#1E293B] rounded-xl flex items-center justify-between gap-3 hover:border-cyan-500/30 transition">
                 <div className="flex items-center gap-2 min-w-0"><span className="text-[10px] text-slate-500 font-mono font-bold w-5 flex-shrink-0">#{i + 1}</span><span className="text-[11px] text-cyan-400 font-mono font-bold truncate">{p.path}</span></div>
                 <div className="flex items-center gap-4 text-[10px] font-mono flex-shrink-0"><span className="text-slate-300">{formatNumber(p.freq)}</span><span className="text-emerald-400 font-bold">{p.convRate}%</span><span className="text-slate-400">{p.avgTime} min</span></div>
@@ -204,12 +264,16 @@ export default function AnalystCustomerJourney() {
       <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4">
         <div className="flex items-center gap-2"><span className="text-lg">🤖</span><h3 className="text-xs font-bold text-white uppercase tracking-wider">Journey-Based AI Insights</h3></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {journeyInsights.map((ins, i) => (
-            <div key={i} className="p-4 bg-[#070C18] border border-[#1E293B] rounded-xl space-y-2 hover:border-purple-500/30 transition">
-              <div className="flex items-start justify-between gap-2"><h4 className="text-xs font-bold text-white leading-snug">{ins.title}</h4><span className={`px-2 py-0.5 rounded border text-[9px] font-bold whitespace-nowrap ${ins.tagColor}`}>{ins.impact}</span></div>
-              <p className="text-[10px] text-slate-400 leading-relaxed">{ins.desc}</p>
-            </div>
-          ))}
+          {journeyInsights.length === 0 ? (
+            <div className="col-span-2 text-center text-slate-500 py-6">Insufficient data for AI insight</div>
+          ) : (
+            journeyInsights.map((ins, i) => (
+              <div key={i} className="p-4 bg-[#070C18] border border-[#1E293B] rounded-xl space-y-2 hover:border-purple-500/30 transition">
+                <div className="flex items-start justify-between gap-2"><h4 className="text-xs font-bold text-white leading-snug">{ins.title}</h4><span className={`px-2 py-0.5 rounded border text-[9px] font-bold whitespace-nowrap ${ins.tagColor}`}>{ins.impact}</span></div>
+                <p className="text-[10px] text-slate-400 leading-relaxed">{ins.desc}</p>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

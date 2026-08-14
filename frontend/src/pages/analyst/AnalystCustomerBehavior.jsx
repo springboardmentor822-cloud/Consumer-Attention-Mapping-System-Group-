@@ -1,47 +1,56 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, AreaChart, Area, PieChart, Pie, Cell
 } from "recharts";
 import {
   shoppingBehavior, behaviorTrend, hourlyActivityHeatmap,
-  formatNumber, formatPct
+  formatNumber, formatPct, getCentralScaledData
 } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
-const kpis = [
-  { label: "Total Interactions", value: "34,120", change: "↑ 15.2%", icon: "🛒" },
-  { label: "Pickup Rate", value: "68.4%", change: "↑ 3.8%", icon: "🛍️" },
-  { label: "Avg Browse Duration", value: "14.2 min", change: "↑ 0.5 min", icon: "⏱️" },
-  { label: "Purchase Rate", value: "38.5%", change: "↑ 2.4%", icon: "💰" },
-  { label: "Return Rate", value: "12.1%", change: "↓ 1.5%", icon: "🔄" },
-  { label: "Engagement Score", value: "78.4%", change: "High Lift", icon: "✨" },
-];
-
-const actionDistribution = [
-  { name: "Browse Only", value: 33.8, color: "#3B82F6" },
-  { name: "Pickup & Put Back", value: 15.0, color: "#F59E0B" },
-  { name: "Pickup & Cart", value: 41.6, color: "#10B981" },
-  { name: "Checkout Complete", value: 9.6, color: "#8B5CF6" },
-];
-
-const paths = [
-  { route: "Entrance → Produce → Dairy → Checkout", visitors: 4280, pct: "30.0%" },
-  { route: "Entrance → Bakery → Dairy → Checkout", visitors: 3560, pct: "24.9%" },
-  { route: "Entrance → Promo → Checkout", visitors: 2140, pct: "15.0%" },
-  { route: "Entrance → Cosmetics → Aisle 2 → Checkout", visitors: 1840, pct: "12.9%" },
-];
 
 export default function AnalystCustomerBehavior() {
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+
+  const activeFilter = localPeriod || globalFilter;
+  const centralData = getCentralScaledData(activeFilter);
+  const { mult, kpis: centralKpis } = centralData;
+
+  const totalInteractions = Math.round(34120 * mult);
+  const kpis = [
+    { label: "Total Interactions", value: formatNumber(totalInteractions), change: "↑ 15.2%", icon: "🛒" },
+    { label: "Pickup Rate", value: "68.4%", change: "↑ 3.8%", icon: "🛍️" },
+    { label: "Avg Browse Duration", value: `${(14.2 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1)} min`, change: "↑ 0.5 min", icon: "⏱️" },
+    { label: "Purchase Rate", value: `${centralKpis.conversionRate}%`, change: "↑ 2.4%", icon: "💰" },
+    { label: "Return Rate", value: "12.1%", change: "↓ 1.5%", icon: "🔄" },
+    { label: "Engagement Score", value: "78.4%", change: "High Lift", icon: "✨" },
+  ];
+
+  const actionDistribution = [
+    { name: "Browse Only", value: 33.8, color: "#3B82F6" },
+    { name: "Pickup & Put Back", value: 15.0, color: "#F59E0B" },
+    { name: "Pickup & Cart", value: 41.6, color: "#10B981" },
+    { name: "Checkout Complete", value: 9.6, color: "#8B5CF6" },
+  ];
+
+  const paths = [
+    { route: "Entrance → Produce → Dairy → Checkout", visitors: Math.round(4280 * mult), pct: "30.0%" },
+    { route: "Entrance → Bakery → Dairy → Checkout", visitors: Math.round(3560 * mult), pct: "24.9%" },
+    { route: "Entrance → Promo → Checkout", visitors: Math.round(2140 * mult), pct: "15.0%" },
+    { route: "Entrance → Cosmetics → Aisle 2 → Checkout", visitors: Math.round(1840 * mult), pct: "12.9%" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Customer Behavior Analysis</h1>
-          <p className="text-slate-400 text-xs">Examine how shoppers interact with products and store environments throughout their visit.</p>
         </div>
-        <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
-          <span>📅</span><span>Aug 1 – Aug 7, 2026</span>
-        </button>
+        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}
@@ -60,7 +69,8 @@ export default function AnalystCustomerBehavior() {
         <div className="lg:col-span-8 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shopper Interaction Trends</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={behaviorTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -72,6 +82,7 @@ export default function AnalystCustomerBehavior() {
                 <Line type="monotone" dataKey="returns" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="3 3" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="flex gap-4 text-[10px] font-mono">
             <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-purple-500 inline-block rounded" /> Total Interactions</span>
@@ -84,7 +95,8 @@ export default function AnalystCustomerBehavior() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Action Distribution</h3>
           <div className="h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={actionDistribution} dataKey="value" nameKey="name" innerRadius={35} outerRadius={55} paddingAngle={3} label={({ value }) => `${value}%`} labelLine={false} fontSize={9}>
                   {actionDistribution.map((e, i) => <Cell key={i} fill={e.color} />)}
@@ -92,6 +104,7 @@ export default function AnalystCustomerBehavior() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="space-y-1">
             {actionDistribution.map((item, i) => (
@@ -109,7 +122,8 @@ export default function AnalystCustomerBehavior() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Activity Density by Time of Day</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <AreaChart data={hourlyActivityHeatmap}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="hour" stroke="#64748B" fontSize={9} />
@@ -119,6 +133,7 @@ export default function AnalystCustomerBehavior() {
                 <Area type="monotone" dataKey="Sat" stackId="2" stroke="#A855F7" fill="#A855F7" fillOpacity={0.15} />
               </AreaChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="flex gap-4 text-[10px] font-mono">
             <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-500 inline-block rounded" /> Weekday Peak (Mon)</span>

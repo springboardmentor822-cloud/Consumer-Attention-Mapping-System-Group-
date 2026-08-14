@@ -14,6 +14,14 @@ export default function App() {
 
       {/* ─── Administrator Portal ─────────────────────────────────────── */}
       <Route
+        path="/admin"
+        element={
+          <ProtectedRoute requiredRoleKey="admin">
+            <RolePortalRouter role="Administrator" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/*"
         element={
           <ProtectedRoute requiredRoleKey="admin">
@@ -23,6 +31,14 @@ export default function App() {
       />
 
       {/* ─── Store Manager Portal ─────────────────────────────────────── */}
+      <Route
+        path="/store-manager"
+        element={
+          <ProtectedRoute requiredRoleKey="store">
+            <RolePortalRouter role="Store Manager" />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/store-manager/*"
         element={
@@ -34,6 +50,14 @@ export default function App() {
 
       {/* ─── Retail Analyst Portal ────────────────────────────────────── */}
       <Route
+        path="/retail-analyst"
+        element={
+          <ProtectedRoute requiredRoleKey="analyst">
+            <RolePortalRouter role="Retail Analyst" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/retail-analyst/*"
         element={
           <ProtectedRoute requiredRoleKey="analyst">
@@ -43,6 +67,14 @@ export default function App() {
       />
 
       {/* ─── Marketing Manager Portal ─────────────────────────────────── */}
+      <Route
+        path="/marketing-manager"
+        element={
+          <ProtectedRoute requiredRoleKey="marketing">
+            <RolePortalRouter role="Marketing Manager" />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/marketing-manager/*"
         element={

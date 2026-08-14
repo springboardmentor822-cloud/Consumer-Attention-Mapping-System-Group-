@@ -71,9 +71,6 @@ export default function BackupRecovery() {
               Disaster Recovery Ready
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Automated platform snapshots, database point-in-time recovery tools, backup storage capacity monitoring, and disaster recovery readiness.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
   LineChart, Line, ComposedChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
@@ -140,12 +142,11 @@ export default function CampaignPerformance() {
             <h1 className="text-xl font-black text-white">Campaign Performance</h1>
             <span className="text-slate-500 cursor-pointer">?</span>
           </div>
-          <p className="text-slate-400 text-xs">Track and evaluate the performance of all marketing campaigns across stores.</p>
         </div>
         <div className="flex items-center space-x-3">
           <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
             <span>??</span>
-            <span>May 16 – May 22, 2025</span>
+            <span>May 16 ï¿½ May 22, 2025</span>
           </button>
           <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
             <span>??</span>
@@ -248,7 +249,8 @@ export default function CampaignPerformance() {
             </span>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={overTimeData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="date" stroke="#64748B" fontSize={8} />
@@ -259,6 +261,7 @@ export default function CampaignPerformance() {
                 <Line type="monotone" dataKey="conversions" stroke="#10B981" strokeWidth={2.5} dot={{ fill: "#10B981", r: 3 }} name="Conversions" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -285,7 +288,8 @@ export default function CampaignPerformance() {
             </span>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={channelData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="channel" stroke="#64748B" fontSize={8} />
@@ -297,6 +301,7 @@ export default function CampaignPerformance() {
                 <Bar yAxisId="right" dataKey="conversion" fill="#10B981" radius={[4, 4, 0, 0]} name="Conversion Rate %" />
               </ComposedChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -304,7 +309,8 @@ export default function CampaignPerformance() {
         <div className="lg:col-span-3 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance by Status</h3>
           <div className="h-44 w-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={statusData} innerRadius={45} outerRadius={65} dataKey="value">
                   {statusData.map((entry, index) => (
@@ -314,6 +320,7 @@ export default function CampaignPerformance() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
             <div className="absolute text-center">
               <strong className="text-base text-white block font-mono">12</strong>
               <span className="text-[9px] text-slate-400 block">Total</span>
@@ -402,10 +409,10 @@ export default function CampaignPerformance() {
           <div className="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-[#1E293B]">
             <span>Showing 1 to {filteredCampaigns.length} of 12 campaigns</span>
             <div className="flex items-center space-x-1">
-              <button className="px-2.5 py-1 bg-[#070C18] border border-[#1E293B] rounded hover:bg-[#1E293B]">‹</button>
+              <button className="px-2.5 py-1 bg-[#070C18] border border-[#1E293B] rounded hover:bg-[#1E293B]">ï¿½</button>
               <button className="px-2.5 py-1 bg-purple-600 text-white font-bold rounded">1</button>
               <button className="px-2.5 py-1 bg-[#070C18] border border-[#1E293B] rounded hover:bg-[#1E293B]">2</button>
-              <button className="px-2.5 py-1 bg-[#070C18] border border-[#1E293B] rounded hover:bg-[#1E293B]">›</button>
+              <button className="px-2.5 py-1 bg-[#070C18] border border-[#1E293B] rounded hover:bg-[#1E293B]">ï¿½</button>
             </div>
           </div>
         </div>

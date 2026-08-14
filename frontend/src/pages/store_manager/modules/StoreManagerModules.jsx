@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import AiVisionCamera from "../../../components/vision/AiVisionCamera";
 import {
+import ComponentErrorBoundary from "../../../components/ComponentErrorBoundary";
+
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
   PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
@@ -148,7 +150,6 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <span>🏪</span> Store Manager Operational Dashboard
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Real-time surveillance monitoring, shelf telemetry, &amp; CAMS backend database analytics</p>
         </div>
         <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl">
           ● Live Telemetry
@@ -213,7 +214,8 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customers Over Time</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={activeData.customersOverTime}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={10} />
@@ -222,13 +224,15 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
                 <Line type="monotone" dataKey="customers" stroke="#10B981" strokeWidth={2.5} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customers By Zone</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={activeData.customersByZone}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
@@ -237,6 +241,7 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
                 <Bar dataKey="customers" fill="#3B82F6" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -245,7 +250,8 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customers By Hour</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={activeData.customersByHour}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis dataKey="hour" stroke="#64748B" fontSize={10} />
@@ -254,13 +260,15 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
                 <Line type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customers By Zone Analysis</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={activeData.zoneAnalysis}>
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={10} />
@@ -269,6 +277,7 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
                 <Bar dataKey="score" fill="#A855F7" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -277,7 +286,8 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Top Shelf Performance Ranking</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={activeData.shelfPerformance} layout="vertical">
                 <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={10} domain={[0, 100]} />
@@ -286,13 +296,15 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
                 <Bar dataKey="score" fill="#F59E0B" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Interaction Analysis</h3>
           <div className="h-44 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={activeData.productInteractions} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={4} dataKey="value">
                   {activeData.productInteractions.map((entry, index) => (
@@ -302,6 +314,7 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
                 <Tooltip contentStyle={{ backgroundColor: "#111827", borderColor: "#273449", borderRadius: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="grid grid-cols-2 gap-1.5 text-[10px]">
             {activeData.productInteractions.map((item, idx) => (
@@ -363,7 +376,6 @@ export function StoreDashboardOverviewPage({ onNavigateTab }) {
             { label: "Heat Map", tab: "Heat Map", icon: "🗺️" },
             { label: "Alerts", tab: "Alerts", icon: "🔔" },
             { label: "Reports", tab: "Reports", icon: "📄" },
-            { label: "Activities", tab: "Activities", icon: "⏱️" },
             { label: "Settings", tab: "Settings", icon: "⚙️" },
           ].map((item, idx) => (
             <button
@@ -524,7 +536,8 @@ export function StoreVisitorsPage() {
       <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
         <h3 className="text-xs font-bold text-white uppercase tracking-wider">Visitor Volume Trends (New vs. Repeat)</h3>
         <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
             <AreaChart data={visitorTrend}>
               <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
               <XAxis dataKey="time" stroke="#64748B" fontSize={10} />
@@ -534,6 +547,7 @@ export function StoreVisitorsPage() {
               <Area type="monotone" dataKey="repeat" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.4} />
             </AreaChart>
           </ResponsiveContainer>
+</ComponentErrorBoundary>
         </div>
       </div>
     </div>
@@ -647,7 +661,8 @@ export function StoreProductInteractionPage() {
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Interaction Category Proportion</h3>
           <div className="h-64 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={interactions} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
                   {interactions.map((entry, index) => (
@@ -657,6 +672,7 @@ export function StoreProductInteractionPage() {
                 <Tooltip contentStyle={{ backgroundColor: "#111827", borderColor: "#273449", borderRadius: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import AiVisionCamera from "../../../components/vision/AiVisionCamera";
 import {
+import ComponentErrorBoundary from "../../../components/ComponentErrorBoundary";
+
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line
 } from "recharts";
 
@@ -135,7 +137,8 @@ export function AdminDashboardOverviewPage() {
       <div className="bg-[#111827] border border-[#273449] rounded-2xl p-5 space-y-4">
         <h3 className="text-xs font-bold text-white uppercase tracking-wider">Network Consumer Analytics Overview (Last 7 Days)</h3>
         <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
             <BarChart data={analyticsTrend}>
               <CartesianGrid stroke="#273449" strokeDasharray="3 3" />
               <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -145,6 +148,7 @@ export function AdminDashboardOverviewPage() {
               <Bar dataKey="pickups" fill="#10B981" radius={[4, 4, 0, 0]} name="Product Pickups" />
             </BarChart>
           </ResponsiveContainer>
+</ComponentErrorBoundary>
         </div>
       </div>
 

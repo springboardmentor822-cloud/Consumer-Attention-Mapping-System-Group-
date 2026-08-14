@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function AdminIntegrations() {
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -56,9 +58,6 @@ export default function AdminIntegrations() {
               API Gateway & Webhooks
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage connected external databases, cloud storage buckets, AI inference APIs, analytics BI platforms, communication webhooks, and enterprise POS systems.
-          </p>
         </div>
 
         <button
@@ -170,7 +169,8 @@ export default function AdminIntegrations() {
           <span>📊</span> Aggregate Integration API Request Volume & Latency
         </h3>
         <div className="h-56 w-full pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+          <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
             <AreaChart data={apiUsageHistory}>
               <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
               <XAxis dataKey="time" stroke="#64748B" fontSize={11} />
@@ -179,6 +179,7 @@ export default function AdminIntegrations() {
               <Area type="monotone" dataKey="requests" stroke="#6366F1" fill="#6366F1" fillOpacity={0.3} name="API Requests / min" />
             </AreaChart>
           </ResponsiveContainer>
+</ComponentErrorBoundary>
         </div>
       </div>
 

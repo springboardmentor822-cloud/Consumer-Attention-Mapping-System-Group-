@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function SecurityAudit() {
   const [activeTab, setActiveTab] = useState("logs"); // 'logs' | 'dashboards' | 'incidents' | 'compliance'
@@ -68,9 +70,6 @@ export default function SecurityAudit() {
               Zero-Trust Audit Log Engine
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time security monitoring, authentication audit trails, permission change tracking, threat mitigation, and regulatory compliance verification.
-          </p>
         </div>
 
         <button
@@ -199,7 +198,8 @@ export default function SecurityAudit() {
             <span>📊</span> Security Event Category Distribution
           </h3>
           <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={eventDistribution}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="category" stroke="#64748B" fontSize={11} />
@@ -208,6 +208,7 @@ export default function SecurityAudit() {
                 <Bar dataKey="count" fill="#F43F5E" radius={[6, 6, 0, 0]} name="Recorded Events" />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       )}

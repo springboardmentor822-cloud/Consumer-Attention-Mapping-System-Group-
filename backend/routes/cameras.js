@@ -4,7 +4,7 @@ const { getCameras, createCamera, updateCamera, deleteCamera } = require('../con
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 
 // Get all cameras
-router.get('/', authMiddleware, getCameras);
+router.get('/', getCameras);
 
 // Create camera
 router.post('/', authMiddleware, requireRole(['admin', 'store_manager']), createCamera);

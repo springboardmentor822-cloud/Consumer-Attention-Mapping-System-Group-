@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useCams } from "../../services/CamsContext";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function ConsumerAnalytics() {
+  const { globalFilter } = useCams();
   const [storeFilter, setStoreFilter] = useState("All");
-  const [dateFilter, setDateFilter] = useState("This Week");
   const [zoneFilter, setZoneFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
 
@@ -64,9 +67,6 @@ export default function ConsumerAnalytics() {
               AI-Powered Shopper Insights
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Comprehensive shopper footfall metrics, dwell duration analysis, gaze attention scores, and AI recommendations across stores.
-          </p>
         </div>
 
         <button
@@ -92,17 +92,6 @@ export default function ConsumerAnalytics() {
             <option value="Store 2 - Indiranagar">Store 2 - Indiranagar</option>
             <option value="Store 3 - Hyderabad">Store 3 - Hyderabad</option>
             <option value="Store 4 - Andheri">Store 4 - Andheri</option>
-          </select>
-
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="bg-[#070C18] border border-[#1E293B] px-3 py-2 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
-          >
-            <option value="Today">Today (Real-time)</option>
-            <option value="This Week">This Week</option>
-            <option value="This Month">This Month</option>
-            <option value="Quarter To Date">Quarter To Date</option>
           </select>
 
           <select
@@ -160,7 +149,8 @@ export default function ConsumerAnalytics() {
             <span className="text-xs font-mono text-indigo-400">Total: 132K</span>
           </div>
           <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <AreaChart data={visitorTrendsData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={11} />
@@ -170,6 +160,7 @@ export default function ConsumerAnalytics() {
                 <Area type="monotone" dataKey="uniqueVisitors" stroke="#A855F7" fill="#A855F7" fillOpacity={0.2} name="Unique Visitors" />
               </AreaChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -182,7 +173,8 @@ export default function ConsumerAnalytics() {
             <span className="text-xs font-mono text-emerald-400">5 Zones Mapped</span>
           </div>
           <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={zoneTrafficData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={11} />
@@ -191,6 +183,7 @@ export default function ConsumerAnalytics() {
                 <Bar dataKey="traffic" fill="#06B6D4" radius={[6, 6, 0, 0]} name="Footfall Count" />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>

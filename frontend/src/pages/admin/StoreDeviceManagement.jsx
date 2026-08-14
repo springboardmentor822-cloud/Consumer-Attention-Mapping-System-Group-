@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function StoreDeviceManagement() {
   const [activeTab, setActiveTab] = useState("stores"); // 'stores' | 'devices' | 'health' | 'maintenance'
@@ -21,10 +23,6 @@ export default function StoreDeviceManagement() {
   // Stores dataset
   const [storesList, setStoresList] = useState([
     { id: 1, name: "Store 1 - Koramangala", region: "South - Bangalore", city: "Bangalore", manager: "Priya Mehta", status: "Online", cameras: 12, totalDevices: 6, uptime: "99.8%" },
-    { id: 2, name: "Store 2 - Indiranagar", region: "South - Bangalore", city: "Bangalore", manager: "Ramesh Kumar", status: "Online", cameras: 10, totalDevices: 5, uptime: "99.4%" },
-    { id: 3, name: "Store 3 - Banjara Hills", region: "South - Hyderabad", city: "Hyderabad", manager: "Sneha Patel", status: "Warning", cameras: 8, totalDevices: 4, uptime: "94.2%" },
-    { id: 4, name: "Store 4 - Andheri West", region: "West - Mumbai", city: "Mumbai", manager: "Vijay Nair", status: "Online", cameras: 14, totalDevices: 7, uptime: "99.9%" },
-    { id: 5, name: "Store 5 - Connaught Place", region: "North - Delhi", city: "Delhi", manager: "Meena Sharma", status: "Offline", cameras: 6, totalDevices: 3, uptime: "72.0%" },
   ]);
 
   // Devices dataset (Cameras, Gateways, Edge Processors, Storage Units)
@@ -33,8 +31,7 @@ export default function StoreDeviceManagement() {
     { id: "CAM-002", name: "Electronics Aisle Camera", type: "RTSP Camera", store: "Store 1 - Koramangala", ip: "192.168.1.102", firmware: "v3.4.1", status: "Online", uptime: "99.8%", temp: "41°C", cpu: "28%" },
     { id: "GW-101", name: "NVIDIA Jetson Edge Gateway", type: "Edge Processor", store: "Store 1 - Koramangala", ip: "192.168.1.50", firmware: "JetPack 5.1", status: "Online", uptime: "99.9%", temp: "52°C", cpu: "64%" },
     { id: "NAS-01", name: "48TB Store Surveillance NAS", type: "Storage Unit", store: "Store 1 - Koramangala", ip: "192.168.1.200", firmware: "v4.1.0", status: "Online", uptime: "100%", temp: "35°C", cpu: "12%" },
-    { id: "CAM-004", name: "Entrance Wide Angle Cam", type: "RTSP Camera", store: "Store 3 - Banjara Hills", ip: "192.168.3.101", firmware: "v3.2.0", status: "Warning", uptime: "94.1%", temp: "48°C", cpu: "82%" },
-    { id: "CAM-005", name: "Checkout Counter Cam", type: "RTSP Camera", store: "Store 5 - Connaught Place", ip: "192.168.5.105", firmware: "v2.9.0", status: "Offline", uptime: "72.4%", temp: "N/A", cpu: "0%" },
+    { id: "CAM-004", name: "Entrance Wide Angle Cam", type: "RTSP Camera", store: "Store 1 - Koramangala", ip: "192.168.1.103", firmware: "v3.2.0", status: "Online", uptime: "99.1%", temp: "42°C", cpu: "32%" },
   ]);
 
   // Network Uptime Trend Data
@@ -50,8 +47,8 @@ export default function StoreDeviceManagement() {
 
   // Maintenance Schedules
   const maintenanceLogs = [
-    { id: "MNT-101", device: "Store 5 Gateway Processor", store: "Store 5 - Connaught Place", schedule: "Tomorrow, 02:00 AM", technician: "Rahul Verma", task: "Firmware upgrade v3.0 & IP Reconfig", priority: "High" },
-    { id: "MNT-102", device: "CAM-004 Entrance Cam Lens", store: "Store 3 - Banjara Hills", schedule: "Aug 8, 2026", technician: "Kavita Rao", task: "Clean optical sensor & adjust focal zoom", priority: "Medium" }
+    { id: "MNT-101", device: "Store 1 Gateway Processor", store: "Store 1 - Koramangala", schedule: "Tomorrow, 02:00 AM", technician: "Rahul Verma", task: "Firmware upgrade v3.0 & IP Reconfig", priority: "High" },
+    { id: "MNT-102", device: "CAM-002 Lens Cleaning", store: "Store 1 - Koramangala", schedule: "Aug 8, 2026", technician: "Kavita Rao", task: "Clean optical sensor & adjust focal zoom", priority: "Medium" }
   ];
 
   // Filtered lists
@@ -86,9 +83,6 @@ export default function StoreDeviceManagement() {
               Infrastructure Control
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Complete retail store infrastructure monitoring, camera stream provisioning, edge hardware diagnostics, and device maintenance schedules.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -154,7 +148,7 @@ export default function StoreDeviceManagement() {
         ))}
       </div>
 
-      {/* ── TAB 1: STORE DIRECTORY ────────────────────────────────────────── */}
+      {/* ── TAB 1: STORE DIRECTORY (ENTERPRISE TABLE LAYOUT) ────────────────────────────────────────── */}
       {activeTab === "stores" && (
         <div className="space-y-4">
           <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex flex-wrap justify-between items-center gap-3">
@@ -184,51 +178,66 @@ export default function StoreDeviceManagement() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStores.map((s) => (
-              <div key={s.id} className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-5 space-y-4 hover:border-slate-600 transition flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-extrabold text-white text-sm">{s.name}</h3>
-                      <span className="text-[11px] text-slate-400 block">{s.region}</span>
-                    </div>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${s.status === "Online" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : s.status === "Warning" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
-                      ● {s.status}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5 mt-4 bg-[#070C18] p-3 rounded-xl border border-[#1E293B] text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold block uppercase">Store Manager</span>
-                      <span className="font-bold text-slate-200">{s.manager}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold block uppercase">Network Uptime</span>
-                      <span className="font-bold text-emerald-400 font-mono">{s.uptime}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold block uppercase">RTSP Cameras</span>
-                      <span className="font-bold text-indigo-300 font-mono">{s.cameras} Cams</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold block uppercase">IoT Gateways</span>
-                      <span className="font-bold text-purple-300 font-mono">{s.totalDevices} Units</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-[#1E293B] flex justify-between items-center text-xs">
-                  <span className="text-slate-400 text-[10px]">Store ID: #STORE-00{s.id}</span>
-                  <button
-                    onClick={() => showToast(`Configuring node settings for ${s.name}`)}
-                    className="px-3 py-1 bg-[#1E293B] hover:bg-[#273552] text-indigo-300 font-bold rounded-lg text-[11px] border border-indigo-500/20 transition"
-                  >
-                    Manage Store Node →
-                  </button>
-                </div>
-              </div>
-            ))}
+          {/* PROFESSIONAL ENTERPRISE STORE TABLE */}
+          <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl overflow-hidden shadow-xl font-mono text-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#070C18] border-b border-[#1E293B] text-slate-400 font-extrabold uppercase text-[10px]">
+                    <th className="py-3.5 px-4 font-sans">Store Name</th>
+                    <th className="py-3.5 px-4 font-sans">Location (Region & City)</th>
+                    <th className="py-3.5 px-4 font-sans">Store Manager</th>
+                    <th className="py-3.5 px-4 font-sans">Status</th>
+                    <th className="py-3.5 px-4 text-right font-sans">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1E293B]">
+                  {filteredStores.map((s) => (
+                    <tr key={s.id} className="hover:bg-[#1E293B]/40 transition font-medium">
+                      <td className="py-3.5 px-4">
+                        <span className="font-extrabold text-white text-sm block font-sans">{s.name}</span>
+                        <span className="text-[10px] text-indigo-400">Node ID: #STORE-00{s.id}</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-300 font-sans">
+                        <span className="block font-bold text-white">{s.city}</span>
+                        <span className="text-[10px] text-slate-400 block">{s.region}</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-200 font-sans font-bold">{s.manager}</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
+                          s.status === "Online" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : s.status === "Warning" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                        }`}>
+                          ● {s.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {/* ACTION DROPDOWN / MENU BUTTONS */}
+                        <div className="flex items-center justify-end gap-1.5 font-sans">
+                          <button
+                            onClick={() => showToast(`Store Details for ${s.name}: Manager ${s.manager}, Uptime ${s.uptime}, ${s.cameras} Cameras`)}
+                            className="px-2.5 py-1 bg-[#1E293B] hover:bg-[#273552] text-slate-200 rounded-lg text-[10px] font-bold border border-[#334155] transition"
+                          >
+                            View Details
+                          </button>
+                          <button
+                            onClick={() => setIsAddStoreOpen(true)}
+                            className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-[10px] font-bold border border-indigo-500/30 transition"
+                          >
+                            Edit Store
+                          </button>
+                          <button
+                            onClick={() => showToast(`Configuring node settings & cameras for ${s.name}`)}
+                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold transition shadow-sm"
+                          >
+                            Manage Store
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -318,7 +327,8 @@ export default function StoreDeviceManagement() {
               <span>📈</span> Network Camera & Hardware Uptime Trends
             </h3>
             <div className="h-64 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
+              <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={uptimeTrendData}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                   <XAxis dataKey="day" stroke="#64748B" fontSize={11} />
@@ -327,6 +337,7 @@ export default function StoreDeviceManagement() {
                   <Area type="monotone" dataKey="uptime" stroke="#10B981" strokeWidth={2} fill="#10B981" fillOpacity={0.1} name="Uptime %" />
                 </AreaChart>
               </ResponsiveContainer>
+</ComponentErrorBoundary>
             </div>
           </div>
 

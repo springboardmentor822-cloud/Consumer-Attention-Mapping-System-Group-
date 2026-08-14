@@ -62,9 +62,6 @@ export default function SystemSettings() {
               Global Platform Governance
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Global platform preferences, operational security policies, AI sampling thresholds, data retention rules, and system maintenance diagnostics.
-          </p>
         </div>
 
         <button

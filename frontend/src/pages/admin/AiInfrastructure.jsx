@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from "recharts";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function AiInfrastructure() {
   const [activeTab, setActiveTab] = useState("models"); // 'models' | 'nodes' | 'pipelines' | 'resources'
@@ -65,9 +67,6 @@ export default function AiInfrastructure() {
               NVIDIA CUDA & TensorRT Cluster
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Supervise AI deep learning model health, compute node utilization, GPU VRAM allocation, video stream inference pipelines, and bottleneck diagnostics.
-          </p>
         </div>
 
         <button
@@ -246,7 +245,8 @@ export default function AiInfrastructure() {
           </h3>
 
           <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={resourceHistory}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={11} />
@@ -257,6 +257,7 @@ export default function AiInfrastructure() {
                 <Line type="monotone" dataKey="cpu" stroke="#10B981" strokeWidth={2} name="CPU Load %" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       )}

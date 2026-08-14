@@ -68,9 +68,6 @@ export default function ReportsExport() {
               PDF • EXCEL • CSV • JSON
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Generate, schedule, export, and track analytical reports across consumer analytics, store performance, AI insights, operational metrics, security, and infrastructure.
-          </p>
         </div>
 
         <button

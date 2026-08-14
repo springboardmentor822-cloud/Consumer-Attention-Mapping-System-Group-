@@ -6,6 +6,8 @@ import {
 import { useCams } from "../../services/CamsContext";
 import { getCentralScaledData } from "../../services/centralData";
 import StoreHeatmapModel from "../../components/StoreHeatmapModel";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 const CAMERAS = [
   { id: "CAM-01", name: "Main Central Aisle", location: "Aisle B", status: "Online", path: "/videos/store1.mp4", fps: "30 FPS", res: "1080p" },
@@ -14,18 +16,14 @@ const CAMERAS = [
   { id: "CAM-04", name: "Checkout Counter #2", location: "Billing Counters 5–8", status: "Offline", path: "/videos/checkout2.mp4", fps: "0 FPS", res: "Offline" },
 ];
 
-const PERIOD_OPTIONS = ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "Custom Date Range"];
-
 export default function StoreOverview({ onNavigateTab }) {
-  const { selectedCamera, setSelectedCamera, telemetry } = useCams();
+  const { selectedCamera, setSelectedCamera, telemetry, globalFilter } = useCams();
   const [activeCamObj, setActiveCamObj] = useState(CAMERAS[0]);
 
-  // Per-widget date filter states
-  const [visitorsPeriod, setVisitorsPeriod] = useState("Today");
-  const [zonePeriod, setZonePeriod] = useState("Today");
-  const [shelfPeriod, setShelfPeriod] = useState("Today");
-  const [interactionPeriod, setInteractionPeriod] = useState("Today");
-  const [pickedPeriod, setPickedPeriod] = useState("Today");
+  // Read Global Dashboard Date Filter from context
+  const filter = globalFilter;
+  const selectedPeriod = filter.dateRange;
+  const customRange = filter;
 
   useEffect(() => {
     const cam = CAMERAS.find(c => c.id === selectedCamera) || CAMERAS[0];
@@ -37,14 +35,15 @@ export default function StoreOverview({ onNavigateTab }) {
     setActiveCamObj(cam);
   };
 
-  // 1. Visitors by Hour
-  const visitorsByHour = getCentralScaledData(visitorsPeriod).visitorsByHour;
+  // Centralized period data computed for the active filters
+  const centralData = getCentralScaledData(globalFilter);
+  const { kpis, visitorsByHour, customersByZone, productInteraction, topPickedProducts, customerList, transactionList } = centralData;
 
-  // 2. Customers by Zone
-  const customersByZone = getCentralScaledData(zonePeriod).customersByZone;
+  const salesLabel = selectedPeriod === "Today" ? "Today's Sales" : "Period Sales";
+  const profitLabel = selectedPeriod === "Today" ? "Today's Profit" : "Period Profit";
 
-  // 3. Top Shelf Performance
-  const shelfShift = shelfPeriod === "Yesterday" ? -3 : shelfPeriod === "Last 7 Days" ? 4 : shelfPeriod === "Last 30 Days" ? 6 : shelfPeriod === "Custom Date Range" ? -1 : 0;
+  // Top Shelf Performance score shift calculation
+  const shelfShift = selectedPeriod === "Yesterday" ? -3 : selectedPeriod === "Last 7 Days" ? 4 : selectedPeriod === "Last 30 Days" ? 6 : selectedPeriod === "Custom Date Range" ? 2 : 0;
   const shelfPerformance = [
     { shelf: "Bakery Endcap", score: Math.min(99, 94 + shelfShift), change: "↑ 8%", color: "text-emerald-400", bar: "bg-emerald-500" },
     { shelf: "Dairy Section", score: Math.min(99, 88 + shelfShift), change: "↑ 6%", color: "text-emerald-400", bar: "bg-emerald-500" },
@@ -52,8 +51,6 @@ export default function StoreOverview({ onNavigateTab }) {
     { shelf: "Electronics Corner", score: Math.min(99, 86 + shelfShift), change: "↓ 2%", color: "text-amber-400", bar: "bg-amber-500" }
   ];
 
-  // 4. Product Interaction Distribution
-  const productInteraction = getCentralScaledData(interactionPeriod).productInteraction;
   const totalInteractionCount = productInteraction.reduce((acc, curr) => acc + curr.value, 0);
 
   // Custom Tooltip for Product Interaction Donut Chart
@@ -84,9 +81,6 @@ export default function StoreOverview({ onNavigateTab }) {
     return null;
   };
 
-  // 5. Top Picked Products
-  const topPickedProducts = getCentralScaledData(pickedPeriod).topPickedProducts;
-
   const recentActivities = [
     { time: "Just Now", msg: "High traffic density detected in Bakery zone", dot: "bg-rose-500" },
     { time: "10 min ago", msg: "Camera 4 (Checkout 2) connection stable", dot: "bg-emerald-500" },
@@ -96,54 +90,100 @@ export default function StoreOverview({ onNavigateTab }) {
 
   return (
     <div className="space-y-6 font-sans text-xs pb-8">
-      {/* HEADER WITH TITLE ONLY (GLOBAL PERIOD SELECTOR REMOVED) */}
-      <div className="flex items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl">
+      {/* HEADER */}
+      <div className="flex flex-wrap justify-between items-center gap-2">
         <h1 className="text-xl font-black text-white tracking-wide">Store Manager Dashboard</h1>
       </div>
 
       {/* 1. OPERATIONAL KPI CARDS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Total Visitors</span>
-          <h2 className="text-lg font-black text-white font-mono">{telemetry.totalVisitors ? telemetry.totalVisitors.toLocaleString() : "1,420"}</h2>
-          <span className="text-[9px] text-emerald-400 font-bold font-mono">↑ {telemetry.totalVisitorsChange}%</span>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Total Customers */}
+        <button
+          onClick={() => {
+            localStorage.setItem("cams_kpi_filter", "");
+            localStorage.setItem("cams_history_tab", "customers");
+            if (onNavigateTab) onNavigateTab("Visitors");
+          }}
+          className="bg-[#0F172A] border border-[#1E293B] hover:border-emerald-500/40 text-left p-3.5 rounded-2xl space-y-1 transition duration-200"
+        >
+          <span className="text-slate-400 text-[10px] font-medium block">Total Customers</span>
+          <h2 className="text-lg font-black text-white font-mono">{kpis.totalCustomers.toLocaleString()}</h2>
+          <span className="text-[9px] text-emerald-400 font-bold font-mono">↑ {kpis.totalVisitorsChange}%</span>
+        </button>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Current Customers</span>
-          <h2 className="text-lg font-black text-emerald-400 font-mono">{telemetry.currentCustomers || 42}</h2>
-          <span className="text-[9px] text-slate-400 font-mono">Live In-Store</span>
-        </div>
+        {/* Purchased Customers */}
+        <button
+          onClick={() => {
+            localStorage.setItem("cams_kpi_filter", "purchased");
+            localStorage.setItem("cams_history_tab", "customers");
+            if (onNavigateTab) onNavigateTab("Visitors");
+          }}
+          className="bg-[#0F172A] border border-[#1E293B] hover:border-emerald-500/40 text-left p-3.5 rounded-2xl space-y-1 transition duration-200"
+        >
+          <span className="text-slate-400 text-[10px] font-medium block">Purchased Customers</span>
+          <h2 className="text-lg font-black text-emerald-400 font-mono">{kpis.purchasedCustomers.toLocaleString()}</h2>
+          <span className="text-[9px] text-emerald-400 font-bold font-mono">{kpis.conversionRate}% Conv. Rate</span>
+        </button>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Avg. Dwell Time</span>
-          <h2 className="text-lg font-black text-white font-mono">{telemetry.avgDwellTime} min</h2>
-          <span className="text-[9px] text-emerald-400 font-bold font-mono">↑ {telemetry.avgDwellTimeChange}%</span>
-        </div>
+        {/* Non-Purchasing Customers */}
+        <button
+          onClick={() => {
+            localStorage.setItem("cams_kpi_filter", "non-purchasing");
+            localStorage.setItem("cams_history_tab", "customers");
+            if (onNavigateTab) onNavigateTab("Visitors");
+          }}
+          className="bg-[#0F172A] border border-[#1E293B] hover:border-rose-500/40 text-left p-3.5 rounded-2xl space-y-1 transition duration-200"
+        >
+          <span className="text-slate-400 text-[10px] font-medium block">Non-Purchasing Customers</span>
+          <h2 className="text-lg font-black text-rose-400 font-mono">{kpis.nonPurchasingCustomers.toLocaleString()}</h2>
+          <span className="text-[9px] text-rose-400 font-bold font-mono">{(100 - kpis.conversionRate).toFixed(1)}% No Purchase</span>
+        </button>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Products Picked</span>
-          <h2 className="text-lg font-black text-white font-mono">{telemetry.productsPicked ? telemetry.productsPicked.toLocaleString() : "2,140"}</h2>
-          <span className="text-[9px] text-emerald-400 font-bold font-mono">↑ 11.2%</span>
-        </div>
+        {/* Units Sold */}
+        <button
+          onClick={() => {
+            localStorage.setItem("cams_kpi_filter", "");
+            localStorage.setItem("cams_history_tab", "transactions");
+            if (onNavigateTab) onNavigateTab("Visitors");
+          }}
+          className="bg-[#0F172A] border border-[#1E293B] hover:border-teal-500/40 text-left p-3.5 rounded-2xl space-y-1 transition duration-200"
+        >
+          <span className="text-slate-400 text-[10px] font-medium block">Units Sold</span>
+          <h2 className="text-lg font-black text-white font-mono">{kpis.unitsSold.toLocaleString()}</h2>
+          <span className="text-[9px] text-teal-400 font-bold font-mono">
+            {(kpis.unitsSold > 0 && kpis.purchasedCustomers > 0 ? (kpis.unitsSold / kpis.purchasedCustomers).toFixed(1) : 0)} Units/Txn
+          </span>
+        </button>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Conversion Rate</span>
-          <h2 className="text-lg font-black text-white font-mono">{telemetry.conversionRate}%</h2>
-          <span className="text-[9px] text-emerald-400 font-bold font-mono">↑ {telemetry.conversionRateChange}%</span>
-        </div>
+        {/* Sales */}
+        <button
+          onClick={() => {
+            localStorage.setItem("cams_kpi_filter", "");
+            localStorage.setItem("cams_history_tab", "transactions");
+            if (onNavigateTab) onNavigateTab("Visitors");
+          }}
+          className="bg-[#0F172A] border border-[#1E293B] hover:border-teal-500/40 text-left p-3.5 rounded-2xl space-y-1 transition duration-200"
+        >
+          <span className="text-slate-400 text-[10px] font-medium block">{salesLabel}</span>
+          <h2 className="text-lg font-black text-white font-mono">${kpis.todaySales.toLocaleString()}</h2>
+          <span className="text-[9px] text-teal-400 font-bold font-mono">
+            {kpis.purchasedCustomers > 0 ? "$" + Math.round(kpis.todaySales / kpis.purchasedCustomers) : "$0"} AOV
+          </span>
+        </button>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Camera Status</span>
-          <h2 className="text-lg font-black text-emerald-400 font-mono">{telemetry.cameraStatus || "3/4 Online"}</h2>
-          <span className="text-[9px] text-slate-400 font-mono">Surveillance</span>
-        </div>
-
-        <div className="bg-[#0F172A] border border-[#1E293B] p-3.5 rounded-2xl space-y-1">
-          <span className="text-slate-400 text-[10px] font-medium block">Sales Revenue</span>
-          <h2 className="text-lg font-black text-white font-mono">${telemetry.salesRevenue ? telemetry.salesRevenue.toLocaleString() : "14,850"}</h2>
-          <span className="text-[9px] text-emerald-400 font-bold font-mono">↑ {telemetry.salesRevenueChange}%</span>
-        </div>
+        {/* Profit */}
+        <button
+          onClick={() => {
+            localStorage.setItem("cams_kpi_filter", "");
+            localStorage.setItem("cams_history_tab", "transactions");
+            if (onNavigateTab) onNavigateTab("Visitors");
+          }}
+          className="bg-[#0F172A] border border-[#1E293B] hover:border-emerald-500/40 text-left p-3.5 rounded-2xl space-y-1 transition duration-200"
+        >
+          <span className="text-slate-400 text-[10px] font-medium block">{profitLabel}</span>
+          <h2 className="text-lg font-black text-emerald-400 font-mono">${kpis.todayProfit.toLocaleString()}</h2>
+          <span className="text-[9px] text-emerald-400 font-bold font-mono">{kpis.todaySales > 0 ? Math.round((kpis.todayProfit / kpis.todaySales) * 100) : 35}% Margin</span>
+        </button>
       </div>
 
       {/* 2. REDESIGNED LIVE CAMERA SECTION (PROFESSIONAL CCTV MONITORING CARDS) */}
@@ -223,13 +263,20 @@ export default function StoreOverview({ onNavigateTab }) {
       {/* 3. ENTERPRISE SUPERMARKET HEATMAP */}
       <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-5 space-y-4 font-mono">
         <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Store Heatmap</h3>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Store Heatmap</h3>
+          </div>
           <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
             ● LIVE TRACKING
           </span>
         </div>
 
-        <StoreHeatmapModel />
+        <StoreHeatmapModel
+          dateFilter={selectedPeriod}
+          customRangeLabel={filter?.label}
+          onDateChange={(p) => setFilter({ ...filter, dateRange: p })}
+        />
       </div>
 
       {/* 4. ANALYTICAL MODULES - STRICTLY TWO WIDGETS PER ROW */}
@@ -239,16 +286,10 @@ export default function StoreOverview({ onNavigateTab }) {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Visitors by Hour</h3>
-            <select
-              value={visitorsPeriod}
-              onChange={(e) => setVisitorsPeriod(e.target.value)}
-              className="bg-[#0A1020] border border-[#273449] text-emerald-400 font-bold px-2.5 py-1 rounded-lg text-[10px] focus:outline-none cursor-pointer"
-            >
-              {PERIOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={visitorsByHour}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
@@ -257,22 +298,17 @@ export default function StoreOverview({ onNavigateTab }) {
                 <Line type="monotone" dataKey="val" stroke="#2563EB" strokeWidth={2.5} dot={{ fill: "#2563EB", r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customers by Zone</h3>
-            <select
-              value={zonePeriod}
-              onChange={(e) => setZonePeriod(e.target.value)}
-              className="bg-[#0A1020] border border-[#273449] text-emerald-400 font-bold px-2.5 py-1 rounded-lg text-[10px] focus:outline-none cursor-pointer"
-            >
-              {PERIOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={customersByZone}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
@@ -285,6 +321,7 @@ export default function StoreOverview({ onNavigateTab }) {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -294,13 +331,6 @@ export default function StoreOverview({ onNavigateTab }) {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Top Shelf Performance</h3>
-            <select
-              value={shelfPeriod}
-              onChange={(e) => setShelfPeriod(e.target.value)}
-              className="bg-[#0A1020] border border-[#273449] text-emerald-400 font-bold px-2.5 py-1 rounded-lg text-[10px] focus:outline-none cursor-pointer"
-            >
-              {PERIOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
           </div>
           <div className="space-y-4 pt-2">
             {shelfPerformance.map((item, idx) => (
@@ -323,18 +353,12 @@ export default function StoreOverview({ onNavigateTab }) {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Interaction Distribution</h3>
-            <select
-              value={interactionPeriod}
-              onChange={(e) => setInteractionPeriod(e.target.value)}
-              className="bg-[#0A1020] border border-[#273449] text-emerald-400 font-bold px-2.5 py-1 rounded-lg text-[10px] focus:outline-none cursor-pointer"
-            >
-              {PERIOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
           </div>
 
           {/* DONUT CHART WITH ENHANCED INTERACTIVE TOOLTIP */}
           <div className="h-44 w-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={productInteraction} innerRadius={42} outerRadius={64} dataKey="value" paddingAngle={3}>
                   {productInteraction.map((entry, index) => (
@@ -344,6 +368,7 @@ export default function StoreOverview({ onNavigateTab }) {
                 <Tooltip content={<CustomInteractionTooltip />} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
             
             {/* Center Summary Label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -368,30 +393,23 @@ export default function StoreOverview({ onNavigateTab }) {
 
       {/* ROW 3: Top Picked Products | Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Top Picked Products</h3>
-            <select
-              value={pickedPeriod}
-              onChange={(e) => setPickedPeriod(e.target.value)}
-              className="bg-[#0A1020] border border-[#273449] text-emerald-400 font-bold px-2.5 py-1 rounded-lg text-[10px] focus:outline-none cursor-pointer"
-            >
-              {PERIOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
           </div>
           <div className="divide-y divide-[#1E293B]">
             {topPickedProducts.map((prod) => (
               <div key={prod.rank} className="py-2.5 flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-3">
-                  <span className="w-5 h-5 rounded-full bg-[#1E293B] text-slate-300 font-bold flex items-center justify-center text-[10px]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-[#1E293B] text-slate-300 font-bold flex items-center justify-center text-[10px] flex-shrink-0">
                     #{prod.rank}
                   </span>
-                  <div>
-                    <h4 className="text-white font-bold">{prod.name}</h4>
-                    <span className="text-[9px] text-slate-500">{prod.category}</span>
+                  <div className="min-w-0">
+                    <h4 className="text-white font-bold truncate">{prod.name}</h4>
+                    <span className="text-[9px] text-slate-500 block truncate">{prod.category}</span>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <span className="text-white font-bold block">{prod.picked} picked</span>
                   <span className={`text-[9px] ${prod.color}`}>{prod.change}</span>
                 </div>
@@ -400,27 +418,68 @@ export default function StoreOverview({ onNavigateTab }) {
           </div>
         </div>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Recent Activities</h3>
-            <button
-              onClick={() => onNavigateTab && onNavigateTab("Activities")}
-              className="px-2.5 py-1 bg-[#1E293B] hover:bg-[#273449] text-emerald-400 font-bold rounded-lg text-[10px] transition border border-emerald-500/30"
-            >
-              View All
-            </button>
           </div>
           <div className="space-y-3 pt-1">
             {recentActivities.map((act, idx) => (
               <div key={idx} className="flex items-start gap-3 p-2.5 rounded-xl bg-[#0A1020] border border-[#1E293B]">
                 <span className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${act.dot}`}></span>
-                <div className="flex-1 space-y-0.5">
-                  <p className="text-white text-[11px] font-bold">{act.msg}</p>
+                <div className="flex-1 space-y-0.5 min-w-0">
+                  <p className="text-white text-[11px] font-bold truncate">{act.msg}</p>
                   <span className="text-[9px] text-slate-500 block">{act.time}</span>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 5. RECENT VISITOR ACTIVITY SUMMARY (5 Key Items - Full Width Container) */}
+      <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-5 space-y-4 min-w-0">
+        <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Recent Activity Summary</h3>
+          </div>
+          <button
+            onClick={() => onNavigateTab && onNavigateTab("Visitors")}
+            className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-mono font-bold"
+          >
+            View Complete Details →
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          {(customerList || []).slice(0, 5).map((cust) => (
+            <div
+              key={cust.customerId}
+              className="bg-[#070C18] border border-[#1E293B] p-4 rounded-xl space-y-3 flex flex-col justify-between hover:border-emerald-500/40 transition duration-200 min-w-0"
+            >
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex justify-between items-center gap-1">
+                  <span className="font-bold text-white font-mono text-[11px] truncate">{cust.customerId}</span>
+                  <span className={`px-2 py-0.5 rounded-full border text-[8px] font-bold font-mono flex-shrink-0 ${
+                    cust.purchaseStatus === "Purchased"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                  }`}>
+                    {cust.purchaseStatus === "Purchased" ? "Sale" : "Visit"}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono space-y-1">
+                  <div className="truncate">🕒 {cust.entryTime} - {cust.exitTime}</div>
+                  <div className="truncate">📍 {cust.zone}</div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-end border-t border-[#1E293B]/40 pt-2 text-[10px]">
+                <span className="text-slate-500 font-sans truncate max-w-[80px]">{cust.store.split(" - ")[0]}</span>
+                <span className="font-extrabold text-white font-mono flex-shrink-0">${cust.purchaseAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

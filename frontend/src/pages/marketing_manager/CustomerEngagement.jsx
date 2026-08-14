@@ -1,32 +1,51 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
+import StoreHeatmapModel from "../../components/StoreHeatmapModel";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import { useCams } from "../../services/CamsContext";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
-const Header = ({ navigate }) => (
-  <div className="bg-[#0D1527] border border-[#1E293B] rounded-2xl p-3 px-5 flex flex-wrap items-center justify-between gap-3 shadow-lg">
-    <div className="flex items-center space-x-3">
-      <button onClick={() => navigate("/marketing-manager")} className="bg-[#182238] hover:bg-[#202C48] text-slate-300 font-semibold text-xs px-3 py-1.5 rounded-xl border border-[#273552] flex items-center space-x-1.5 transition">
-        <span>←</span><span>Back</span>
-      </button>
-      <span className="text-white font-black text-sm tracking-wide">Consumer Attention Mapping System</span>
-      <span className="bg-[#B45309]/30 text-[#F59E0B] border border-[#B45309]/50 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Marketing Manager Portal</span>
-    </div>
-    <button className="bg-[#3F1A24] hover:bg-[#52212E] text-[#F87171] border border-[#7F1D1D]/50 font-bold px-3 py-1.5 rounded-xl text-xs transition">Logout</button>
-  </div>
-);
 
 export default function CustomerEngagement() {
-  const navigate = useNavigate();
+  const { globalFilter } = useCams();
   const [segment, setSegment] = useState("All Segments");
+  const [localPeriod, setLocalPeriod] = useState(null);
+  const [localCustomRange, setLocalCustomRange] = useState(null);
+
+  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
+  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
+
+  const handleDateChange = (newPeriod, customData = null) => {
+    setLocalPeriod(newPeriod);
+    if (newPeriod === "Custom Date Range" && customData) {
+      setLocalCustomRange(customData);
+    } else if (newPeriod !== "Custom Date Range") {
+      setLocalCustomRange(null);
+    }
+  };
+
+  // Scale multiplier based on date period
+  let mult = 1.0;
+  if (selectedPeriod === "Today") mult = 0.15;
+  else if (selectedPeriod === "Yesterday") mult = 0.14;
+  else if (selectedPeriod === "Last 7 Days") mult = 1.0;
+  else if (selectedPeriod === "Last 30 Days") mult = 4.1;
+  else if (selectedPeriod === "Custom Date Range" && customRange?.startDate && customRange?.endDate) {
+    const diffDays = Math.max(1, Math.round((new Date(customRange.endDate) - new Date(customRange.startDate)) / (1000 * 60 * 60 * 24)));
+    mult = parseFloat((diffDays / 7).toFixed(2));
+  }
 
   const engagementTrend = [
-    { day: "Mon", rate: 28.4, sessions: 3200 }, { day: "Tue", rate: 31.2, sessions: 3850 },
-    { day: "Wed", rate: 29.8, sessions: 3400 }, { day: "Thu", rate: 34.5, sessions: 4100 },
-    { day: "Fri", rate: 36.2, sessions: 4800 }, { day: "Sat", rate: 38.9, sessions: 5600 },
-    { day: "Sun", rate: 33.7, sessions: 4900 },
+    { day: "Mon", rate: 28.4, sessions: Math.round(3200 * mult) },
+    { day: "Tue", rate: 31.2, sessions: Math.round(3850 * mult) },
+    { day: "Wed", rate: 29.8, sessions: Math.round(3400 * mult) },
+    { day: "Thu", rate: 34.5, sessions: Math.round(4100 * mult) },
+    { day: "Fri", rate: 36.2, sessions: Math.round(4800 * mult) },
+    { day: "Sat", rate: 38.9, sessions: Math.round(5600 * mult) },
+    { day: "Sun", rate: 33.7, sessions: Math.round(4900 * mult) },
   ];
 
   const radarData = [
@@ -39,58 +58,90 @@ export default function CustomerEngagement() {
   ];
 
   const segments = [
-    { name: "High-Value Shoppers", count: 2840, eng: "42.1%", dwell: "24.8s", conv: "22.4%", badge: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
-    { name: "Frequent Visitors", count: 5120, eng: "36.8%", dwell: "18.2s", conv: "16.9%", badge: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
-    { name: "Occasional Shoppers", count: 8400, eng: "28.5%", dwell: "12.4s", conv: "11.3%", badge: "bg-teal-500/10 text-teal-400 border-teal-500/30" },
-    { name: "First-time Visitors", count: 3960, eng: "21.2%", dwell: "8.6s", conv: "7.8%", badge: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+    { name: "High-Value Shoppers", count: Math.round(2840 * mult), eng: "42.1%", dwell: "24.8s", conv: "22.4%", badge: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
+    { name: "Frequent Visitors", count: Math.round(5120 * mult), eng: "36.8%", dwell: "18.2s", conv: "16.9%", badge: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+    { name: "Occasional Shoppers", count: Math.round(8400 * mult), eng: "28.5%", dwell: "12.4s", conv: "11.3%", badge: "bg-teal-500/10 text-teal-400 border-teal-500/30" },
+    { name: "First-time Visitors", count: Math.round(3960 * mult), eng: "21.2%", dwell: "8.6s", conv: "7.8%", badge: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
   ];
 
   const topEngagementZones = [
-    { zone: "Electronics Section", sessions: 4200, avgDwell: "28.7s", eng: "38.4%" },
-    { zone: "Promotions Corner", sessions: 3800, avgDwell: "22.6s", eng: "35.1%" },
-    { zone: "Entrance Display", sessions: 6100, avgDwell: "12.4s", eng: "32.9%" },
-    { zone: "Checkout Area", sessions: 5200, avgDwell: "34.1s", eng: "29.8%" },
-    { zone: "Apparel Section", sessions: 3400, avgDwell: "19.2s", eng: "26.5%" },
+    { zone: "Electronics Section", sessions: Math.round(4200 * mult), avgDwell: "28.7s", eng: "38.4%" },
+    { zone: "Promotions Corner", sessions: Math.round(3800 * mult), avgDwell: "22.6s", eng: "35.1%" },
+    { zone: "Entrance Display", sessions: Math.round(6100 * mult), avgDwell: "12.4s", eng: "32.9%" },
+    { zone: "Checkout Area", sessions: Math.round(5200 * mult), avgDwell: "34.1s", eng: "29.8%" },
+    { zone: "Apparel Section", sessions: Math.round(3400 * mult), avgDwell: "19.2s", eng: "26.5%" },
   ];
 
   return (
-    <div className="space-y-6 font-sans text-xs text-slate-200">
-
-
-      <div className="flex flex-wrap justify-between items-center gap-3">
-        <div>
-          <h1 className="text-xl font-black text-white">👥 Customer Engagement</h1>
-          <p className="text-slate-400 text-xs">Analyze how consumers engage with products, promotions, and store zones.</p>
+    <div className="space-y-6 font-sans text-xs text-slate-200 pb-6">
+      {/* PAGE HEADER WITH MASTER DATE FILTER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-black text-white">Customer Engagement</h1>
+          {selectedPeriod === "Custom Date Range" && customRange?.label && (
+            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+              📅 {customRange.label}
+            </span>
+          )}
         </div>
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          <span className="text-xs font-bold text-slate-400 font-mono">Date Range:</span>
+          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+        </div>
+      </div>
+
+      {/* SEGMENT FILTER BAR */}
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-slate-400 font-mono font-bold">
+          Active Segment: <span className="text-amber-400">{segment}</span>
+        </span>
         <div className="flex items-center space-x-2">
           {["All Segments", "High-Value", "Frequent", "Occasional"].map(s => (
-            <button key={s} onClick={() => setSegment(s)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${segment === s ? "bg-[#D97706] text-slate-950 border-[#D97706]" : "bg-[#0F172A] text-slate-400 border-[#1E293B] hover:text-white"}`}>{s}</button>
+            <button key={s} onClick={() => setSegment(s)} className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition ${segment === s ? "bg-amber-500 text-slate-950 border-amber-500" : "bg-[#0F172A] text-slate-400 border-[#1E293B] hover:text-white"}`}>{s}</button>
           ))}
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
         {[
           { label: "Avg. Engagement Rate", val: "33.6%", sub: "↑ 9.7% vs last week" },
-          { label: "Total Sessions", val: "29,850", sub: "This week" },
+          { label: "Total Sessions", val: Math.round(29850 * mult).toLocaleString(), sub: `Period: ${selectedPeriod}` },
           { label: "Avg. Session Duration", val: "18.4s", sub: "↑ 12.3%" },
           { label: "Return Visitor Rate", val: "42.8%", sub: "↑ 5.2%" },
         ].map((k, i) => (
           <div key={i} className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl">
-            <span className="text-slate-400 text-[11px] block font-medium">{k.label}</span>
-            <h2 className="text-lg font-black text-white font-mono mt-1">{k.val}</h2>
+            <span className="text-slate-400 text-[11px] block font-medium font-sans">{k.label}</span>
+            <h2 className="text-lg font-black text-white mt-1">{k.val}</h2>
             <span className="text-[10px] text-emerald-400 font-bold">{k.sub}</span>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* REQUIREMENT 8: SYNCHRONIZED STORE HEATMAP MODEL INTEGRATION */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
+        <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+          <div>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Synchronized Store Engagement Heatmap</h3>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Centralized telemetry synced with Dashboard floorplan blueprint</span>
+          </div>
+          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+        </div>
+        <div className="w-full flex justify-center py-2 overflow-hidden">
+          <StoreHeatmapModel dateFilter={selectedPeriod} customRangeLabel={customRange?.label} onDateChange={handleDateChange} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 font-mono">
         {/* Engagement Trend */}
         <div className="lg:col-span-8 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
-          <h3 className="text-xs font-bold text-white uppercase">Engagement Rate Trend (This Week)</h3>
+          <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Engagement Rate Trend</h3>
+            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          </div>
           <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={engagementTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={9} />
@@ -101,14 +152,16 @@ export default function CustomerEngagement() {
                 <Line yAxisId="right" type="monotone" dataKey="sessions" stroke="#2563EB" strokeWidth={1.5} name="Sessions" dot={false} />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         {/* Radar */}
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
-          <h3 className="text-xs font-bold text-white uppercase">Engagement Profile by Segment</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Engagement Profile</h3>
           <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="#1E293B" />
                 <PolarAngleAxis dataKey="subject" stroke="#64748B" fontSize={7} />
@@ -118,33 +171,34 @@ export default function CustomerEngagement() {
                 <Radar name="Occasional" dataKey="C" stroke="#10B981" fill="#10B981" fillOpacity={0.25} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
 
       {/* Customer Segments */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 font-mono">
         {segments.map((s, i) => (
           <div key={i} className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-3">
             <div className="flex justify-between items-start">
-              <span className="text-xs font-bold text-white leading-tight">{s.name}</span>
+              <span className="text-xs font-bold text-white leading-tight font-sans">{s.name}</span>
               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${s.badge}`}>Segment</span>
             </div>
             <div className="space-y-1">
               <div className="flex justify-between text-[11px]">
-                <span className="text-slate-400">Total Visitors</span>
-                <span className="text-white font-bold font-mono">{s.count.toLocaleString()}</span>
+                <span className="text-slate-400 font-sans">Total Visitors</span>
+                <span className="text-white font-bold">{s.count.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-[11px]">
-                <span className="text-slate-400">Engagement</span>
+                <span className="text-slate-400 font-sans">Engagement</span>
                 <span className="text-purple-400 font-bold">{s.eng}</span>
               </div>
               <div className="flex justify-between text-[11px]">
-                <span className="text-slate-400">Avg Dwell</span>
+                <span className="text-slate-400 font-sans">Avg Dwell</span>
                 <span className="text-blue-400 font-bold">{s.dwell}</span>
               </div>
               <div className="flex justify-between text-[11px]">
-                <span className="text-slate-400">Conversion</span>
+                <span className="text-slate-400 font-sans">Conversion</span>
                 <span className="text-emerald-400 font-bold">{s.conv}</span>
               </div>
             </div>
@@ -153,33 +207,35 @@ export default function CustomerEngagement() {
       </div>
 
       {/* Top Zones Table */}
-      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4">
-        <h3 className="text-xs font-bold text-white uppercase">Top Engagement Zones</h3>
-        <table className="w-full text-left text-[11px]">
-          <thead>
-            <tr className="border-b border-[#1E293B] text-slate-400">
-              <th className="pb-2">Zone</th><th className="pb-2">Total Sessions</th>
-              <th className="pb-2">Avg Dwell Time</th><th className="pb-2">Engagement Rate</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#1E293B]/60">
-            {topEngagementZones.map((z, i) => (
-              <tr key={i} className="hover:bg-[#0D1527]/50 transition">
-                <td className="py-2 font-bold text-white">{z.zone}</td>
-                <td className="py-2 text-slate-300 font-mono">{z.sessions.toLocaleString()}</td>
-                <td className="py-2 text-blue-400 font-bold">{z.avgDwell}</td>
-                <td className="py-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-20 h-1.5 bg-[#1E293B] rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: z.eng }}></div>
-                    </div>
-                    <span className="text-emerald-400 font-bold">{z.eng}</span>
-                  </div>
-                </td>
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
+        <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Top Engagement Zones</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[11px]">
+            <thead>
+              <tr className="border-b border-[#1E293B] text-slate-400">
+                <th className="pb-2">Zone</th><th className="pb-2">Total Sessions</th>
+                <th className="pb-2">Avg Dwell Time</th><th className="pb-2">Engagement Rate</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#1E293B]/60">
+              {topEngagementZones.map((z, i) => (
+                <tr key={i} className="hover:bg-[#0D1527]/50 transition">
+                  <td className="py-2.5 font-bold text-white">{z.zone}</td>
+                  <td className="py-2.5 text-slate-300 font-mono">{z.sessions.toLocaleString()}</td>
+                  <td className="py-2.5 text-blue-400 font-bold">{z.avgDwell}</td>
+                  <td className="py-2.5">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-20 h-1.5 bg-[#1E293B] rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: z.eng }}></div>
+                      </div>
+                      <span className="text-emerald-400 font-bold">{z.eng}</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

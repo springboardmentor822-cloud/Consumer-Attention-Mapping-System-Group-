@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
   ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ScatterChart, Scatter, ZAxis, LineChart
@@ -81,7 +83,7 @@ export default function MarketingDashboard() {
     { title: "Increase visibility of Product C on Shelf B", subtitle: "High attention, low conversions detected.", tag: "High Impact", tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", icon: "??" },
     { title: "Extend Weekend Bonanza campaign", subtitle: "Performing well with high engagement.", tag: "Medium Impact", tagColor: "bg-blue-500/10 text-blue-400 border-blue-500/30", icon: "??" },
     { title: "Relocate Product D to Shelf A", subtitle: "Low visibility detected on current shelf.", tag: "Medium Impact", tagColor: "bg-amber-500/10 text-amber-400 border-amber-500/30", icon: "??" },
-    { title: "Increase promotion in 6 PM – 9 PM slot", subtitle: "High footfall but low conversions this time.", tag: "Low Impact", tagColor: "bg-purple-500/10 text-purple-400 border-purple-500/30", icon: "??" }
+    { title: "Increase promotion in 6 PM ï¿½ 9 PM slot", subtitle: "High footfall but low conversions this time.", tag: "Low Impact", tagColor: "bg-purple-500/10 text-purple-400 border-purple-500/30", icon: "??" }
   ];
 
   return (
@@ -143,12 +145,11 @@ export default function MarketingDashboard() {
       <div className="flex flex-wrap justify-between items-center gap-4 pt-1">
         <div>
           <h1 className="text-xl font-black text-white">Marketing Manager Dashboard</h1>
-          <p className="text-slate-400 text-xs">Track campaigns, promotions and consumer engagement across all stores.</p>
         </div>
         <div className="flex items-center space-x-3">
           <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
             <span>??</span>
-            <span>May 16 – May 22, 2025</span>
+            <span>May 16 ï¿½ May 22, 2025</span>
           </button>
           <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
             <span>??</span>
@@ -166,9 +167,11 @@ export default function MarketingDashboard() {
             <span className="text-[10px] text-emerald-400 font-bold font-mono">? 20%</span>
           </div>
           <div className="h-8 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkline1}><Line type="monotone" dataKey="v" stroke="#8B5CF6" strokeWidth={1.5} dot={false} /></LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -179,9 +182,11 @@ export default function MarketingDashboard() {
             <span className="text-[10px] text-emerald-400 font-bold font-mono">? 18.6%</span>
           </div>
           <div className="h-8 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkline2}><Line type="monotone" dataKey="v" stroke="#2563EB" strokeWidth={1.5} dot={false} /></LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -192,9 +197,11 @@ export default function MarketingDashboard() {
             <span className="text-[10px] text-emerald-400 font-bold font-mono">? 14.3%</span>
           </div>
           <div className="h-8 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkline3}><Line type="monotone" dataKey="v" stroke="#F59E0B" strokeWidth={1.5} dot={false} /></LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -205,9 +212,11 @@ export default function MarketingDashboard() {
             <span className="text-[10px] text-emerald-400 font-bold font-mono">? 9.7%</span>
           </div>
           <div className="h-8 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkline4}><Line type="monotone" dataKey="v" stroke="#10B981" strokeWidth={1.5} dot={false} /></LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -218,9 +227,11 @@ export default function MarketingDashboard() {
             <span className="text-[10px] text-emerald-400 font-bold font-mono">? 7.5%</span>
           </div>
           <div className="h-8 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkline5}><Line type="monotone" dataKey="v" stroke="#06B6D4" strokeWidth={1.5} dot={false} /></LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -231,9 +242,11 @@ export default function MarketingDashboard() {
             <span className="text-[10px] text-emerald-400 font-bold font-mono">? 22.1%</span>
           </div>
           <div className="h-8 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkline6}><Line type="monotone" dataKey="v" stroke="#EC4899" strokeWidth={1.5} dot={false} /></LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -243,7 +256,8 @@ export default function MarketingDashboard() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <h3 className="text-xs font-bold text-white uppercase">Campaign Performance Overview</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={campaignPerformanceData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="name" stroke="#64748B" fontSize={8} />
@@ -255,13 +269,15 @@ export default function MarketingDashboard() {
                 <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="#10B981" strokeWidth={2} />
               </ComposedChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <h3 className="text-xs font-bold text-white uppercase">Promotion Effectiveness (Before vs After)</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={promoEffectivenessData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="metric" stroke="#64748B" fontSize={8} />
@@ -271,6 +287,7 @@ export default function MarketingDashboard() {
                 <Bar dataKey="after" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -297,7 +314,8 @@ export default function MarketingDashboard() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <h3 className="text-xs font-bold text-white uppercase">Product Visibility Score by Shelf</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={visibilityByShelfData} layout="vertical">
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={9} domain={[0, 100]} />
@@ -310,13 +328,15 @@ export default function MarketingDashboard() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <h3 className="text-xs font-bold text-white uppercase">Product Attractiveness Score</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="#1E293B" />
                 <PolarAngleAxis dataKey="subject" stroke="#64748B" fontSize={8} />
@@ -327,13 +347,15 @@ export default function MarketingDashboard() {
                 <Radar name="Product D" dataKey="D" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.3} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <h3 className="text-xs font-bold text-white uppercase">Attention vs Conversion</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" dataKey="x" stroke="#64748B" fontSize={9} unit="s" />
@@ -344,6 +366,7 @@ export default function MarketingDashboard() {
                 <Scatter name="Low" data={scatterLow} fill="#F59E0B" />
               </ScatterChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>

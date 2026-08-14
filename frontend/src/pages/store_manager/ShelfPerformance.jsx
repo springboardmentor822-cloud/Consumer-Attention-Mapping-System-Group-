@@ -3,88 +3,139 @@ import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell
 } from "recharts";
+import { useCams } from "../../services/CamsContext";
 import StoreHeatmapModel from "../../components/StoreHeatmapModel";
 import CustomDateSelector from "../../components/CustomDateSelector";
+import { getCentralScaledData } from "../../services/centralData";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
-function getMultiplier(period) {
-  switch (period) {
-    case "Yesterday": return 0.92;
-    case "Last 7 Days": return 1.4;
-    case "Last 30 Days": return 2.1;
-    case "Custom Date Range": return 1.2;
-    default: return 1.0;
-  }
-}
 
 export default function ShelfPerformance() {
-  // Widget Period States
-  const [timePeriod, setTimePeriod] = useState("Last 7 Days");
-  const [zonePeriod, setZonePeriod] = useState("Last 7 Days");
-  const [heatmapPeriod, setHeatmapPeriod] = useState("Last 7 Days");
-  const [overviewPeriod, setOverviewPeriod] = useState("Last 7 Days");
-  const [topPeriod, setTopPeriod] = useState("Last 7 Days");
+  const { liveTrackedPersons, globalFilter } = useCams(); // Subscribe to context changes
+  const [localPeriod, setLocalPeriod] = useState(null);
+  const [localCustomRange, setLocalCustomRange] = useState(null);
 
-  // Multipliers
-  const multTime = getMultiplier(timePeriod);
+  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
+  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
+
+  const handleDateChange = (newPeriod, customData = null) => {
+    setLocalPeriod(newPeriod);
+    if (newPeriod === "Custom Date Range" && customData) {
+      setLocalCustomRange(customData);
+    } else if (newPeriod !== "Custom Date Range") {
+      setLocalCustomRange(null);
+    }
+  };
+
+  // Synchronized Central Scaled Data
+  const centralData = getCentralScaledData(selectedPeriod, customRange);
+  const mult = centralData.mult;
+
+
+  // Dynamic Metrics for Shelf Performance Overview
+  const avgShelfEngagement = Math.min(99, parseFloat((72.4 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1)));
+  const productsInteracted = Math.round(1245 * mult);
+  const avgDwellTime = Math.round(28 * (mult > 5 ? 1.1 : mult < 1 ? 0.95 : 1.0));
+  const topShelfScore = Math.min(99, parseFloat((85.6 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1)));
+  const lowPerformingCount = mult > 5 ? 5 : mult > 2 ? 4 : 3;
+
+  // Chart 1: Shelf Engagement Over Time
   const shelfEngagementTime = [
-    { time: "12 AM", engagement: Math.min(99, Math.round(32 * multTime)) },
-    { time: "3 AM", engagement: Math.min(99, Math.round(42 * multTime)) },
-    { time: "6 AM", engagement: Math.min(99, Math.round(54 * multTime)) },
-    { time: "9 AM", engagement: Math.min(99, Math.round(68 * multTime)) },
-    { time: "12 PM", engagement: Math.min(99, Math.round(62 * multTime)) },
-    { time: "3 PM", engagement: Math.min(99, Math.round(78 * multTime)) },
-    { time: "5 PM", engagement: Math.min(99, Math.round(72.4 * multTime)) },
-    { time: "6 PM", engagement: Math.min(99, Math.round(70 * multTime)) },
-    { time: "9 PM", engagement: Math.min(99, Math.round(72 * multTime)) }
+    { time: "12 AM", engagement: Math.min(99, Math.round(32 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "3 AM", engagement: Math.min(99, Math.round(42 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "6 AM", engagement: Math.min(99, Math.round(54 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "9 AM", engagement: Math.min(99, Math.round(68 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "12 PM", engagement: Math.min(99, Math.round(62 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "3 PM", engagement: Math.min(99, Math.round(78 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "5 PM", engagement: Math.min(99, Math.round(72.4 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "6 PM", engagement: Math.min(99, Math.round(70 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) },
+    { time: "9 PM", engagement: Math.min(99, Math.round(72 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))) }
   ];
 
-  const multZone = getMultiplier(zonePeriod);
+  // Chart 2: Engagement by Shelf Zone
   const engagementByZone = [
-    { zone: "Aisle A", val: Math.min(99, Math.round(85.6 * multZone)), fill: "#2563EB" },
-    { zone: "Aisle B", val: Math.min(99, Math.round(72.1 * multZone)), fill: "#10B981" },
-    { zone: "Aisle C", val: Math.min(99, Math.round(68.3 * multZone)), fill: "#8B5CF6" },
-    { zone: "Promo Area", val: Math.min(99, Math.round(64.2 * multZone)), fill: "#F59E0B" },
-    { zone: "Checkout", val: Math.min(99, Math.round(58.7 * multZone)), fill: "#EC4899" },
-    { zone: "Others", val: Math.min(99, Math.round(46.3 * multZone)), fill: "#06B6D4" }
+    { zone: "Aisle A", val: Math.min(99, Math.round(85.6 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))), fill: "#2563EB" },
+    { zone: "Aisle B", val: Math.min(99, Math.round(72.1 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))), fill: "#10B981" },
+    { zone: "Aisle C", val: Math.min(99, Math.round(68.3 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))), fill: "#8B5CF6" },
+    { zone: "Promo Area", val: Math.min(99, Math.round(64.2 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))), fill: "#F59E0B" },
+    { zone: "Checkout", val: Math.min(99, Math.round(58.7 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))), fill: "#EC4899" },
+    { zone: "Others", val: Math.min(99, Math.round(46.3 * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))), fill: "#06B6D4" }
   ];
 
-  const multOverview = getMultiplier(overviewPeriod);
-  const shelfOverviewTable = [
-    { id: 1, name: "Shelf A3", zone: "Aisle A", engagement: `${(85.6 * (multOverview > 1 ? 1.05 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(32 * multOverview)}s`, trend: "↑ 12.4%", color: "text-emerald-400" },
-    { id: 2, name: "Shelf A1", zone: "Aisle A", engagement: `${(78.3 * (multOverview > 1 ? 1.03 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(30 * multOverview)}s`, trend: "↑ 8.6%", color: "text-emerald-400" },
-    { id: 3, name: "Shelf B2", zone: "Aisle B", engagement: `${(72.1 * (multOverview > 1 ? 1.02 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(26 * multOverview)}s`, trend: "↑ 6.7%", color: "text-emerald-400" },
-    { id: 4, name: "Shelf C1", zone: "Aisle C", engagement: `${(68.3 * (multOverview > 1 ? 1.01 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(24 * multOverview)}s`, trend: "↑ 4.3%", color: "text-emerald-400" },
-    { id: 5, name: "Promo Shelf 1", zone: "Promo Area", engagement: `${(64.2 * (multOverview > 1 ? 1.0 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(23 * multOverview)}s`, trend: "↑ 3.1%", color: "text-emerald-400" },
-    { id: 6, name: "Checkout Shelf", zone: "Checkout", engagement: `${(58.7 * (multOverview > 1 ? 0.98 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(20 * multOverview)}s`, trend: "↓ 2.4%", color: "text-rose-400" },
-    { id: 7, name: "End Cap 2", zone: "Aisle B", engagement: `${(46.3 * (multOverview > 1 ? 0.95 : multOverview)).toFixed(1)}%`, dwell: `${Math.round(18 * multOverview)}s`, trend: "↓ 5.6%", color: "text-rose-400" }
-  ];
+  // Retrieve shelves from centralData
+  const shelvesList = centralData.shelves || [];
 
-  const multTop = getMultiplier(topPeriod);
-  const topPerformingShelvesList = [
-    { rank: 1, name: "Shelf A3", zone: "Aisle A", score: `${(85.6 * (multTop > 1 ? 1.05 : multTop)).toFixed(1)}%`, badgeBg: "bg-amber-500 text-black" },
-    { rank: 2, name: "Shelf A1", zone: "Aisle A", score: `${(78.3 * (multTop > 1 ? 1.03 : multTop)).toFixed(1)}%`, badgeBg: "bg-slate-700 text-slate-300" },
-    { rank: 3, name: "Shelf B2", zone: "Aisle B", score: `${(72.1 * (multTop > 1 ? 1.02 : multTop)).toFixed(1)}%`, badgeBg: "bg-amber-700 text-amber-200" },
-    { rank: 4, name: "Shelf C1", zone: "Aisle C", score: `${(68.3 * (multTop > 1 ? 1.01 : multTop)).toFixed(1)}%`, badgeBg: "bg-slate-800 text-slate-400" },
-    { rank: 5, name: "Promo Shelf 1", zone: "Promo Area", score: `${(64.2 * (multTop > 1 ? 1.0 : multTop)).toFixed(1)}%`, badgeBg: "bg-slate-800 text-slate-400" }
-  ];
+  // Table 1: Shelf Performance Overview (calculated dynamically from PostgreSQL shelves)
+  const shelfOverviewTable = shelvesList.map((s, idx) => {
+    const isEven = idx % 2 === 0;
+    const engagementVal = Math.min(99.9, (s.attentionScore || 80) * (mult > 5 ? 1.02 : mult < 1 ? 0.95 : 1.0));
+    const dwellVal = Math.round(((s.attentionScore || 80) * 0.3 + 10) * (mult > 5 ? 1.1 : mult < 1 ? 0.95 : 1.0));
+    const trendVal = isEven ? `↑ ${(4.5 * mult).toFixed(1)}%` : `↓ ${(2.1 * mult).toFixed(1)}%`;
+    const trendColor = isEven ? "text-emerald-400" : "text-rose-400";
+    
+    return {
+      id: idx + 1,
+      name: s.name,
+      zone: s.zone,
+      engagement: `${engagementVal.toFixed(1)}%`,
+      dwell: `${dwellVal}s`,
+      trend: trendVal,
+      color: trendColor,
+      scoreNum: engagementVal
+    };
+  });
 
-  const shelfInsights = [
-    { time: "05:30 PM", msg: "Shelf A3 engagement is up by 12.4% compared to baseline.", icon: "↑", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-    { time: "05:10 PM", msg: "Aisle B shelves have peak engagement between 04:00 PM - 06:00 PM.", icon: "ℹ", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-    { time: "04:45 PM", msg: "End Cap 2 engagement is low. Consider adjusting product placement.", icon: "⚠️", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-    { time: "04:30 PM", msg: "Promo Shelf 1 dwell time increased by 9.8%.", icon: "↑", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-    { time: "03:55 PM", msg: "Checkout shelf engagement dropped by 2.4%.", icon: "ℹ", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" }
-  ];
+  // Table 2: Top Performing Shelves List (derived directly from real records)
+  const topPerformingShelvesList = [...shelfOverviewTable]
+    .sort((a, b) => b.scoreNum - a.scoreNum)
+    .slice(0, 5)
+    .map((item, idx) => ({
+      rank: idx + 1,
+      name: item.name,
+      zone: item.zone,
+      score: item.engagement,
+      badgeBg: idx === 0 ? "bg-amber-500 text-black" : idx === 1 ? "bg-slate-700 text-slate-300" : idx === 2 ? "bg-amber-700 text-amber-200" : "bg-slate-800 text-slate-400"
+    }));
+
+  // Dynamic Shelf Insights & Alerts based on selectedPeriod
+  const getShelfInsights = (period, range) => {
+    const rangeText = period === "Custom Date Range" ? (range?.label || "selected date range") : period.toLowerCase();
+    return [
+      { time: "05:30 PM", msg: `Shelf A3 engagement is up by ${(12.4 * (mult > 5 ? 1.2 : 1.0)).toFixed(1)}% for ${rangeText} compared to baseline.`, icon: "↑", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+      { time: "05:10 PM", msg: `Aisle B shelves recorded peak traffic window for ${rangeText}.`, icon: "ℹ", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+      { time: "04:45 PM", msg: `End Cap 2 engagement remains lower during ${rangeText}. Consider adjusting placement.`, icon: "⚠️", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+      { time: "04:30 PM", msg: `Promo Shelf 1 dwell time increased by ${(9.8 * (mult > 5 ? 1.15 : 1.0)).toFixed(1)}% in ${rangeText}.`, icon: "↑", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+      { time: "03:55 PM", msg: `Checkout shelf engagement recorded ${(58.7 * (mult > 5 ? 0.98 : 1.0)).toFixed(1)}% average for ${rangeText}.`, icon: "ℹ", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" }
+    ];
+  };
+
+  const shelfInsights = getShelfInsights(selectedPeriod, customRange);
 
   return (
     <div className="space-y-5 font-sans text-xs pb-6">
+      {/* PAGE HEADER & DATE FILTER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl gap-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-black text-white tracking-wide">Shelf Performance Analytics</h1>
+          {selectedPeriod === "Custom Date Range" && customRange?.label && (
+            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+              📅 {customRange.label}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          <span className="text-xs font-bold text-slate-400 font-mono">Date Range:</span>
+          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+        </div>
+      </div>
+
       {/* 1. TOP 5 KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-slate-400 text-[11px] block">Avg. Shelf Engagement</span>
-            <h2 className="text-xl font-black text-white font-mono">72.4%</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 8.6% vs yesterday</span>
+            <h2 className="text-xl font-black text-white font-mono">{avgShelfEngagement}%</h2>
+            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 8.6% vs previous period</span>
           </div>
           <div className="w-10 h-10 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl flex items-center justify-center text-lg">
             📊
@@ -94,8 +145,8 @@ export default function ShelfPerformance() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-slate-400 text-[11px] block">Products Interacted</span>
-            <h2 className="text-xl font-black text-white font-mono">1,245</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 11.3% vs yesterday</span>
+            <h2 className="text-xl font-black text-white font-mono">{productsInteracted.toLocaleString()}</h2>
+            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 11.3% vs previous period</span>
           </div>
           <div className="w-10 h-10 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-xl flex items-center justify-center text-lg">
             🛒
@@ -105,8 +156,8 @@ export default function ShelfPerformance() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-slate-400 text-[11px] block">Avg. Dwell Time</span>
-            <h2 className="text-xl font-black text-white font-mono">28s</h2>
-            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 7.2% vs yesterday</span>
+            <h2 className="text-xl font-black text-white font-mono">{avgDwellTime}s</h2>
+            <span className="text-[10px] text-emerald-400 font-bold font-mono">↑ 7.2% vs previous period</span>
           </div>
           <div className="w-10 h-10 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl flex items-center justify-center text-lg">
             👁️
@@ -117,7 +168,7 @@ export default function ShelfPerformance() {
           <div className="space-y-1">
             <span className="text-slate-400 text-[11px] block">Top Performing Shelf</span>
             <h2 className="text-xl font-black text-white font-mono">Shelf A3</h2>
-            <span className="text-[10px] text-slate-400 font-mono">Engagement: 85.6%</span>
+            <span className="text-[10px] text-slate-400 font-mono">Engagement: {topShelfScore}%</span>
           </div>
           <div className="w-10 h-10 bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center text-lg">
             🎯
@@ -127,7 +178,7 @@ export default function ShelfPerformance() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-slate-400 text-[11px] block">Low Performing Shelves</span>
-            <h2 className="text-xl font-black text-white font-mono">3</h2>
+            <h2 className="text-xl font-black text-white font-mono">{lowPerformingCount}</h2>
             <span className="text-[10px] text-rose-400 font-mono">Needs attention</span>
           </div>
           <div className="w-10 h-10 bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 rounded-xl flex items-center justify-center text-lg">
@@ -142,10 +193,11 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Engagement Over Time</h3>
-            <CustomDateSelector value={timePeriod} onChange={setTimePeriod} />
+            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={shelfEngagementTime}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
@@ -154,6 +206,7 @@ export default function ShelfPerformance() {
                 <Line type="monotone" dataKey="engagement" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Engagement %" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
@@ -161,10 +214,11 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Engagement by Shelf Zone</h3>
-            <CustomDateSelector value={zonePeriod} onChange={setZonePeriod} />
+            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={engagementByZone}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
@@ -177,17 +231,24 @@ export default function ShelfPerformance() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
-        {/* SHELF ENGAGEMENT HEATMAP (REQUIREMENT 3: REPLACED WITH SYNCHRONIZED HEATMAP MODEL INSIDE EXISTING CONTAINER) */}
+        {/* SHELF ENGAGEMENT HEATMAP (SYNCHRONIZED HEATMAP MODEL SCALED INSIDE EXISTING CONTAINER BOX) */}
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 flex flex-col justify-between font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Engagement Heatmap</h3>
-            <CustomDateSelector value={heatmapPeriod} onChange={setHeatmapPeriod} />
+            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
           </div>
-          <div className="w-full h-56 overflow-hidden rounded-xl border border-[#1E293B]">
-            <StoreHeatmapModel />
+          <div className="w-full h-56 overflow-hidden rounded-xl border border-[#1E293B] relative bg-[#040814]">
+            <div className="scale-[0.45] sm:scale-[0.52] origin-top-left w-[220%] sm:w-[192%] h-[220%] sm:h-[192%]">
+              <StoreHeatmapModel
+                dateFilter={selectedPeriod}
+                customRangeLabel={customRange?.label}
+                onDateChange={handleDateChange}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -198,7 +259,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Performance Overview</h3>
-            <CustomDateSelector value={overviewPeriod} onChange={setOverviewPeriod} />
+            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[11px]">
@@ -232,7 +293,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-3 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Top Performing Shelves</h3>
-            <CustomDateSelector value={topPeriod} onChange={setTopPeriod} />
+            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
           </div>
           <div className="space-y-2.5">
             {topPerformingShelvesList.map((item) => (

@@ -1,33 +1,38 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   BarChart, Bar, Cell
 } from "recharts";
 import {
-  dailyTrafficTrend, entryExitPoints, bottlenecks, storeHeatmap, zones,
-  heatColor, formatNumber
+  heatColor, formatNumber, getCentralScaledData
 } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
-const kpis = [
-  { label: "Total Footfall", value: "62,480", change: "↑ 18.4%", icon: "🚦" },
-  { label: "Peak Hour Traffic", value: "1,240 / hr", change: "5PM - 7PM", icon: "⏰" },
-  { label: "Primary Entry Point", value: "Main Entrance", change: "58.2% share", icon: "🚪" },
-  { label: "Primary Exit Point", value: "Main Entrance", change: "54.1% share", icon: "🚶" },
-  { label: "Active Bottlenecks", value: "2 Critical", change: "Aisle 4 & Checkout", icon: "⚠️" },
-  { label: "Avg Flow Velocity", value: "1.2 m/s", change: "Normal Pace", icon: "⚡" },
-];
 
 export default function AnalystTrafficFlow() {
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+
+  const activeFilter = localPeriod || globalFilter;
+  const centralData = getCentralScaledData(activeFilter);
+  const { dailyTrafficTrend, entryExitPoints, bottlenecks, storeHeatmap, zones, kpis: centralKpis, mult } = centralData;
+
+  const kpis = [
+    { label: "Total Footfall", value: formatNumber(centralKpis.totalVisitors), change: "↑ 18.4%", icon: "🚦" },
+    { label: "Peak Hour Traffic", value: `${formatNumber(centralKpis.peakHourTraffic)} / hr`, change: centralKpis.peakHour, icon: "⏰" },
+    { label: "Primary Entry Point", value: "Main Entrance", change: "58.2% share", icon: "🚪" },
+    { label: "Primary Exit Point", value: "Main Entrance", change: "54.1% share", icon: "🚶" },
+    { label: "Active Bottlenecks", value: `${bottlenecks.length} Active`, change: "Aisle 4 & Checkout", icon: "⚠️" },
+    { label: "Avg Flow Velocity", value: "1.2 m/s", change: "Normal Pace", icon: "⚡" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">Traffic Flow Analysis</h1>
-          <p className="text-slate-400 text-xs">Analyze customer movement patterns, pathing density, bottleneck locations, and peak periods throughout the store.</p>
         </div>
-        <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2">
-          <span>📅</span><span>Aug 1 – Aug 7, 2026</span>
-        </button>
       </div>
 
       {/* KPIs */}
@@ -46,7 +51,8 @@ export default function AnalystTrafficFlow() {
         <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Weekly Traffic Density Trends</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dailyTrafficTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
@@ -56,6 +62,7 @@ export default function AnalystTrafficFlow() {
                 <Area type="monotone" dataKey="returning" stroke="#10B981" fill="#10B981" fillOpacity={0.1} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="flex gap-4 text-[10px] font-mono">
             <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-purple-500 inline-block rounded" /> Total Visitors</span>
@@ -90,7 +97,8 @@ export default function AnalystTrafficFlow() {
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Entry & Exit Velocity by Point</h3>
           <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={entryExitPoints} layout="vertical">
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={9} />
@@ -100,6 +108,7 @@ export default function AnalystTrafficFlow() {
                 <Bar dataKey="exits" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 

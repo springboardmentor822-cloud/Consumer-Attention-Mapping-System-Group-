@@ -1,189 +1,150 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, LineChart, Line, ComposedChart
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, BarChart, Bar
 } from "recharts";
+import CustomDateSelector from "../../components/CustomDateSelector";
+import { formatNumber } from "../../services/centralData";
+import { useCams } from "../../services/CamsContext";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
-const Header = ({ navigate }) => (
-  <div className="bg-[#0D1527] border border-[#1E293B] rounded-2xl p-3 px-5 flex flex-wrap items-center justify-between gap-3 shadow-lg">
-    <div className="flex items-center space-x-3">
-      <button onClick={() => navigate("/marketing-manager")} className="bg-[#182238] hover:bg-[#202C48] text-slate-300 font-semibold text-xs px-3 py-1.5 rounded-xl border border-[#273552] flex items-center space-x-1.5 transition">
-        <span>←</span><span>Back</span>
-      </button>
-      <span className="text-white font-black text-sm tracking-wide">Consumer Attention Mapping System</span>
-      <span className="bg-[#B45309]/30 text-[#F59E0B] border border-[#B45309]/50 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Marketing Manager Portal</span>
-    </div>
-    <button className="bg-[#3F1A24] hover:bg-[#52212E] text-[#F87171] border border-[#7F1D1D]/50 font-bold px-3 py-1.5 rounded-xl text-xs transition">Logout</button>
-  </div>
-);
 
 export default function TrafficInsights() {
-  const navigate = useNavigate();
-  const [view, setView] = useState("Today");
+  const { globalFilter } = useCams();
+  const [localPeriod, setLocalPeriod] = useState(null);
+  const [localCustomRange, setLocalCustomRange] = useState(null);
 
-  const hourlyTraffic = [
-    { time: "8AM", visitors: 420, conversions: 48 }, { time: "9AM", visitors: 680, conversions: 78 },
-    { time: "10AM", visitors: 920, conversions: 112 }, { time: "11AM", visitors: 1240, conversions: 158 },
-    { time: "12PM", visitors: 1580, conversions: 202 }, { time: "1PM", visitors: 1820, conversions: 248 },
-    { time: "2PM", visitors: 1560, conversions: 218 }, { time: "3PM", visitors: 1720, conversions: 228 },
-    { time: "4PM", visitors: 2100, conversions: 294 }, { time: "5PM", visitors: 2480, conversions: 346 },
-    { time: "6PM", visitors: 2820, conversions: 394 }, { time: "7PM", visitors: 2240, conversions: 308 },
-    { time: "8PM", visitors: 1680, conversions: 228 }, { time: "9PM", visitors: 960, conversions: 128 },
+  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
+  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
+
+  const handleDateChange = (newPeriod, customData = null) => {
+    setLocalPeriod(newPeriod);
+    if (newPeriod === "Custom Date Range" && customData) {
+      setLocalCustomRange(customData);
+    } else if (newPeriod !== "Custom Date Range") {
+      setLocalCustomRange(null);
+    }
+  };
+
+  // Scale multiplier based on date period
+  let mult = 1.0;
+  if (selectedPeriod === "Today") mult = 0.15;
+  else if (selectedPeriod === "Yesterday") mult = 0.14;
+  else if (selectedPeriod === "Last 7 Days") mult = 1.0;
+  else if (selectedPeriod === "Last 30 Days") mult = 4.1;
+  else if (selectedPeriod === "Custom Date Range" && customRange?.startDate && customRange?.endDate) {
+    const diffDays = Math.max(1, Math.round((new Date(customRange.endDate) - new Date(customRange.startDate)) / (1000 * 60 * 60 * 24)));
+    mult = parseFloat((diffDays / 7).toFixed(2));
+  }
+
+  // 1. TRAFFIC VOLUME ANALYSIS (LINE CHART)
+  const trafficVolumeTrend = [
+    { time: "8 AM", trafficVolume: Math.round(420 * mult), visitorCount: Math.round(380 * mult) },
+    { time: "10 AM", trafficVolume: Math.round(920 * mult), visitorCount: Math.round(840 * mult) },
+    { time: "12 PM", trafficVolume: Math.round(1580 * mult), visitorCount: Math.round(1450 * mult) },
+    { time: "2 PM", trafficVolume: Math.round(1560 * mult), visitorCount: Math.round(1410 * mult) },
+    { time: "4 PM", trafficVolume: Math.round(2100 * mult), visitorCount: Math.round(1920 * mult) },
+    { time: "6 PM", trafficVolume: Math.round(2820 * mult), visitorCount: Math.round(2580 * mult) },
+    { time: "8 PM", trafficVolume: Math.round(1680 * mult), visitorCount: Math.round(1520 * mult) },
   ];
 
-  const zoneTraffic = [
-    { zone: "Entrance", traffic: 8420, peak: "6PM", avg_dwell: "8.4s" },
-    { zone: "Electronics", traffic: 3280, peak: "5PM", avg_dwell: "28.7s" },
-    { zone: "Apparel", traffic: 4120, peak: "4PM", avg_dwell: "19.2s" },
-    { zone: "Grocery", traffic: 6840, peak: "1PM", avg_dwell: "8.4s" },
-    { zone: "Checkout", traffic: 5920, peak: "7PM", avg_dwell: "34.1s" },
-    { zone: "Promotions", traffic: 2140, peak: "6PM", avg_dwell: "22.6s" },
-  ];
-
-  const weeklyComparison = [
-    { day: "Mon", thisWeek: 8200, lastWeek: 7600 },
-    { day: "Tue", thisWeek: 9100, lastWeek: 8200 },
-    { day: "Wed", thisWeek: 8750, lastWeek: 8100 },
-    { day: "Thu", thisWeek: 10200, lastWeek: 9400 },
-    { day: "Fri", thisWeek: 12400, lastWeek: 11200 },
-    { day: "Sat", thisWeek: 16800, lastWeek: 14900 },
-    { day: "Sun", thisWeek: 15200, lastWeek: 13800 },
-  ];
-
-  const peakHours = [
-    { period: "Morning (8–11AM)", traffic: "2,020", pct: "16%", color: "bg-blue-500" },
-    { period: "Midday (11AM–2PM)", traffic: "4,640", pct: "37%", color: "bg-purple-500" },
-    { period: "Afternoon (2–5PM)", traffic: "3,560", pct: "28%", color: "bg-amber-500" },
-    { period: "Evening (5–9PM)", traffic: "5,960", pct: "47%", color: "bg-emerald-500" },
+  // 2. TRAFFIC BY ZONE (HIGH / MEDIUM / LOW ZONE ANALYSIS)
+  const zoneTrafficHeatmap = [
+    { zone: "Store Entrance", traffic: Math.round(8420 * mult), level: "High Traffic", intensity: "bg-rose-500/20 text-rose-400 border-rose-500/30", color: "#EF4444" },
+    { zone: "Grocery Aisle", traffic: Math.round(6840 * mult), level: "High Traffic", intensity: "bg-rose-500/20 text-rose-400 border-rose-500/30", color: "#EF4444" },
+    { zone: "Checkout Counter", traffic: Math.round(5920 * mult), level: "Medium Traffic", intensity: "bg-amber-500/20 text-amber-400 border-amber-500/30", color: "#F59E0B" },
+    { zone: "Apparel Section", traffic: Math.round(4120 * mult), level: "Medium Traffic", intensity: "bg-amber-500/20 text-amber-400 border-amber-500/30", color: "#F59E0B" },
+    { zone: "Electronics Zone", traffic: Math.round(3280 * mult), level: "Medium Traffic", intensity: "bg-amber-500/20 text-amber-400 border-amber-500/30", color: "#F59E0B" },
+    { zone: "Promotions Corner", traffic: Math.round(2140 * mult), level: "Low Traffic", intensity: "bg-blue-500/20 text-blue-400 border-blue-500/30", color: "#3B82F6" }
   ];
 
   return (
-    <div className="space-y-6 font-sans text-xs text-slate-200">
-
-
-      <div className="flex flex-wrap justify-between items-center gap-3">
-        <div>
-          <h1 className="text-xl font-black text-white">🚶 Traffic Insights</h1>
-          <p className="text-slate-400 text-xs">Analyze consumer footfall patterns, peak hours, and zone-level traffic distribution.</p>
+    <div className="space-y-6 font-sans text-xs text-slate-200 pb-6">
+      {/* PAGE HEADER WITH MASTER DATE FILTER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-black text-white">Traffic Insights</h1>
+          {selectedPeriod === "Custom Date Range" && customRange?.label && (
+            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+              📅 {customRange.label}
+            </span>
+          )}
         </div>
-        <div className="flex items-center space-x-2">
-          {["Today", "This Week", "This Month"].map(v => (
-            <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${view === v ? "bg-[#D97706] text-slate-950 border-[#D97706]" : "bg-[#0F172A] text-slate-400 border-[#1E293B] hover:text-white"}`}>{v}</button>
-          ))}
+        <div className="flex items-center gap-3 self-end sm:self-auto font-mono">
+          <span className="text-xs font-bold text-slate-400">Date Range:</span>
+          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* KPIS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
         {[
-          { label: "Total Visitors Today", val: "16,820", sub: "↑ 12.4% vs yesterday" },
-          { label: "Peak Hour Traffic", val: "2,820", sub: "6–7 PM peak" },
+          { label: "Total Visitors Period", val: formatNumber(Math.round(16820 * mult)), sub: "↑ 12.4% vs prev period" },
+          { label: "Peak Hour Traffic", val: formatNumber(Math.round(2820 * mult)), sub: "6–7 PM peak slot" },
           { label: "Avg. Store Dwell", val: "18.4 min", sub: "↑ 2.1 min" },
           { label: "Footfall Conversion", val: "12.8%", sub: "↑ 1.4%" },
         ].map((k, i) => (
           <div key={i} className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl">
-            <span className="text-slate-400 text-[11px] block font-medium">{k.label}</span>
+            <span className="text-slate-400 text-[11px] block font-medium font-sans">{k.label}</span>
             <h2 className="text-lg font-black text-white font-mono mt-1">{k.val}</h2>
             <span className="text-[10px] text-emerald-400 font-bold">{k.sub}</span>
           </div>
         ))}
       </div>
 
-      {/* Hourly Traffic */}
-      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
-        <h3 className="text-xs font-bold text-white uppercase">Hourly Traffic & Conversions (Today)</h3>
-        <div className="h-52">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={hourlyTraffic}>
-              <defs>
-                <linearGradient id="trafficGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+      {/* 1. TRAFFIC VOLUME ANALYSIS (LINE CHART) */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
+        <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+          <div>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic Volume & Visitor Count Analysis</h3>
+            <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">Line chart analysis comparing total traffic volume trend vs visitor count trend over time</span>
+          </div>
+          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+        </div>
+        <div className="h-56">
+          <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trafficVolumeTrend}>
               <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
               <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
-              <YAxis yAxisId="left" stroke="#64748B" fontSize={9} />
-              <YAxis yAxisId="right" orientation="right" stroke="#64748B" fontSize={9} />
+              <YAxis stroke="#64748B" fontSize={9} />
               <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
-              <Area yAxisId="left" type="monotone" dataKey="visitors" stroke="#8B5CF6" strokeWidth={2} fill="url(#trafficGrad)" name="Visitors" />
-              <Line yAxisId="right" type="monotone" dataKey="conversions" stroke="#F59E0B" strokeWidth={2} name="Conversions" dot={false} />
-            </ComposedChart>
+              <Line type="monotone" dataKey="trafficVolume" stroke="#8B5CF6" strokeWidth={2.5} name="Traffic Volume Trend" dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="visitorCount" stroke="#10B981" strokeWidth={2} name="Visitor Count Trend" dot={{ r: 3 }} />
+            </LineChart>
           </ResponsiveContainer>
+</ComponentErrorBoundary>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Weekly Comparison */}
-        <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
-          <h3 className="text-xs font-bold text-white uppercase">This Week vs Last Week</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyComparison}>
-                <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
-                <XAxis dataKey="day" stroke="#64748B" fontSize={9} />
-                <YAxis stroke="#64748B" fontSize={9} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
-                <Bar dataKey="thisWeek" fill="#8B5CF6" radius={[4, 4, 0, 0]} name="This Week" />
-                <Bar dataKey="lastWeek" fill="#1E293B" radius={[4, 4, 0, 0]} name="Last Week" />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* 2. TRAFFIC BY ZONE (HEATMAP & ZONE ANALYSIS) */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
+        <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
+          <div>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic By Zone Heatmap & Analysis</h3>
+            <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">Zone-wise breakdown categorizing High, Medium, and Low traffic zones</span>
           </div>
+          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
         </div>
 
-        {/* Peak Hours */}
-        <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
-          <h3 className="text-xs font-bold text-white uppercase">Traffic by Time Period</h3>
-          <div className="space-y-3 pt-1">
-            {peakHours.map((p, i) => (
-              <div key={i} className="space-y-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-slate-300 font-bold">{p.period}</span>
-                  <span className="text-white font-mono">{p.traffic} <span className="text-slate-400">({p.pct})</span></span>
-                </div>
-                <div className="h-2.5 w-full bg-[#070C18] rounded-full overflow-hidden border border-[#1E293B]">
-                  <div className={`h-full ${p.color} rounded-full`} style={{ width: p.pct }}></div>
-                </div>
+        {/* ZONE TRAFFIC GRID HEATMAP CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {zoneTrafficHeatmap.map((z, idx) => (
+            <div key={idx} className="p-4 bg-[#070C18] border border-[#1E293B] rounded-xl space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-white font-bold text-xs font-sans">{z.zone}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${z.intensity}`}>{z.level}</span>
               </div>
-            ))}
-          </div>
+              <div className="flex justify-between items-end pt-1">
+                <span className="text-slate-400 text-[10px] font-sans">Total Zone Traffic:</span>
+                <strong className="text-lg font-black text-white font-mono">{formatNumber(z.traffic)}</strong>
+              </div>
+              <div className="w-full h-1.5 bg-[#1E293B] rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.min((z.traffic / (8420 * mult)) * 100, 100)}%`, backgroundColor: z.color }}></div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-
-      {/* Zone Traffic Table */}
-      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4">
-        <h3 className="text-xs font-bold text-white uppercase">Zone-level Traffic Analysis</h3>
-        <table className="w-full text-left text-[11px]">
-          <thead>
-            <tr className="border-b border-[#1E293B] text-slate-400">
-              <th className="pb-2">Zone</th><th className="pb-2">Today's Traffic</th>
-              <th className="pb-2">Peak Hour</th><th className="pb-2">Avg. Dwell</th><th className="pb-2">Traffic Share</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#1E293B]/60">
-            {zoneTraffic.map((z, i) => {
-              const total = zoneTraffic.reduce((s, x) => s + x.traffic, 0);
-              const pct = Math.round((z.traffic / total) * 100);
-              return (
-                <tr key={i} className="hover:bg-[#0D1527]/50 transition">
-                  <td className="py-2 font-bold text-white">{z.zone}</td>
-                  <td className="py-2 text-slate-300 font-mono">{z.traffic.toLocaleString()}</td>
-                  <td className="py-2 text-amber-400 font-bold">{z.peak}</td>
-                  <td className="py-2 text-blue-400 font-bold">{z.avg_dwell}</td>
-                  <td className="py-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-16 h-1.5 bg-[#1E293B] rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct * 3}%` }}></div>
-                      </div>
-                      <span className="text-white font-bold">{pct}%</span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
       </div>
     </div>
   );

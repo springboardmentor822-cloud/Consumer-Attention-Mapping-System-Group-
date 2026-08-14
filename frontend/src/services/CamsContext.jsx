@@ -1,11 +1,35 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import * as cd from "./centralData";
+import { DEFAULT_FILTER } from "../components/PortalDataFilter";
 
 const CamsContext = createContext();
 
+// ── Zone mapper (stable, module-level) ────────────────────────────────────────
+function mapCamZoneToStoreZone(camZone) {
+  if (!camZone) return "Checkout";
+  const z = camZone.toLowerCase();
+  if (z.includes("bakery")) return "Bakery";
+  if (z.includes("dairy")) return "Dairy";
+  if (z.includes("produce") || z.includes("organic") || z.includes("scale")) return "Produce";
+  if (z.includes("cosmetics") || z.includes("beauty") || z.includes("personal")) return "Cosmetics";
+  if (z.includes("electronics")) return "Electronics";
+  if (z.includes("household")) return "Household";
+  if (z.includes("frozen")) return "Frozen Foods";
+  return "Checkout";
+}
+
+function getProductForZone(zoneName) {
+  const allProds = cd.products;
+  return (
+    allProds.find(p => p.category.toLowerCase().includes(zoneName.toLowerCase()) || p.zone?.toLowerCase().includes(zoneName.toLowerCase())) ||
+    allProds[0] ||
+    { id: "P-001", name: "Artisan Sourdough Bread", price: 7.50, cost: 5.00 }
+  );
+}
+
 export function CamsProvider({ children }) {
   // Global Filters
-  const [dateRange, setDateRange] = useState("Last 7 Days");
+  const [globalFilter, setGlobalFilter] = useState(DEFAULT_FILTER);
   const [selectedCamera, setSelectedCamera] = useState("CAM-01");
   const [selectedStore, setSelectedStore] = useState("STR-101");
 
@@ -25,46 +49,30 @@ export function CamsProvider({ children }) {
     "Marketing Manager": { manageUsers: false, configureSystem: false, viewAnalytics: true, exportReports: true },
   });
 
-  // Dynamic Telemetry Data Generator based on dateRange & selectedCamera
-  const [telemetry, setTelemetry] = useState(cd.trafficOverview);
+  // Dynamic Telemetry Data resolved from unified getCentralScaledData
+  const [telemetry, setTelemetry] = useState(() => cd.getCentralScaledData(DEFAULT_FILTER).kpis);
+  const [dbLoaded, setDbLoaded] = useState(false);
 
   useEffect(() => {
-    // Generate scaled/filtered telemetry dynamically based on filters for dynamic feel
-    let scaleFactor = 1.0;
-    if (dateRange === "Today") scaleFactor = 0.10;
-    else if (dateRange === "Yesterday") scaleFactor = 0.095;
-    else if (dateRange === "Last 7 Days") scaleFactor = 1.0;
-    else if (dateRange === "Last 30 Days") scaleFactor = 4.2;
-    else if (dateRange === "This Month") scaleFactor = 3.8;
-    else if (dateRange === "Custom Date Range") scaleFactor = 2.0;
-
-    // Apply slight modifications based on active camera
-    const camIndex = parseInt(selectedCamera.replace("CAM-", "")) || 1;
-    const cameraModifier = 0.85 + (camIndex * 0.05);
-
-    const base = cd.trafficOverview;
-    setTelemetry({
-      totalVisitors: Math.round(base.totalVisitors * scaleFactor * cameraModifier),
-      totalVisitorsChange: base.totalVisitorsChange,
-      avgDwellTime: parseFloat((base.avgDwellTime * cameraModifier).toFixed(1)),
-      avgDwellTimeChange: base.avgDwellTimeChange,
-      conversionRate: parseFloat((base.conversionRate * cameraModifier).toFixed(1)),
-      conversionRateChange: base.conversionRateChange,
-      avgAttentionTime: parseFloat((base.avgAttentionTime * cameraModifier).toFixed(1)),
-      avgAttentionTimeChange: base.avgAttentionTimeChange,
-      salesRevenue: Math.round(base.salesRevenue * scaleFactor * cameraModifier),
-      salesRevenueChange: base.salesRevenueChange,
-      avgOrderValue: parseFloat((base.avgOrderValue * cameraModifier).toFixed(2)),
-      avgOrderValueChange: base.avgOrderValueChange,
-      peakHour: base.peakHour,
-      peakHourTraffic: Math.round(base.peakHourTraffic * scaleFactor * cameraModifier),
-      busiestDay: base.busiestDay,
-      busiestDayTraffic: Math.round(base.busiestDayTraffic * scaleFactor * cameraModifier),
-      currentCustomers: Math.round(42 * cameraModifier),
-      productsPicked: Math.round(2140 * scaleFactor * cameraModifier),
-      cameraStatus: "3/4 Online",
-    });
-  }, [dateRange, selectedCamera]);
+    let active = true;
+    const loadDb = async () => {
+      console.log("Loading PostgreSQL database records into central data store...");
+      const success = await cd.fetchAllFromDatabase();
+      if (success && active) {
+        setDbLoaded(true);
+        // Force refresh telemetry
+        const centralData = cd.getCentralScaledData(globalFilter);
+        setTelemetry(centralData.kpis);
+      }
+    };
+    loadDb();
+    // Set an interval to poll for updates occasionally
+    const interval = setInterval(loadDb, 10000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [globalFilter]);
 
   // User Management Actions
   const addUser = (newUser) => {
@@ -91,11 +99,82 @@ export function CamsProvider({ children }) {
     }));
   };
 
+  // ── Live Tracking State ─────────────────────────────────────────────────────
+  const [liveTrackedPersons, setLiveTrackedPersons] = useState([]);
+  const [liveHeatmapPoints, setLiveHeatmapPoints] = useState([]);
+
+  // Session history is kept in a ref (not state) to avoid cascading re-renders.
+  const liveSessionRef = useRef({});  // keyed by person.id
+  const lastStateUpdateRef = useRef(0);
+
+  // ── updateLiveTrackingState — STABLE reference via useCallback ──────────────
+  const updateLiveTrackingState = useCallback((activePersons, newPoints = []) => {
+    // 1. Update live session registry (ref-based, no re-render cascade)
+    const sessions = liveSessionRef.current;
+    const activeIds = new Set(activePersons.map(p => p.id));
+
+    // Mark missing ids as inactive
+    Object.keys(sessions).forEach(id => {
+      if (!activeIds.has(id)) {
+        sessions[id] = { ...sessions[id], isActive: false };
+      }
+    });
+
+    // Resolve active store name from globalFilter
+    const storeObj = cd.stores.find(s => s.id === globalFilter?.store || s.name === globalFilter?.store);
+    const activeStoreName = storeObj ? storeObj.name : "Downtown Flagship";
+
+    // Upsert active persons
+    activePersons.forEach(person => {
+      const mappedZone = mapCamZoneToStoreZone(person.zone);
+      const prod = getProductForZone(mappedZone);
+
+      const entryTimeMs = Date.now() - (person.totalDwellSeconds * 1000);
+      const entryTime = new Date(entryTimeMs).toLocaleTimeString("en-US", { hour12: false });
+      const exitTime  = new Date().toLocaleTimeString("en-US", { hour12: false });
+
+      const hasPurchase =
+        person.productsPicked > 0 ||
+        person.activity === "Picking Product" ||
+        person.activity === "Viewing Product";
+
+      sessions[person.id] = {
+        id:               person.id,
+        customerId:       `CUST-TRK-${person.id}`,
+        visitDate:        new Date().toISOString().split("T")[0],
+        entryTime,
+        exitTime,
+        dwellTime:        Math.max(0.1, parseFloat((person.totalDwellSeconds / 60).toFixed(2))),
+        productsViewed:   [prod],
+        productsPurchased: hasPurchase ? [prod] : [],
+        purchaseStatus:   hasPurchase ? "Purchased" : "No Purchase",
+        purchaseAmount:   hasPurchase ? prod.price : 0,
+        transactionId:    hasPurchase ? `TXN-TRK-${person.id}` : "—",
+        store:            activeStoreName,
+        zone:             mappedZone,
+        isActive:         true,
+      };
+    });
+
+    // 2. Publish to shared global so getCentralScaledData can merge
+    window.cams_live_sessions = Object.values(sessions);
+
+    // 3. Throttle React state updates (triggers page re-renders)
+    const now = Date.now();
+    if (now - lastStateUpdateRef.current > 300 || activePersons.length === 0) {
+      lastStateUpdateRef.current = now;
+      setLiveTrackedPersons(activePersons);
+      if (newPoints.length > 0) {
+        setLiveHeatmapPoints(prev => [...prev, ...newPoints].slice(-500));
+      }
+    }
+  }, [globalFilter]); // depends on globalFilter to resolve store
+
   return (
     <CamsContext.Provider
       value={{
-        dateRange,
-        setDateRange,
+        globalFilter,
+        setGlobalFilter,
         selectedCamera,
         setSelectedCamera,
         selectedStore,
@@ -108,6 +187,10 @@ export function CamsProvider({ children }) {
         rolePermissions,
         saveRolePermissions,
         telemetry,
+        liveTrackedPersons,
+        liveHeatmapPoints,
+        liveSessionHistory: Object.values(liveSessionRef.current),
+        updateLiveTrackingState,
       }}
     >
       {children}
@@ -116,3 +199,4 @@ export function CamsProvider({ children }) {
 }
 
 export const useCams = () => useContext(CamsContext);
+

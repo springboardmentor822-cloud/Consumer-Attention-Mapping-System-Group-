@@ -1,7 +1,5 @@
 import AnalystOverview from "../AnalystOverview";
-import AnalystCustomerJourney from "../AnalystCustomerJourney";
-import AnalystAttentionAnalytics from "../AnalystAttentionAnalytics";
-import AnalystCustomerSegmentation from "../AnalystCustomerSegmentation";
+import AnalystConsumerBehaviorIntelligence from "../AnalystConsumerBehaviorIntelligence";
 import AnalystCustomerBehavior from "../AnalystCustomerBehavior";
 import AnalystDwellTime from "../AnalystDwellTime";
 import AnalystTrafficFlow from "../AnalystTrafficFlow";
@@ -15,9 +13,10 @@ import AnalystSettings from "../AnalystSettings";
 
 export {
   AnalystOverview as AnalystDashboardOverviewPage,
-  AnalystCustomerJourney as AnalystConsumerJourneyPage,
-  AnalystAttentionAnalytics as AnalystAttentionAnalyticsPage,
-  AnalystCustomerSegmentation as AnalystConsumerSegmentationPage,
+  AnalystConsumerBehaviorIntelligence as AnalystConsumerBehaviorIntelligencePage,
+  AnalystConsumerBehaviorIntelligence as AnalystConsumerJourneyPage,
+  AnalystConsumerBehaviorIntelligence as AnalystAttentionAnalyticsPage,
+  AnalystConsumerBehaviorIntelligence as AnalystConsumerSegmentationPage,
   AnalystCustomerBehavior as AnalystShoppingBehaviorPage,
   AnalystDwellTime as AnalystDwellTimePage,
   AnalystTrafficFlow as AnalystTrafficFlowPage,

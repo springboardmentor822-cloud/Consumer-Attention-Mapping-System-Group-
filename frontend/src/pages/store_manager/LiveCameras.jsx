@@ -1,205 +1,954 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useCams } from "../../services/CamsContext";
+import { pixelBboxToCSS } from "../../utils/objectCoverTransform";
 
-const CAMERAS = [
-  { id: "CAM-01", name: "Camera 1 - Bakery Endcap", location: "Bakery A1", res: "1080p FHD", fps: 30, ip: "192.168.1.101", path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", baseCount: 6, zones: ["Bakery Endcap A1", "Dairy Section B2", "Central Aisle"] },
-  { id: "CAM-02", name: "Camera 2 - Produce Section", location: "Produce C1", res: "4K UHD", fps: 30, ip: "192.168.1.102", path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", baseCount: 8, zones: ["Produce Bins C1", "Organic Wall", "Central Aisle"] },
-  { id: "CAM-03", name: "Camera 3 - Cosmetics Wall", location: "Cosmetics D4", res: "1080p FHD", fps: 28, ip: "192.168.1.103", path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", baseCount: 5, zones: ["Cosmetics Wall D4", "Fragrance Counter", "Checkout Queue"] },
-  { id: "CAM-04", name: "Camera 4 - Checkout Queue", location: "Checkout C2", res: "1080p FHD", fps: 30, ip: "192.168.1.104", path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoytimes.mp4", baseCount: 9, zones: ["Checkout Counter 1", "Express Lane", "Exit Lobby"] },
+// ─────────────────────────────────────────────────────────────────────────────
+// Camera definitions — must match backend CAMERA_VIDEO_MAP
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_CAMERAS = [
+  {
+    id: "CAM-01",
+    name: "Camera 1 - Main Central Aisle",
+    location: "Aisle B (Main Corridor)",
+    res: "1080p FHD",
+    fps: 30,
+    ip: "192.168.1.101",
+    path: "/videos/store1.mp4",
+    zones: ["Main Central Aisle", "Dairy Coolers", "Bakery Shelf"],
+  },
+  {
+    id: "CAM-02",
+    name: "Camera 2 - Produce & Scale Station",
+    location: "Fresh Produce Section",
+    res: "1080p FHD",
+    fps: 30,
+    ip: "192.168.1.102",
+    path: "/videos/aisle1.mp4",
+    zones: ["Produce Bins", "Organic Wall", "Scale Station"],
+  },
+  {
+    id: "CAM-03",
+    name: "Camera 3 - Checkout Counter #1",
+    location: "Billing Counters 1–4",
+    res: "1080p FHD",
+    fps: 28,
+    ip: "192.168.1.103",
+    path: "/videos/checkout1.mp4",
+    zones: ["Billing Counter 1", "Express Queue", "Impulse Rack"],
+  },
+  {
+    id: "CAM-04",
+    name: "Camera 4 - Checkout Counter #2",
+    location: "Billing Counters 5–8",
+    res: "1080p FHD",
+    fps: 30,
+    ip: "192.168.1.104",
+    path: "/videos/checkout2.mp4",
+    zones: ["Billing Counter 5", "Express Queue", "Exit Corridor"],
+  },
 ];
 
-const BB_COLORS = ["#10B981", "#06B6D4", "#8B5CF6", "#F59E0B", "#EF4444", "#3B82F6", "#EC4899", "#84CC16"];
+// Bounding box colors — cycling per track ID
+const BB_COLORS = [
+  "#10B981", "#06B6D4", "#8B5CF6", "#F59E0B",
+  "#EF4444", "#3B82F6", "#EC4899", "#84CC16",
+];
 
-// Seeded random helper
-function seeded(seed, min, max) {
-  const x = Math.sin(seed) * 10000;
-  const r = x - Math.floor(x);
-  return Math.floor(r * (max - min + 1)) + min;
+// WebSocket reconnect backoff schedule (ms)
+const BACKOFF_STEPS = [1000, 2000, 4000, 8000, 10000];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Zone resolution — based on normalized center coords (same logic as before)
+// ─────────────────────────────────────────────────────────────────────────────
+function resolveZoneByPosition(centerXPercent, centerYPercent, activeCam) {
+  const zones = activeCam.zones || ["Main Central Aisle", "Dairy Coolers", "Bakery Shelf"];
+  if (centerYPercent < 40) {
+    if (centerXPercent < 38) return zones[0];
+    if (centerXPercent < 68) return zones[1] || zones[0];
+    return zones[2] || zones[0];
+  } else if (centerYPercent < 70) {
+    if (centerXPercent < 42) return zones[0];
+    if (centerXPercent < 70) return zones[1] || zones[0];
+    return zones[2] || zones[1] || zones[0];
+  }
+  return zones[2] || zones[1] || zones[0];
 }
 
-// Deterministic Zone Resolver by Coordinate Position (bbX, bbY)
-function resolveZoneByPosition(x, y, activeCam) {
-  if (x < 32 && y < 45) return activeCam.zones[0] || "Bakery Endcap A1";
-  if (x >= 32 && x < 62 && y < 45) return activeCam.zones[1] || "Dairy Section B2";
-  if (x >= 62 && y < 45) return activeCam.zones[2] || "Snack Display D1";
-  if (x < 35 && y >= 45) return activeCam.zones[0] || "Produce Bins C1";
-  if (x >= 35 && x < 65 && y >= 45) return "Central Aisle";
-  return "Checkout Queue";
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-track state managed in a ref (not React state, to avoid re-render lag)
+// ─────────────────────────────────────────────────────────────────────────────
+const fmtDwell = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
 
-// Build initial trackers with stable IDs & realistic initial states
-function createInitialTrackers(cam) {
-  const seed = cam.id.charCodeAt(4) * 555;
-  const count = cam.baseCount;
-  return Array.from({ length: count }, (_, i) => {
-    const id = `TRK-${101 + i}`;
-    const startX = seeded(seed + i * 17, 10, 68);
-    const startY = seeded(seed + i * 23, 15, 55);
-    const zone = resolveZoneByPosition(startX, startY, cam);
-    return {
-      id,
-      zone,
-      zoneDwellTime: seeded(seed + i * 11, 10, 45),
-      totalDwellTime: seeded(seed + i * 11, 30, 180),
-      activity: "Walking",
-      attentionScore: seeded(seed + i * 13, 70, 96),
-      productsViewed: seeded(seed + i * 3, 2, 6),
-      productsPicked: seeded(seed + i * 7, 1, 3),
-      productsReturned: seeded(seed + i * 19, 0, 1),
-      comparisons: seeded(seed + i * 29, 0, 2),
-      status: "Active",
-      color: BB_COLORS[i % BB_COLORS.length],
-      bbX: startX,
-      bbY: startY,
-      targetX: startX + seeded(seed + i * 31, -12, 12),
-      targetY: startY + seeded(seed + i * 37, -8, 8),
-      bbW: 12,
-      bbH: 22,
-      journey: ["Entrance", zone],
-    };
-  });
-}
+// ── EMA smoothing factor for bbox positions ────────────────────────────────────
+// alpha=1.0 → no smoothing. alpha=0.75 → fast responsive smoothing
+const EMA_ALPHA = 0.75;
 
-export default function LiveCameras() {
-  const { selectedCamera, setSelectedCamera } = useCams();
-  const [showAiBoxes, setShowAiBoxes] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(false);
-  const [selectedTracker, setSelectedTracker] = useState(null);
-  const [trackers, setTrackers] = useState([]);
-  const [cumulativeCount, setCumulativeCount] = useState(12);
-  const [detectionLog, setDetectionLog] = useState([]);
-  const activeCam = CAMERAS.find(c => c.id === selectedCamera) || CAMERAS[0];
+// ─────────────────────────────────────────────────────────────────────────────
+// High-Performance LiveCameraFeed Component
+// ─────────────────────────────────────────────────────────────────────────────
+const LiveCameraFeed = React.forwardRef(({
+  showAiBoxes,
+  showHeatmap,
+  selectedTracker,
+  setSelectedTracker,
+  activeCam,
+  getTrackColor,
+  debugInfo,
+  showVideo,
+  wsStatus,
+  videoStatus,
+  onVideoTimeUpdate,
+  onVideoStatusChange,
+}, ref) => {
+  const [tracks, setTracks] = useState([]);
+  const [sourceDims, setSourceDims] = useState({ width: 1280, height: 720 });
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const [currentFrame, setCurrentFrame] = useState(null);
+  const containerRef = useRef(null);
+  const videoRef = useRef(null);
+  const historyRef = useRef([]);
 
-  // 1. Initialize trackers when active camera changes
+  // Bulletproof Refs to store callbacks and avoid dependency cycles
+  const timeUpdateRef = useRef(onVideoTimeUpdate);
+  const statusChangeRef = useRef(onVideoStatusChange);
+
   useEffect(() => {
-    const initial = createInitialTrackers(activeCam);
-    setTrackers(initial);
-    setSelectedTracker(null);
-    setCumulativeCount(initial.length + 6);
-  }, [selectedCamera]);
+    timeUpdateRef.current = onVideoTimeUpdate;
+    statusChangeRef.current = onVideoStatusChange;
+  }); // runs every render to keep callbacks fresh
 
-  // 2. Continuous Real-Time Tracking Engine (100ms tick loop)
-  useEffect(() => {
-    let tickCount = 0;
-    const interval = setInterval(() => {
-      tickCount += 1;
-
-      setTrackers(prevTrackers => {
-        return prevTrackers.map((tr) => {
-          const dx = tr.targetX - tr.bbX;
-          const dy = tr.targetY - tr.bbY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          let newX = tr.bbX;
-          let newY = tr.bbY;
-          let newTargetX = tr.targetX;
-          let newTargetY = tr.targetY;
-          let newAct = tr.activity;
-          let newViewed = tr.productsViewed;
-          let newPicked = tr.productsPicked;
-          let newReturned = tr.productsReturned;
-          let newComparisons = tr.comparisons;
-
-          if (dist < 1.2) {
-            // Reached destination -> stationary dwell near shelf
-            newTargetX = Math.max(8, Math.min(75, tr.bbX + (Math.random() - 0.5) * 30));
-            newTargetY = Math.max(12, Math.min(60, tr.bbY + (Math.random() - 0.5) * 20));
-            
-            // Deterministic action transitions based on stationary dwell
-            const randAct = Math.random();
-            if (randAct < 0.35) {
-              newAct = "Viewing Product";
-              newViewed += 1;
-            } else if (randAct < 0.60) {
-              newAct = "Picking Product";
-              newPicked += 1;
-            } else if (randAct < 0.75) {
-              newAct = "Comparing Products";
-              newComparisons += 1;
-            } else if (randAct < 0.88) {
-              newAct = "Browsing";
-            } else {
-              newAct = "Returning Product";
-              newReturned += 1;
-            }
-          } else {
-            // Moving towards waypoint target -> Walking
-            newAct = "Walking";
-            const speed = 0.35;
-            newX += (dx / dist) * speed;
-            newY += (dy / dist) * speed;
-          }
-
-          // Deterministic Zone derived from current position (newX, newY)
-          const newZone = resolveZoneByPosition(newX, newY, activeCam);
-          const isNewZone = newZone !== tr.zone;
-          
-          // Zone Dwell Reset logic: reset zoneDwellTime to 0 on new zone entry
-          const newZoneDwell = isNewZone ? 0 : (tickCount % 10 === 0 ? tr.zoneDwellTime + 1 : tr.zoneDwellTime);
-          const newTotalDwell = tickCount % 10 === 0 ? tr.totalDwellTime + 1 : tr.totalDwellTime;
-
-          // Journey Trajectory append on zone change
-          const newJourney = isNewZone ? [...tr.journey, newZone] : tr.journey;
-
-          return {
-            ...tr,
-            bbX: parseFloat(newX.toFixed(2)),
-            bbY: parseFloat(newY.toFixed(2)),
-            targetX: newTargetX,
-            targetY: newTargetY,
-            activity: newAct,
-            zone: newZone,
-            zoneDwellTime: newZoneDwell,
-            totalDwellTime: newTotalDwell,
-            productsViewed: newViewed,
-            productsPicked: newPicked,
-            productsReturned: newReturned,
-            comparisons: newComparisons,
-            journey: newJourney,
-          };
-        });
-      });
-
-      // Append detection log every 30 ticks
-      if (tickCount % 30 === 0) {
-        const events = ["Shopper Detected", "Product Interaction", "Dwell Threshold (30s)", "Product Picked Up", "Product Compared"];
-        const ev = events[Math.floor(Math.random() * events.length)];
-        const z = activeCam.zones[Math.floor(Math.random() * activeCam.zones.length)];
-        const conf = (95.2 + Math.random() * 4.3).toFixed(1);
-        const now = new Date().toLocaleTimeString("en-US", { hour12: false });
-        setDetectionLog(prev => [
-          { time: now, event: ev, zone: z, confidence: `${conf}%`, id: `TRK-${Math.floor(Math.random()*6 + 101)}` },
-          ...prev.slice(0, 19)
-        ]);
+  React.useImperativeHandle(ref, () => ({
+    updateFeed(newFrame, newTracks, newDims, frameNumber) {
+      setTracks(newTracks);
+      if (newFrame) {
+        setCurrentFrame(newFrame);
       }
+      if (newDims?.width && newDims?.height) {
+        setSourceDims(newDims);
+      }
+    },
+    clear() {
+      setTracks([]);
+      setCurrentFrame(null);
+    }
+  }));
 
-    }, 100);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const measure = () => {
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      if (width > 0 && height > 0) {
+        setContainerSize({ w: width, h: height });
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
-    return () => clearInterval(interval);
+  // Sync video play / waiting / seek / error statuses
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handlePlay = () => {
+      statusChangeRef.current?.("online");
+      timeUpdateRef.current?.(video.currentTime);
+    };
+
+    const handleSeeked = () => {
+      timeUpdateRef.current?.(video.currentTime);
+    };
+
+    const handleWaiting = () => {
+      statusChangeRef.current?.("connecting");
+    };
+
+    const handlePlaying = () => {
+      statusChangeRef.current?.("online");
+    };
+
+    const handleError = () => {
+      statusChangeRef.current?.("offline");
+    };
+
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("seeked", handleSeeked);
+    video.addEventListener("waiting", handleWaiting);
+    video.addEventListener("playing", handlePlaying);
+    video.addEventListener("error", handleError);
+
+    // Periodic time sync to backend (every 1.5s)
+    const interval = setInterval(() => {
+      if (video && !video.paused) {
+        timeUpdateRef.current?.(video.currentTime);
+      }
+    }, 1500);
+
+    return () => {
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("seeked", handleSeeked);
+      video.removeEventListener("waiting", handleWaiting);
+      video.removeEventListener("playing", handlePlaying);
+      video.removeEventListener("error", handleError);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Handle active camera source changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      statusChangeRef.current?.("connecting");
+      video.load();
+      video.play().catch(() => {
+        // Autoplay may need user interaction
+      });
+    }
   }, [activeCam]);
 
-  // 3. SYNCHRONIZED REAL-TIME LIVE INFERENCE METRICS DIRECTLY FROM TRACKERS
-  const peopleTrackedCount = trackers.length;
-  const totalProductsViewed = trackers.reduce((s, t) => s + t.productsViewed, 0);
-  const totalProductsPicked = trackers.reduce((s, t) => s + t.productsPicked, 0);
-  const totalProductsReturned = trackers.reduce((s, t) => s + t.productsReturned, 0);
-  const totalComparisons = trackers.reduce((s, t) => s + t.comparisons, 0);
-  const avgDwellSeconds = peopleTrackedCount > 0 ? Math.round(trackers.reduce((s, t) => s + t.totalDwellTime, 0) / peopleTrackedCount) : 0;
-  const totalCountMetrics = cumulativeCount;
+  // ── Collision-aware label layout ──────────────────────────────────────────
+  // Each label is LABEL_W × LABEL_H pixels. We try placing it:
+  //   1. Above the box   (preferred)
+  //   2. Below the box
+  //   3. Nudge left/right to avoid already-placed labels
+  // All placed labels are clamped to [0, containerW] × [0, containerH].
+  const LABEL_W = 130; // px — max label width
+  const LABEL_H = 34;  // px — two-line label height
 
-  const fmtDwell = (s) => s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
-  const selectedTrackerData = trackers.find(t => t.id === selectedTracker);
+  const labelsLayout = useMemo(() => {
+    if (!tracks.length || containerSize.w === 0 || containerSize.h === 0) return {};
 
+    const nativeW = sourceDims.width  || 1280;
+    const nativeH = sourceDims.height || 720;
+    const cW = containerSize.w;
+    const cH = containerSize.h;
+
+    // Convert all bboxes first
+    const boxRects = tracks
+      .filter(t => t.bbox)
+      .map(t => {
+        const css = pixelBboxToCSS(t.bbox, nativeW, nativeH, cW, cH);
+        return { id: t.id, ...css };
+      });
+
+    // Helper: does rect A overlap rect B (with margin px)?
+    const overlaps = (ax, ay, bx, by, margin = 2) =>
+      ax < bx + LABEL_W + margin &&
+      ax + LABEL_W + margin > bx &&
+      ay < by + LABEL_H + margin &&
+      ay + LABEL_H + margin > by;
+
+    // Clamp to container
+    const clampX = (x) => Math.max(0, Math.min(cW - LABEL_W, x));
+    const clampY = (y) => Math.max(0, Math.min(cH - LABEL_H, y));
+
+    const placed = {}; // id → {x, y}
+
+    // Sort by top-to-bottom, left-to-right so earlier placements are predictable
+    const sorted = [...boxRects].sort((a, b) => a.top - b.top || a.left - b.left);
+
+    for (const box of sorted) {
+      const idealX = clampX(box.left);
+
+      // Candidate placements in preference order
+      const candidates = [
+        // 1. Above box
+        { x: idealX, y: clampY(box.top - LABEL_H - 2) },
+        // 2. Below box
+        { x: idealX, y: clampY(box.top + box.height + 2) },
+        // 3. Above, shifted right
+        { x: clampX(box.left + box.width * 0.5), y: clampY(box.top - LABEL_H - 2) },
+        // 4. Below, shifted right
+        { x: clampX(box.left + box.width * 0.5), y: clampY(box.top + box.height + 2) },
+        // 5. Inside top of box (last resort — still attached)
+        { x: idealX, y: clampY(box.top + 2) },
+      ];
+
+      // For each candidate, try nudging up to 4 times in 18px steps to escape collisions
+      let chosen = candidates[candidates.length - 1]; // fallback = inside box
+      outer: for (const c of candidates) {
+        for (let nudge = 0; nudge <= 3; nudge++) {
+          const nx = c.x;
+          const ny = clampY(c.y + nudge * (LABEL_H + 4));
+          let collision = false;
+          for (const pid of Object.keys(placed)) {
+            if (overlaps(nx, ny, placed[pid].x, placed[pid].y)) {
+              collision = true;
+              break;
+            }
+          }
+          if (!collision) {
+            chosen = { x: nx, y: ny };
+            break outer;
+          }
+        }
+      }
+
+      placed[box.id] = chosen;
+    }
+
+    return placed;
+  }, [tracks, containerSize, sourceDims]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative aspect-video bg-[#0B132B] rounded-xl overflow-hidden border border-[#1E293B] shadow-inner select-none"
+    >
+      {/* HTML5 Video or Streamed Frame */}
+      {currentFrame ? (
+        <img
+          src={currentFrame}
+          alt="Live Camera Feed"
+          className="w-full h-full object-cover opacity-95 transition-opacity duration-300 pointer-events-none"
+          style={{
+            opacity: showVideo ? 0.95 : 0,
+            filter: showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none"
+          }}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          src={activeCam?.path}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover opacity-95 transition-opacity duration-300"
+          style={{
+            opacity: showVideo ? 0.95 : 0,
+            filter: showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none"
+          }}
+        />
+      )}
+
+      {/* Video Loading/Offline Overlay */}
+      {videoStatus !== "online" && (
+        <div className="absolute inset-0 w-full h-full bg-[#080E1E] overflow-hidden pointer-events-none flex items-center justify-center text-slate-500 z-10">
+          <div
+            className="absolute inset-0 opacity-25"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, #1E293B 1px, transparent 1px), linear-gradient(to bottom, #1E293B 1px, transparent 1px)",
+              backgroundSize: "28px 28px",
+              transform: "perspective(500px) rotateX(15deg)",
+              transformOrigin: "center top",
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-60 pointer-events-none"
+            style={{ background: "radial-gradient(circle at center, transparent 55%, rgba(3, 7, 18, 0.85) 100%)" }}
+          />
+          <span className="z-10 text-[11px] font-mono tracking-wider animate-pulse">
+            {videoStatus === "offline" ? "Video Offline" : "Awaiting Stream Connection..."}
+          </span>
+        </div>
+      )}
+
+      {/* HEATMAP OVERLAY */}
+      {showHeatmap && (
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/60 via-amber-600/40 to-rose-600/60 mix-blend-color-dodge pointer-events-none animate-pulse z-10" />
+      )}
+
+      {/* HUD Overlay — top left (z-30, always above boxes) */}
+      <div className="absolute top-2 left-2 bg-black/85 px-2.5 py-1 rounded-lg text-[8px] text-white border border-white/10 pointer-events-none font-mono space-x-2 z-30 flex items-center shadow-lg">
+        <span className="text-rose-400 font-black flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" /> LIVE
+        </span>
+        <span>{sourceDims.width}x{sourceDims.height}</span>
+        <span>{activeCam?.fps || 30} FPS</span>
+        <span className="text-emerald-400 font-bold">
+          {wsStatus === "online" ? `${tracks.length} Persons Tracked` : "Detection Offline"}
+        </span>
+      </div>
+
+      {/* Diagnostic HUD Overlay — bottom right compact panel (z-50, always on top) */}
+      {debugInfo && (
+        <div
+          className="absolute bg-black/85 px-2.5 py-1.5 rounded-lg text-[8px] text-cyan-400 border border-cyan-500/30 pointer-events-none font-mono z-50 shadow-lg space-y-0.5"
+          style={{ bottom: 8, right: 8 }}
+        >
+          <div>YOLO: {debugInfo.yoloDetections}</div>
+          <div>Persons: {debugInfo.personDetections}</div>
+          <div>Tracks: {debugInfo.activeTracks}</div>
+          <div>Frame: {debugInfo.frameNumber}</div>
+        </div>
+      )}
+
+      {/* ── Layer 1: Bounding Boxes (z-index 11-25) ── */}
+      {showAiBoxes && !showHeatmap && wsStatus === "online" && containerSize.w > 0 && containerSize.h > 0 && (
+        <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 11 }}>
+          {tracks.map((t) => {
+            if (!t.bbox) return null;
+            const isSelected = selectedTracker === t.id;
+            const nativeW = sourceDims.width  || 1280;
+            const nativeH = sourceDims.height || 720;
+            const css = pixelBboxToCSS(t.bbox, nativeW, nativeH, containerSize.w, containerSize.h);
+            return (
+              <div
+                key={t.id}
+                id={`track-box-${t.id}`}
+                onClick={() => setSelectedTracker(t.id)}
+                className="absolute cursor-pointer pointer-events-auto transition-[box-shadow] duration-200"
+                style={{
+                  left:   `${css.left}px`,
+                  top:    `${css.top}px`,
+                  width:  `${css.width}px`,
+                  height: `${css.height}px`,
+                  border: `2px solid ${t.color}`,
+                  borderRadius: "4px",
+                  backgroundColor: `${t.color}15`,
+                  boxShadow: isSelected ? `0 0 20px ${t.color}80` : `0 0 8px ${t.color}30`,
+                  zIndex: isSelected ? 25 : 12,
+                }}
+              >
+                {/* Corner accent marks */}
+                <div className="absolute -top-px -left-px  w-2.5 h-2.5 border-t-2 border-l-2 border-white/80" />
+                <div className="absolute -top-px -right-px w-2.5 h-2.5 border-t-2 border-r-2 border-white/80" />
+                <div className="absolute -bottom-px -left-px  w-2.5 h-2.5 border-b-2 border-l-2 border-white/80" />
+                <div className="absolute -bottom-px -right-px w-2.5 h-2.5 border-b-2 border-r-2 border-white/80" />
+                {/* Head dot */}
+                <div
+                  className="absolute w-1.5 h-1.5 rounded-full"
+                  style={{ left: "50%", top: "10%", transform: "translateX(-50%)", backgroundColor: t.color }}
+                />
+                {/* Body line */}
+                <div className="absolute left-1/2 top-[20%] bottom-[25%] w-px bg-white/40 -translate-x-1/2" />
+                {/* Selected ring */}
+                {isSelected && <div className="absolute inset-0 rounded ring-2 ring-cyan-400" />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Layer 2: Track Labels (collision-resolved, clamped, one per track, z-index 20) ── */}
+      {showAiBoxes && !showHeatmap && wsStatus === "online" && containerSize.w > 0 && containerSize.h > 0 && (
+        <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 20 }}>
+          {tracks.map((t) => {
+            if (!t.bbox) return null;
+            const pos = labelsLayout[t.id];
+            if (!pos) return null;
+            const zone = t.zone && t.zone.length > 13 ? `${t.zone.substring(0, 10)}…` : (t.zone || "");
+            const activity = t.activity || "Walking";
+            const dwell = fmtDwell(t.dwellSeconds || 0);
+            return (
+              <div
+                key={t.id}
+                id={`track-label-${t.id}`}
+                className="absolute flex flex-col pointer-events-none"
+                style={{ left: `${pos.x}px`, top: `${pos.y}px`, width: "130px", zIndex: 20 }}
+              >
+                {/* Primary row: TRK ID | Zone */}
+                <div
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-t text-[8.5px] font-black font-mono overflow-hidden"
+                  style={{
+                    backgroundColor: t.color,
+                    color: "#000",
+                    borderBottom: "1px solid rgba(0,0,0,0.3)",
+                    maxWidth: 130,
+                  }}
+                >
+                  <span className="shrink-0 whitespace-nowrap">{t.id}</span>
+                  {zone && (
+                    <>
+                      <span className="opacity-50 shrink-0">|</span>
+                      <span className="truncate opacity-90">{zone}</span>
+                    </>
+                  )}
+                </div>
+                {/* Secondary row: Activity • Dwell */}
+                <div
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-b text-[8px] font-bold font-mono overflow-hidden"
+                  style={{
+                    backgroundColor: "rgba(5,10,24,0.92)",
+                    border: `1px solid ${t.color}55`,
+                    borderTop: "none",
+                    maxWidth: 130,
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: t.color }} />
+                  <span className="text-white truncate whitespace-nowrap">{activity}</span>
+                  <span className="text-amber-400 font-extrabold shrink-0 whitespace-nowrap">• {dwell}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+
+
+export default function LiveCameras() {
+  const { selectedCamera, setSelectedCamera, updateLiveTrackingState } = useCams();
+
+  const [cameras, setCameras] = useState(DEFAULT_CAMERAS);
+
+  // Fetch cameras from database on mount
+  useEffect(() => {
+    const fetchCams = async () => {
+      try {
+        const res = await fetch("http://localhost:5001/api/cameras");
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const mapped = json.data.map(c => ({
+            id: c.camera_id,
+            name: c.name,
+            location: c.location || "Store Zone",
+            res: c.resolution || "1080p FHD",
+            fps: c.fps || 30,
+            ip: c.camera_url || "127.0.0.1",
+            path: c.stream_url || `/videos/store1.mp4`,
+            zones: c.zones || ["Main Central Aisle", "Dairy Coolers", "Bakery Shelf"]
+          }));
+          mapped.sort((a, b) => a.id.localeCompare(b.id));
+          setCameras(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch cameras from database:", err);
+      }
+    };
+    fetchCams();
+  }, []);
+
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [showAiBoxes, setShowAiBoxes] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showVideo, setShowVideo] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+  const [selectedTracker, setSelectedTracker] = useState(null);
+
+  // ── Connection and video statuses ──────────────────────────────────────────
+  const [videoStatus, setVideoStatus] = useState("connecting"); // connecting | online | offline
+  const [wsStatus, setWsStatus] = useState("connecting"); // connecting | online | offline
+  const [detectionStatus, setDetectionStatus] = useState("connecting"); // connecting | online | offline
+  const [detectorStatus, setDetectorStatus] = useState("Connecting to Detection Backend...");
+
+  // Sync detectionStatus with wsStatus
+  useEffect(() => {
+    setDetectionStatus(wsStatus);
+  }, [wsStatus]);
+
+  // ── Diagnostics HUD state ──────────────────────────────────────────────────
+  const [debugInfo, setDebugInfo] = useState(null);
+
+  // ── Tracking data ──────────────────────────────────────────────────────────
+  const [confirmedPersonTracks, setConfirmedPersonTracks] = useState([]);
+  const [detectionLog, setDetectionLog] = useState([]);
+
+  // ── Refs for subcomponent and connection ───────────────────────────────────
+  const cameraFeedRef = useRef(null);
+  const wsRef = useRef(null);
+  const reconnectTimer = useRef(null);
+  const backoffIdxRef = useRef(0);
+  const activeCamera = useRef(selectedCamera);
+
+  // ── Per-track dwell/zone/journey state (persisted across WS frames) ────────
+  const trackStateRef = useRef({});
+  const cumulativeSessionCountRef = useRef(new Set());
+
+  // ── Source dimensions from backend payload ─────────────────────────────────
+  const sourceDimsRef = useRef({ width: 1280, height: 720 });
+
+  // ── tracking synchronization refs ──────────────────────────────────────────
+  const trackingHistoryRef = useRef([]); // array of { videoTime, tracks }
+  const lastLocalUpdateRef = useRef(0);
+  const activeIdsStrRef = useRef("");
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Active camera memo
+  // ─────────────────────────────────────────────────────────────────────────
+  const activeCam = useMemo(
+    () => cameras.find((c) => c.id === selectedCamera) || cameras[0] || DEFAULT_CAMERAS[0],
+    [selectedCamera, cameras]
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Color assignment — stable per TRK-NNN ID
+  // ─────────────────────────────────────────────────────────────────────────
+  const colorMapRef = useRef({});
+  const getTrackColor = useCallback((trackId) => {
+    if (!colorMapRef.current[trackId]) {
+      const idx = Object.keys(colorMapRef.current).length % BB_COLORS.length;
+      colorMapRef.current[trackId] = BB_COLORS[idx];
+    }
+    return colorMapRef.current[trackId];
+  }, []);
+
+  // smoothedBboxRef: trackId → EMA-smoothed normalized bbox { x, y, w, h }
+  const smoothedBboxRef = useRef({});
+
+  const adaptTracksPayload = useCallback((payload) => {
+    const now = Date.now();
+    const rawTracks = payload.tracks || [];
+
+    // Update source dimensions from payload
+    if (payload.source?.width && payload.source?.height) {
+      sourceDimsRef.current = {
+        width: payload.source.width,
+        height: payload.source.height,
+      };
+    }
+
+    const nativeW = sourceDimsRef.current.width;
+    const nativeH = sourceDimsRef.current.height;
+
+    const uniqueRawTracks = [];
+    const seenIds = new Set();
+    for (const tr of rawTracks) {
+      if (tr.trackId && !seenIds.has(tr.trackId)) {
+        seenIds.add(tr.trackId);
+        uniqueRawTracks.push(tr);
+      }
+    }
+
+    // Clean up tracking state for tracks that are no longer sent in the payload
+    for (const id of Object.keys(trackStateRef.current)) {
+      if (!seenIds.has(id)) {
+        delete trackStateRef.current[id];
+        delete smoothedBboxRef.current[id];
+      }
+    }
+
+    const adapted = uniqueRawTracks.map((track) => {
+      const { trackId, bbox, confidence } = track;
+
+      // Convert absolute pixel coords {x1, y1, x2, y2} to normalized {x, y, w, h}
+      const x = bbox.x1 / nativeW;
+      const y = bbox.y1 / nativeH;
+      const w = (bbox.x2 - bbox.x1) / nativeW;
+      const h = (bbox.y2 - bbox.y1) / nativeH;
+      const normBbox = { x, y, w, h };
+
+      if (!trackStateRef.current[trackId]) {
+        trackStateRef.current[trackId] = {
+          startTime: now,
+          zoneStartTime: now,
+          zone: activeCam.zones[0] || "Main Central Aisle",
+          journey: [activeCam.zones[0] || "Main Central Aisle"],
+          activity: "Walking",
+          productsPicked: 0,
+          lastBbox: normBbox,
+          lastConfidence: confidence,
+          lastUpdateTime: now,
+        };
+        smoothedBboxRef.current[trackId] = { ...normBbox };
+      }
+
+      const tstate = trackStateRef.current[trackId];
+      tstate.lastBbox = normBbox;
+      tstate.lastConfidence = confidence;
+      tstate.lastUpdateTime = now;
+
+      // Apply EMA smoothing to coordinates (EMA_ALPHA = 0.75)
+      const prev = smoothedBboxRef.current[trackId] || normBbox;
+      const smoothedNormBbox = {
+        x: prev.x + EMA_ALPHA * (normBbox.x - prev.x),
+        y: prev.y + EMA_ALPHA * (normBbox.y - prev.y),
+        w: prev.w + EMA_ALPHA * (normBbox.w - prev.w),
+        h: prev.h + EMA_ALPHA * (normBbox.h - prev.h),
+      };
+      smoothedBboxRef.current[trackId] = smoothedNormBbox;
+
+      // Convert smoothed normalized bbox back to absolute pixel coordinates for rendering
+      const smoothedBboxPixels = {
+        x1: Math.round(smoothedNormBbox.x * nativeW),
+        y1: Math.round(smoothedNormBbox.y * nativeH),
+        x2: Math.round((smoothedNormBbox.x + smoothedNormBbox.w) * nativeW),
+        y2: Math.round((smoothedNormBbox.y + smoothedNormBbox.h) * nativeH),
+      };
+
+      const centerXPercent = (smoothedNormBbox.x + smoothedNormBbox.w / 2) * 100;
+      const centerYPercent = (smoothedNormBbox.y + smoothedNormBbox.h / 2) * 100;
+
+      const newZone = resolveZoneByPosition(centerXPercent, centerYPercent, activeCam);
+      if (newZone !== tstate.zone) {
+        tstate.zone = newZone;
+        tstate.zoneStartTime = now;
+        tstate.journey = [...tstate.journey, newZone];
+      }
+
+      const dwellSeconds = Math.max(1, Math.floor((now - tstate.zoneStartTime) / 1000));
+      if (dwellSeconds > 25) tstate.activity = "Viewing Product";
+      else if (dwellSeconds > 15) tstate.activity = "Picking Product";
+      else if (dwellSeconds > 8) tstate.activity = "Browsing";
+      else tstate.activity = "Walking";
+
+      return {
+        id: trackId,
+        bbox: smoothedBboxPixels,
+        color: getTrackColor(trackId),
+        bbX: centerXPercent - (smoothedNormBbox.w * 100 / 2),
+        bbY: centerYPercent - (smoothedNormBbox.h * 100 / 2),
+        confidence: (confidence * 100).toFixed(1),
+        zone: tstate.zone,
+        activity: tstate.activity,
+        dwellSeconds,
+        totalDwellSeconds: Math.max(1, Math.floor((now - tstate.startTime) / 1000)),
+        centerX: centerXPercent,
+        centerY: centerYPercent,
+        journey: tstate.journey,
+        productsPicked: tstate.productsPicked,
+      };
+    });
+
+    return adapted;
+  }, [activeCam, getTrackColor]);
+
+  const adaptTracksPayloadRef = useRef();
+  useEffect(() => { adaptTracksPayloadRef.current = adaptTracksPayload; }, [adaptTracksPayload]);
+
+  const clearTrackingState = useCallback(() => {
+    setConfirmedPersonTracks([]);
+    trackingHistoryRef.current = [];
+    activeIdsStrRef.current = "";
+    trackStateRef.current = {};
+    colorMapRef.current = {};
+    smoothedBboxRef.current = {};
+    cumulativeSessionCountRef.current.clear();
+    setDebugInfo(null);
+    cameraFeedRef.current?.clear();
+    if (updateLiveTrackingState) updateLiveTrackingState([], []);
+  }, [updateLiveTrackingState]);
+
+
+  const handleVideoTimeUpdate = useCallback((time) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "sync", time }));
+    }
+  }, []);
+
+  const handleVideoStatusChange = useCallback((status) => {
+    setVideoStatus(status);
+  }, []);
+
+
+  const connectWebSocket = useCallback((cameraId) => {
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    clearTrackingState();
+    setWsStatus("connecting");
+    setDetectorStatus("Connecting to Detection Backend...");
+
+    const wsBase = import.meta.env.VITE_CAMS_WS_URL || `ws://${window.location.hostname}:8000`;
+    const ws = new WebSocket(`${wsBase}/cams/stream/${cameraId}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      backoffIdxRef.current = 0;
+      setWsStatus("online");
+      setDetectorStatus("YOLOv8 + ByteTrack Active");
+      setVideoStatus("online");
+    };
+
+    ws.onmessage = (event) => {
+      let payload;
+      try {
+        payload = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      if (payload.type === "ping") {
+        ws.send("pong");
+        return;
+      }
+
+      if (payload.type === "error") {
+        setDetectorStatus(`Backend error: ${payload.message}`);
+        return;
+      }
+
+      if (payload.type === "connected") {
+        setDetectorStatus(`YOLOv8 + ByteTrack — ${cameraId}`);
+        return;
+      }
+
+      if (payload.type === "loop_reset") {
+        cameraFeedRef.current?.clear();
+        clearTrackingState();
+        setDebugInfo(null);
+        return;
+      }
+
+      if (payload.type === "tracking_debug") {
+        if (payload.cameraId && payload.cameraId !== cameraId.toUpperCase()) return;
+        setDebugInfo(payload);
+        return;
+      }
+
+      if (payload.type === "tracks") {
+        if (payload.cameraId && payload.cameraId !== cameraId.toUpperCase()) return;
+        setVideoStatus("online");
+
+        const adapted = adaptTracksPayloadRef.current(payload);
+
+        // Push frame and track updates to the high-performance subcomponent immediately
+        cameraFeedRef.current?.updateFeed(payload.frame, adapted, payload.source, payload.frameNumber);
+
+        adapted.forEach((t) => {
+          cumulativeSessionCountRef.current.add(t.id);
+        });
+
+        // Store adapted tracks in history rolling buffer
+        const fps = payload.source?.fps || 30;
+        const videoTime = payload.frameNumber / fps;
+        trackingHistoryRef.current.push({
+          videoTime,
+          frameNumber: payload.frameNumber,
+          tracks: adapted,
+          receivedAt: Date.now()
+        });
+        if (trackingHistoryRef.current.length > 150) {
+          trackingHistoryRef.current.shift();
+        }
+
+        // Throttle parent React state updates (KPIs/logs) to avoid rendering at 30 FPS.
+        const idsStr = adapted.map(t => t.id).sort().join(",");
+        const idsChanged = idsStr !== activeIdsStrRef.current;
+        const now = Date.now();
+        if (idsChanged || now - lastLocalUpdateRef.current > 300) {
+          activeIdsStrRef.current = idsStr;
+          lastLocalUpdateRef.current = now;
+          setConfirmedPersonTracks(adapted);
+
+          // Update detection log for the last 5 new tracks
+          if (adapted.length > 0) {
+            const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
+            setDetectionLog((prev) => {
+              const newEntries = adapted.slice(0, 2).map((t) => ({
+                time: ts,
+                id: t.id,
+                event: "Tracked",
+                zone: t.zone,
+                confidence: `${t.confidence}%`,
+              }));
+              return [...newEntries, ...prev].slice(0, 20);
+            });
+
+            setDetectorStatus(`YOLOv8 + ByteTrack — ${adapted.length} person(s)`);
+          } else {
+            setDetectorStatus("YOLOv8 + ByteTrack — 0 persons detected");
+          }
+        }
+
+        // Push to CamsContext (heatmap, dashboard analytics)
+        if (updateLiveTrackingState) {
+          if (adapted.length > 0) {
+            const heatmapPoints = adapted.map((p) => ({
+              x: p.centerX,
+              y: p.centerY,
+              zone: p.zone,
+              dwell: p.dwellSeconds,
+              timestamp: Date.now(),
+            }));
+            updateLiveTrackingState(adapted, heatmapPoints);
+          } else {
+            updateLiveTrackingState([], []);
+          }
+        }
+      }
+    };
+
+    ws.onerror = () => {
+      setWsStatus("offline");
+      setDetectorStatus("Detection Offline");
+    };
+
+    ws.onclose = (event) => {
+      if (cameraId !== activeCamera.current) return;
+
+      setWsStatus("offline");
+      setDetectorStatus("Detection Offline — Reconnecting...");
+      clearTrackingState();
+
+      const delay = BACKOFF_STEPS[Math.min(backoffIdxRef.current, BACKOFF_STEPS.length - 1)];
+      backoffIdxRef.current += 1;
+
+      reconnectTimer.current = setTimeout(() => {
+        if (cameraId === activeCamera.current) {
+          connectWebSocket(cameraId);
+        }
+      }, delay);
+    };
+  }, [adaptTracksPayload, clearTrackingState, updateLiveTrackingState]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Connect on mount + reconnect when camera changes
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    activeCamera.current = selectedCamera;
+    backoffIdxRef.current = 0;
+
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
+
+    connectWebSocket(selectedCamera);
+
+    return () => {
+      // Cleanup on unmount or camera change
+      activeCamera.current = null;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [selectedCamera]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Reset video error on camera switch
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    setVideoError(false);
+    setSelectedTracker(null);
+  }, [selectedCamera]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Derived analytics — computed strictly from confirmedPersonTracks
+  // ─────────────────────────────────────────────────────────────────────────
+  const peopleTrackedCount = confirmedPersonTracks.length;
+  const walkingCount = confirmedPersonTracks.filter((t) => t.activity === "Walking").length;
+  const viewingCount = confirmedPersonTracks.filter((t) =>
+    t.activity === "Viewing Product" || t.activity === "Browsing" || t.activity === "Picking Product"
+  ).length;
+  const totalProductsPicked = confirmedPersonTracks.reduce((s, t) => s + (t.productsPicked || 0), 0);
+  const avgDwellSeconds = peopleTrackedCount > 0
+    ? Math.round(confirmedPersonTracks.reduce((s, t) => s + t.totalDwellSeconds, 0) / peopleTrackedCount)
+    : 0;
+
+  const selectedTrackerData = confirmedPersonTracks.find((t) => t.id === selectedTracker);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 font-sans text-xs pb-6">
 
-      {/* ── SECTION 1: TOP KPI CARDS ─────────────────────────────────────────── */}
+      {/* ── SECTION 1: TOP KPI CARDS ────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Active Cameras", val: "4 / 4", sub: "100% Online", icon: "📹", accent: "blue" },
-          { label: "AI Tracking Model", val: "YOLOv8 + ByteTrack", sub: "99.4% Accuracy", icon: "🤖", accent: "purple" },
-          { label: "People Tracked Live", val: `${peopleTrackedCount} Active`, sub: "Real-time Detection", icon: "👥", accent: "emerald" },
-          { label: "Inference Latency", val: "12 ms", sub: "Real-time Frame Loop", icon: "⚡", accent: "amber" },
+          { label: "Video Status", val: videoStatus === "online" ? "● Online" : videoStatus === "connecting" ? "◌ Connecting" : "✕ Offline", sub: activeCam?.name || "Initializing...", icon: "📹", accent: videoStatus === "online" ? "emerald" : videoStatus === "connecting" ? "amber" : "rose" },
+          { label: "AI Detection Engine", val: "YOLOv8 + ByteTrack", sub: detectorStatus, icon: "🤖", accent: "purple" },
+          { label: "People Tracked Live", val: wsStatus === "online" ? `${peopleTrackedCount} Persons` : "—", sub: wsStatus === "online" ? "Confirmed ByteTracks" : "Detection Offline", icon: "👥", accent: wsStatus === "online" ? "emerald" : "slate" },
+          {
+            label: "Detection Status",
+            val: detectionStatus === "online" ? "● Online" : detectionStatus === "connecting" ? "◌ Connecting" : "✕ Offline",
+            sub: activeCam?.ip || "Initializing...",
+            icon: "⚡",
+            accent: detectionStatus === "online" ? "emerald" : detectionStatus === "connecting" ? "amber" : "rose",
+          },
         ].map(({ label, val, sub, icon, accent }) => (
           <div key={label} className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl flex items-center justify-between font-mono">
             <div className="space-y-0.5">
@@ -207,24 +956,28 @@ export default function LiveCameras() {
               <h2 className="text-lg font-black text-white leading-tight">{val}</h2>
               <span className={`text-[10px] font-bold text-${accent}-400`}>{sub}</span>
             </div>
-            <div className={`w-10 h-10 bg-${accent}-600/20 text-${accent}-400 border border-${accent}-500/30 rounded-xl flex items-center justify-center text-lg flex-shrink-0`}>{icon}</div>
+            <div className={`w-10 h-10 bg-${accent}-600/20 text-${accent}-400 border border-${accent}-500/30 rounded-xl flex items-center justify-center text-lg flex-shrink-0`}>
+              {icon}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* ── SECTION 2: SURVEILLANCE FEED SELECTOR ───────────────────────────── */}
+      {/* ── SECTION 2: SURVEILLANCE FEED SELECTOR ───────────────────────── */}
       <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl font-mono">
-        <h3 className="text-[11px] font-bold text-white uppercase tracking-wider mb-3">Select Surveillance Feed</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">Select Surveillance Feed</h3>
+          <span className="text-[10px] text-slate-400 font-mono">YOLOv8 + ByteTrack Multi-Person Detection Matrix</span>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {CAMERAS.map(cam => (
+          {cameras.map((cam) => (
             <button
               key={cam.id}
               onClick={() => setSelectedCamera(cam.id)}
-              className={`p-3 rounded-xl border text-left transition ${
-                selectedCamera === cam.id
-                  ? "bg-blue-600/10 border-blue-500 ring-2 ring-blue-500/20"
-                  : "bg-[#070C18] border-[#1E293B] hover:border-slate-500"
-              }`}
+              className={`p-3 rounded-xl border text-left transition ${selectedCamera === cam.id
+                ? "bg-blue-600/10 border-blue-500 ring-2 ring-blue-500/20"
+                : "bg-[#070C18] border-[#1E293B] hover:border-slate-500"
+                }`}
             >
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-black text-cyan-400">{cam.id}</span>
@@ -237,10 +990,10 @@ export default function LiveCameras() {
         </div>
       </div>
 
-      {/* ── SECTION 3: LIVE VIDEO PLAYER & REAL-TIME INFERENCE METRICS ───────── */}
+      {/* ── SECTION 3: LIVE VIDEO + BOUNDING BOXES ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* VIDEO PLAYER CANVAS WITH STABLE BOUNDING BOXES */}
+        {/* VIDEO PLAYER + PERSON OVERLAYS */}
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -249,94 +1002,60 @@ export default function LiveCameras() {
             </div>
             <div className="flex gap-1.5">
               <button
-                onClick={() => setShowAiBoxes(v => !v)}
-                className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showAiBoxes ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400" : "bg-[#070C18] border-[#1E293B] text-slate-400"}`}
+                onClick={() => setShowVideo((v) => !v)}
+                className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showVideo && !videoError
+                  ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-400"
+                  : "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
+                  }`}
               >
-                AI Overlays
+                {showVideo && !videoError ? "📹 Live Stream Feed" : "📸 Store AI Map"}
               </button>
               <button
-                onClick={() => setShowHeatmap(v => !v)}
-                className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showHeatmap ? "bg-rose-500/10 border-rose-500/40 text-rose-400" : "bg-[#070C18] border-[#1E293B] text-slate-400"}`}
+                onClick={() => setShowAiBoxes((v) => !v)}
+                className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showAiBoxes
+                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                  : "bg-[#070C18] border-[#1E293B] text-slate-400"
+                  }`}
+              >
+                Person Overlays
+              </button>
+              <button
+                onClick={() => setShowHeatmap((v) => !v)}
+                className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showHeatmap
+                  ? "bg-rose-500/10 border-rose-500/40 text-rose-400"
+                  : "bg-[#070C18] border-[#1E293B] text-slate-400"
+                  }`}
               >
                 Heatmap
               </button>
             </div>
           </div>
 
-          {/* VIDEO FRAME WITH STABLE TRACKING BOUNDING BOXES */}
-          <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-[#1E293B]">
-            <video
-              key={activeCam.path}
-              src={activeCam.path}
-              autoPlay loop muted playsInline
-              className="w-full h-full object-cover"
-              style={{ filter: showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none" }}
-            />
+          {/* VIDEO + OVERLAY CONTAINER */}
+          <LiveCameraFeed
+            ref={cameraFeedRef}
+            showAiBoxes={showAiBoxes}
+            showHeatmap={showHeatmap}
+            showVideo={showVideo}
+            selectedTracker={selectedTracker}
+            setSelectedTracker={setSelectedTracker}
+            activeCam={activeCam}
+            getTrackColor={getTrackColor}
+            debugInfo={debugInfo}
+            wsStatus={wsStatus}
+            videoStatus={videoStatus}
+            onVideoTimeUpdate={handleVideoTimeUpdate}
+            onVideoStatusChange={handleVideoStatusChange}
+          />
 
-            {/* HUD top-left */}
-            <div className="absolute top-2 left-2 bg-black/80 px-2 py-1 rounded-lg text-[8px] text-white border border-white/10 pointer-events-none font-mono space-x-2 z-10">
-              <span className="text-rose-400 font-black">● LIVE</span>
-              <span>{activeCam.res}</span>
-              <span>{activeCam.fps} FPS</span>
-              <span className="text-emerald-400">{peopleTrackedCount} Detected</span>
-            </div>
-
-            {/* HUD bottom-right */}
-            <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded-lg text-[8px] text-cyan-400 border border-white/10 pointer-events-none font-mono z-10">
-              ByteTrack Engine · {activeCam.ip}
-            </div>
-
-            {/* STABLE BOUNDING BOXES LOCKED ON PERSON */}
-            {showAiBoxes && !showHeatmap && trackers.map(t => (
-              <div
-                key={t.id}
-                onClick={() => setSelectedTracker(t.id)}
-                className="absolute cursor-pointer transition-all duration-100 ease-linear hover:z-30"
-                style={{
-                  left: `${t.bbX}%`,
-                  top: `${t.bbY}%`,
-                  width: `${t.bbW}%`,
-                  height: `${t.bbH}%`,
-                  border: `1.5px solid ${t.color}`,
-                  borderRadius: "4px",
-                  backgroundColor: `${t.color}15`,
-                  boxShadow: `0 0 12px ${t.color}40`,
-                }}
-              >
-                {/* Corner Reticle Brackets */}
-                <div className="absolute -top-0.5 -left-0.5 w-1.5 h-1.5 border-t-2 border-l-2 border-white"></div>
-                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 border-t-2 border-r-2 border-white"></div>
-                <div className="absolute -bottom-0.5 -left-0.5 w-1.5 h-1.5 border-b-2 border-l-2 border-white"></div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 border-b-2 border-r-2 border-white"></div>
-
-                {/* Top Badge: Stable Unique ID & Real-Time Zone */}
-                <div
-                  className="absolute -top-5 left-0 px-1.5 py-0.5 text-[8px] font-black font-mono rounded shadow-md border border-black/40 flex items-center gap-1 whitespace-nowrap z-20"
-                  style={{ backgroundColor: t.color, color: "#000" }}
-                >
-                  <span>{t.id}</span>
-                  <span className="opacity-75">|</span>
-                  <span>{t.zone}</span>
-                </div>
-
-                {/* Bottom Badge: Detected Action & Zone Dwell Duration */}
-                <div className="absolute -bottom-5 left-0 px-1.5 py-0.5 bg-[#070C18]/90 border border-[#1E293B] text-white text-[8px] font-bold font-mono rounded flex items-center gap-1 shadow-lg whitespace-nowrap z-20">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }}></span>
-                  <span>{t.activity}</span>
-                  <span className="text-slate-400">({fmtDwell(t.zoneDwellTime)})</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* TECH SPECS ROW */}
+          {/* STREAM SPECS */}
           <div className="grid grid-cols-3 gap-2 text-[10px]">
             {[
               ["Resolution", activeCam.res],
               ["Frame Rate", `${activeCam.fps} FPS`],
-              ["IP Address", activeCam.ip],
+              ["Inference IP", activeCam.ip],
             ].map(([k, v]) => (
-              <div key={k} className="bg-[#070C18] border border-[#1E293B] rounded-lg p-2">
+              <div key={k} className="bg-[#070C18] border border-[#1E293B] rounded-lg p-2 font-mono">
                 <span className="text-slate-500 block">{k}</span>
                 <span className="text-white font-bold">{v}</span>
               </div>
@@ -345,55 +1064,62 @@ export default function LiveCameras() {
         </div>
 
         {/* LIVE INFERENCE METRICS PANEL */}
-        <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl font-mono space-y-3">
+        <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl font-mono space-y-4">
           <div className="flex items-center justify-between border-b border-[#1E293B] pb-2.5">
             <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">Live Inference Metrics</h3>
             <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Frame Sync
+              <span className={`w-1.5 h-1.5 rounded-full ${wsStatus === "online" ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+              {wsStatus === "online" ? "ByteTrack Engine Sync" : "Detection Offline"}
             </span>
           </div>
 
-          {/* 7 SYNCHRONIZED METRIC CARDS */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* METRIC CARDS */}
+          <div className="grid grid-cols-2 gap-2.5">
             {[
-              { label: "People Tracked", val: peopleTrackedCount, icon: "👥", color: "emerald" },
-              { label: "Products Viewed", val: totalProductsViewed, icon: "👁️", color: "cyan" },
-              { label: "Products Picked", val: totalProductsPicked, icon: "🛍️", color: "purple" },
-              { label: "Products Returned", val: totalProductsReturned, icon: "↩️", color: "rose" },
-              { label: "Avg Dwell Time", val: fmtDwell(avgDwellSeconds), icon: "⏱️", color: "amber" },
-              { label: "Comparisons", val: totalComparisons, icon: "⚖️", color: "violet" },
-              { label: "Total Count", val: totalCountMetrics, icon: "📊", color: "teal" },
-            ].map(({ label, val, icon, color }) => (
+              { label: "People Tracked", val: peopleTrackedCount, icon: "👥", color: "emerald", desc: "Confirmed ByteTracks" },
+              { label: "Walking Count", val: walkingCount, icon: "🚶", color: "blue", desc: "In Motion" },
+              { label: "Viewing / Browsing", val: viewingCount, icon: "👁️", color: "cyan", desc: "Dwell / Fixations" },
+              { label: "Products Picked", val: totalProductsPicked, icon: "🛍️", color: "purple", desc: "Items Picked Up" },
+              { label: "Avg Dwell Time", val: fmtDwell(avgDwellSeconds), icon: "⏱️", color: "amber", desc: "Mean Dwell Duration" },
+              { label: "Total Session Count", val: cumulativeSessionCountRef.current.size, icon: "📊", color: "teal", desc: "Session Total" },
+
+            ].map(({ label, val, icon, color, desc }) => (
               <div key={label} className="bg-[#070C18] border border-[#1E293B] p-2.5 rounded-xl flex items-center justify-between">
                 <div>
                   <span className="text-slate-400 text-[9px] block">{label}</span>
-                  <span className={`text-${color}-400 font-black text-sm block`}>{val}</span>
+                  <span className={`text-${color}-400 font-black text-sm block mt-0.5`}>{val}</span>
+                  <span className="text-[8px] text-slate-500 block">{desc}</span>
                 </div>
-                <span className="text-base">{icon}</span>
+                <span className="text-lg">{icon}</span>
               </div>
             ))}
           </div>
 
-          {/* DYNAMIC ZONE ACTIVITY BREAKDOWN */}
-          <div className="pt-2 border-t border-[#1E293B] space-y-2">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zone Activity Breakdown</h4>
+          {/* ZONE ACTIVITY BREAKDOWN */}
+          <div className="pt-2 border-t border-[#1E293B] space-y-2.5">
+            <div className="flex justify-between items-center">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zone Activity Breakdown</h4>
+              <span className="text-[9px] text-slate-500">Real-Time Occupancy</span>
+            </div>
             {activeCam.zones.map((zone, zi) => {
-              const zoneTrackers = trackers.filter(t => t.zone === zone);
-              const pct = peopleTrackedCount > 0 ? Math.round((zoneTrackers.length / peopleTrackedCount) * 100) : 0;
+              const zonePersons = confirmedPersonTracks.filter((t) => t.zone === zone);
+              const count = zonePersons.length;
+              const pct = peopleTrackedCount > 0 ? Math.round((count / peopleTrackedCount) * 100) : 0;
+              const accentColor = BB_COLORS[zi % BB_COLORS.length];
+
               return (
-                <div key={zone} className="space-y-0.5">
-                  <div className="flex justify-between text-[9px]">
-                    <span className="text-slate-300 truncate max-w-[180px]">{zone}</span>
-                    <span className="text-white font-bold">{zoneTrackers.length} people ({pct}%)</span>
+                <div key={zone} className="space-y-1">
+                  <div className="flex justify-between text-[9.5px]">
+                    <span className="text-slate-200 font-bold truncate max-w-[180px] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: accentColor }} />
+                      {zone}
+                    </span>
+                    <span className="text-white font-extrabold">{count} people ({pct}%)</span>
                   </div>
-                  <div className="h-1.5 w-full bg-[#1E293B] rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-[#1E293B] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300"
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: BB_COLORS[zi % BB_COLORS.length],
-                      }}
+                      style={{ width: `${pct}%`, backgroundColor: accentColor }}
                     />
                   </div>
                 </div>
@@ -401,21 +1127,38 @@ export default function LiveCameras() {
             })}
           </div>
 
-          {/* CUSTOMER INSPECTOR PROFILE CARD */}
-          {selectedTrackerData && (
-            <div className="bg-[#070C18] border border-blue-500/40 p-3.5 rounded-xl space-y-2.5">
+          {/* CUSTOMER PROFILE INSPECTOR */}
+          {selectedTrackerData ? (
+            <div className="bg-[#070C18] border border-cyan-500/50 p-3.5 rounded-xl space-y-2.5">
               <div className="flex justify-between items-center border-b border-[#1E293B] pb-1.5">
-                <span className="font-extrabold text-blue-400 text-xs">{selectedTrackerData.id} Profile</span>
-                <span className="text-[9px] text-slate-400 font-mono">Zone Dwell: {fmtDwell(selectedTrackerData.zoneDwellTime)}</span>
+                <span className="font-black text-cyan-400 text-xs flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: selectedTrackerData.color }} />
+                  {selectedTrackerData.id} Human Profile
+                </span>
+                <span className="text-[9px] text-slate-400 font-mono">
+                  Zone Dwell: <strong className="text-amber-400">{fmtDwell(selectedTrackerData.dwellSeconds)}</strong>
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div><span className="text-slate-400 block">Current Zone:</span><strong className="text-white">{selectedTrackerData.zone}</strong></div>
-                <div><span className="text-slate-400 block">Current Action:</span><strong className="text-emerald-400">{selectedTrackerData.activity}</strong></div>
-                <div><span className="text-slate-400 block">Total Dwell:</span><strong className="text-amber-400">{fmtDwell(selectedTrackerData.totalDwellTime)}</strong></div>
-                <div><span className="text-slate-400 block">Products Picked:</span><strong className="text-purple-400">{selectedTrackerData.productsPicked}</strong></div>
+                <div>
+                  <span className="text-slate-400 block">Current Zone:</span>
+                  <strong className="text-white">{selectedTrackerData.zone}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Current Activity:</span>
+                  <strong className="text-emerald-400">{selectedTrackerData.activity}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Total Dwell Time:</span>
+                  <strong className="text-amber-400">{fmtDwell(selectedTrackerData.totalDwellSeconds)}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Items Picked:</span>
+                  <strong className="text-purple-400">{selectedTrackerData.productsPicked}</strong>
+                </div>
               </div>
               <div className="pt-1.5 border-t border-[#1E293B] text-[9px]">
-                <span className="text-slate-400 block mb-1">Customer Trajectory Path:</span>
+                <span className="text-slate-400 block mb-1">Human Trajectory Path:</span>
                 <div className="flex flex-wrap items-center gap-1 text-cyan-400 font-bold">
                   {selectedTrackerData.journey.map((jStep, jIdx) => (
                     <React.Fragment key={jIdx}>
@@ -426,9 +1169,52 @@ export default function LiveCameras() {
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="bg-[#070C18] border border-[#1E293B] p-3 rounded-xl text-center text-slate-500 text-[10px]">
+              💡 Click on any tracked person overlay to inspect their movement trajectory & profile metrics.
+            </div>
           )}
+        </div>
+      </div>
+
+      {/* ── SECTION 4: REAL-TIME DETECTION LOG ─────────────────────────── */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl font-mono space-y-3">
+        <div className="flex justify-between items-center border-b border-[#1E293B] pb-2">
+          <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">Real-Time Person Detection Log</h3>
+          <span className="text-[9px] text-slate-400">YOLOv8 + ByteTrack Frame Stream</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[10px]">
+            <thead>
+              <tr className="border-b border-[#1E293B] text-slate-500">
+                <th className="pb-1.5">Timestamp</th>
+                <th className="pb-1.5">Person ID</th>
+                <th className="pb-1.5">Detected Event</th>
+                <th className="pb-1.5">Zone Location</th>
+                <th className="pb-1.5 text-right">Confidence</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1E293B]/50">
+              {detectionLog.slice(0, 5).map((log, idx) => (
+                <tr key={idx} className="hover:bg-[#172033]/50">
+                  <td className="py-1 text-slate-400">{log.time}</td>
+                  <td className="py-1 text-cyan-400 font-bold">{log.id}</td>
+                  <td className="py-1 text-white">{log.event}</td>
+                  <td className="py-1 text-slate-300">{log.zone}</td>
+                  <td className="py-1 text-right text-emerald-400 font-bold">{log.confidence}</td>
+                </tr>
+              ))}
+              {detectionLog.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-3 text-center text-slate-500">
+                    {wsStatus === "offline" ? "⚠️ Detection backend offline" : "Waiting for detection data..."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
-}
+} 

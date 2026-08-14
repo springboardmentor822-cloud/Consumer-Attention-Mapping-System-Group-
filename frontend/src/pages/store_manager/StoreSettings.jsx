@@ -11,6 +11,40 @@ export default function StoreSettings() {
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  const handlePasswordUpdate = () => {
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!currentPass.trim()) {
+      setPasswordError("Current password is required.");
+      return;
+    }
+    if (!newPass.trim()) {
+      setPasswordError("New password is required.");
+      return;
+    }
+    if (newPass.length < 8) {
+      setPasswordError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (!confirmPass.trim()) {
+      setPasswordError("Confirm password is required.");
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setPasswordError("New password and confirm password do not match.");
+      return;
+    }
+
+    // Password updated successfully
+    setPasswordSuccess("Password updated successfully!");
+    setCurrentPass("");
+    setNewPass("");
+    setConfirmPass("");
+  };
 
   // Manage Users / Roles Active Modal View
   const [activeManagementView, setActiveManagementView] = useState(null); // 'users' | 'roles' | null
@@ -102,9 +136,24 @@ export default function StoreSettings() {
           </div>
         </div>
 
-        {/* CHANGE PASSWORD (REQUIREMENT 8: CLEAN INPUT FIELDS WITH NO PLACEHOLDER DOTS) */}
+        {/* CHANGE PASSWORD SECTION */}
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Change Password</h3>
+
+          {/* Validation Feedback Messages */}
+          {passwordError && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-sans flex items-center justify-between">
+              <span>⚠️ {passwordError}</span>
+              <button onClick={() => setPasswordError("")} className="text-rose-400 hover:text-white font-bold">✕</button>
+            </div>
+          )}
+
+          {passwordSuccess && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-sans flex items-center justify-between">
+              <span>✓ {passwordSuccess}</span>
+              <button onClick={() => setPasswordSuccess("")} className="text-emerald-400 hover:text-white font-bold">✕</button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div className="md:col-span-7 space-y-3">
@@ -114,11 +163,12 @@ export default function StoreSettings() {
                   <input
                     type={showCurrentPass ? "text" : "password"}
                     value={currentPass}
-                    onChange={e => setCurrentPass(e.target.value)}
+                    onChange={e => { setCurrentPass(e.target.value); setPasswordError(""); setPasswordSuccess(""); }}
                     placeholder="Enter current password"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 pr-8 text-white outline-none focus:border-blue-500 text-xs"
                   />
                   <button
+                    type="button"
                     onClick={() => setShowCurrentPass(!showCurrentPass)}
                     className="absolute right-2.5 top-1.5 text-slate-500 hover:text-slate-300"
                   >
@@ -133,11 +183,12 @@ export default function StoreSettings() {
                   <input
                     type={showNewPass ? "text" : "password"}
                     value={newPass}
-                    onChange={e => setNewPass(e.target.value)}
+                    onChange={e => { setNewPass(e.target.value); setPasswordError(""); setPasswordSuccess(""); }}
                     placeholder="Enter new password"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 pr-8 text-white outline-none focus:border-blue-500 text-xs"
                   />
                   <button
+                    type="button"
                     onClick={() => setShowNewPass(!showNewPass)}
                     className="absolute right-2.5 top-1.5 text-slate-500 hover:text-slate-300"
                   >
@@ -152,11 +203,12 @@ export default function StoreSettings() {
                   <input
                     type={showConfirmPass ? "text" : "password"}
                     value={confirmPass}
-                    onChange={e => setConfirmPass(e.target.value)}
+                    onChange={e => { setConfirmPass(e.target.value); setPasswordError(""); setPasswordSuccess(""); }}
                     placeholder="Confirm new password"
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 pr-8 text-white outline-none focus:border-blue-500 text-xs"
                   />
                   <button
+                    type="button"
                     onClick={() => setShowConfirmPass(!showConfirmPass)}
                     className="absolute right-2.5 top-1.5 text-slate-500 hover:text-slate-300"
                   >
@@ -167,20 +219,8 @@ export default function StoreSettings() {
 
               <div className="pt-2">
                 <button
-                  onClick={() => {
-                    if (!currentPass || !newPass || !confirmPass) {
-                      alert("Please fill all password fields.");
-                      return;
-                    }
-                    if (newPass !== confirmPass) {
-                      alert("New password and confirm password do not match.");
-                      return;
-                    }
-                    alert("Password updated successfully!");
-                    setCurrentPass("");
-                    setNewPass("");
-                    setConfirmPass("");
-                  }}
+                  type="button"
+                  onClick={handlePasswordUpdate}
                   className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs"
                 >
                   Update Password
@@ -190,27 +230,19 @@ export default function StoreSettings() {
 
             {/* PASSWORD REQUIREMENTS CHECKLIST */}
             <div className="md:col-span-5 bg-[#070C18] border border-[#1E293B] p-3.5 rounded-xl space-y-2 text-[10px]">
-              <span className="text-slate-300 font-bold block">Password must contain:</span>
-              <div className="space-y-1.5 text-emerald-400">
-                <div className="flex items-center space-x-1.5">
-                  <span>✓</span>
+              <span className="text-slate-300 font-bold block">Password Rules:</span>
+              <div className="space-y-1.5 text-slate-400">
+                <div className={`flex items-center space-x-1.5 ${currentPass.length > 0 ? "text-emerald-400 font-bold" : ""}`}>
+                  <span>{currentPass.length > 0 ? "✓" : "○"}</span>
+                  <span>Current password verified</span>
+                </div>
+                <div className={`flex items-center space-x-1.5 ${newPass.length >= 8 ? "text-emerald-400 font-bold" : ""}`}>
+                  <span>{newPass.length >= 8 ? "✓" : "○"}</span>
                   <span>At least 8 characters</span>
                 </div>
-                <div className="flex items-center space-x-1.5">
-                  <span>✓</span>
-                  <span>One uppercase letter</span>
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <span>✓</span>
-                  <span>One lowercase letter</span>
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <span>✓</span>
-                  <span>One number</span>
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <span>✓</span>
-                  <span>One special character</span>
+                <div className={`flex items-center space-x-1.5 ${newPass && newPass === confirmPass ? "text-emerald-400 font-bold" : ""}`}>
+                  <span>{newPass && newPass === confirmPass ? "✓" : "○"}</span>
+                  <span>Passwords match</span>
                 </div>
               </div>
             </div>

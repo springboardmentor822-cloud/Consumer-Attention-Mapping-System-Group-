@@ -3,14 +3,14 @@ import CampaignPerformancePage from "../marketing/modules/CampaignPerformancePag
 import PromotionEffectivenessPage from "../marketing/modules/PromotionEffectivenessPage";
 import ProductVisibilityPage from "../marketing/modules/ProductVisibilityPage";
 import ProductAttractivenessPage from "../marketing/modules/ProductAttractivenessPage";
-import LiveCamerasPage from "../store_manager/modules/LiveCamerasPage";
+import LiveCameras from "../store_manager/LiveCameras";
 
 export default function DynamicPageRenderer({ role, activeTab }) {
   if (activeTab === "Campaign Performance") return <CampaignPerformancePage />;
   if (activeTab === "Promotion Effectiveness") return <PromotionEffectivenessPage />;
   if (activeTab === "Product Visibility") return <ProductVisibilityPage />;
   if (activeTab === "Product Attractiveness") return <ProductAttractivenessPage />;
-  if (activeTab === "Live Cameras" || activeTab === "Camera Management") return <LiveCamerasPage />;
+  if (activeTab === "Live Cameras" || activeTab === "Camera Management") return <LiveCameras />;
 
   return (
     <div className="bg-[#111827] border border-[#273449] rounded-2xl p-6 font-sans space-y-4">

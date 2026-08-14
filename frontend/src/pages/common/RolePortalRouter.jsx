@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession, logout } from "../../utils/auth";
 import DynamicSubPageRenderer from "./DynamicSubPageRenderer";
+import PortalDataFilter from "../../components/PortalDataFilter";
+import { useCams } from "../../services/CamsContext";
 
 // ── Portal configuration per role ────────────────────────────────────────────
 
@@ -50,17 +52,17 @@ const PORTAL_CONFIG = {
       notifBg: "bg-emerald-500",
     },
     tabs: [
-      { id: "Dashboard",           icon: "📊", label: "Dashboard" },
-      { id: "Live Cameras",        icon: "📹", label: "Live Cameras" },
-      { id: "Visitors",            icon: "👥", label: "Visitors" },
-      { id: "Store Traffic",       icon: "🚶", label: "Store Traffic" },
-      { id: "Shelf Performance",   icon: "📦", label: "Shelf Performance" },
+      { id: "Dashboard",          icon: "📊", label: "Dashboard" },
+      { id: "Live Cameras",       icon: "📹", label: "Live Cameras" },
+      { id: "Visitors",           icon: "👥", label: "Visitors" },
+      { id: "Store Traffic",      icon: "🚶", label: "Store Traffic" },
+      { id: "Shelf Management",   icon: "📦", label: "Shelf Management" },
+      { id: "Shelf Performance",  icon: "📈", label: "Shelf Performance" },
       { id: "Product Interaction", icon: "🛍️", label: "Product Interaction" },
-      { id: "Heat Map",            icon: "🌡️", label: "Heat Map" },
-      { id: "Alerts",              icon: "🔔", label: "Alerts" },
-      { id: "Reports",             icon: "📄", label: "Reports" },
-      { id: "Activities",          icon: "⏱️", label: "Activities" },
-      { id: "Settings",            icon: "⚙️", label: "Settings" },
+      { id: "Heat Map",           icon: "🌡️", label: "Heat Map" },
+      { id: "Alerts",             icon: "🔔", label: "Alerts" },
+      { id: "Reports",            icon: "📄", label: "Reports" },
+      { id: "Settings",           icon: "⚙️", label: "Settings" },
     ],
   },
 
@@ -78,11 +80,9 @@ const PORTAL_CONFIG = {
       notifBg: "bg-cyan-500",
     },
     tabs: [
-      { id: "Dashboard",                  icon: "📊", label: "Dashboard" },
-      { id: "Consumer Journey Analysis",  icon: "🗺️", label: "Consumer Journey" },
-      { id: "Attention Analytics",        icon: "👁️", label: "Attention Analytics" },
-      { id: "Consumer Segmentation",      icon: "👥", label: "Segmentation" },
-      { id: "Shopping Behavior Analysis", icon: "🛒", label: "Shopping Behavior" },
+      { id: "Dashboard",                       icon: "📊", label: "Dashboard" },
+      { id: "Consumer Behavior Intelligence",  icon: "🧠", label: "Consumer Behavior Intelligence" },
+      { id: "Shopping Behavior Analysis",      icon: "🛒", label: "Shopping Behavior" },
       { id: "Dwell Time Analysis",        icon: "⏱️", label: "Dwell Time" },
       { id: "Traffic Flow Analysis",      icon: "🚶", label: "Traffic Flow" },
       { id: "Zone Performance",           icon: "📍", label: "Zone Performance" },
@@ -143,6 +143,7 @@ function useLiveClock() {
 export default function RolePortalRouter({ role }) {
   const navigate = useNavigate();
   const session = getSession();
+  const { globalFilter, setGlobalFilter } = useCams();
   const config = PORTAL_CONFIG[role] || PORTAL_CONFIG["Store Manager"];
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -276,8 +277,11 @@ export default function RolePortalRouter({ role }) {
             </div>
           </div>
 
-          {/* Right: clock, notifications, user */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Right: Date Range Filter, clock, notifications, user */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {/* Global Date Filter */}
+            <PortalDataFilter filter={globalFilter} onChange={setGlobalFilter} />
+
             {/* Live clock */}
             <div className="hidden md:flex flex-col text-right">
               <span className="text-[11px] font-black text-white font-mono">{formattedTime}</span>

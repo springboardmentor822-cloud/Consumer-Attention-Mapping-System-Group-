@@ -58,6 +58,13 @@ const Camera = sequelize.define('Camera', {
     type: DataTypes.STRING(20),
     defaultValue: '640x480'
   },
+  location: {
+    type: DataTypes.STRING(200)
+  },
+  zones: {
+    type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: []
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

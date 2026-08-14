@@ -26,6 +26,10 @@ const Shelf = sequelize.define('Shelf', {
   section: {
     type: DataTypes.STRING(50)
   },
+  zone: {
+    type: DataTypes.STRING(100),
+    defaultValue: 'Bakery'
+  },
   aisle: {
     type: DataTypes.STRING(20)
   },

@@ -5,9 +5,11 @@ import {
   LineChart, Line, ScatterChart, Scatter
 } from "recharts";
 import { customerSegments, rfmDistribution, formatNumber, formatCurrency } from "../../services/centralData";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 const totalCustomers = customerSegments.reduce((s, c) => s + c.count, 0);
-const topSeg = customerSegments.reduce((a, b) => a.revenue > b.revenue ? a : b);
+const topSeg = customerSegments.length > 0 ? customerSegments.reduce((a, b) => a.revenue > b.revenue ? a : b) : { name: "-", count: 0, revenue: 0 };
 
 const retentionTrend = [
   { month: "Mar", loyal: 90, potential: 76, atRisk: 52, newCust: 65 },
@@ -37,7 +39,7 @@ export default function AnalystCustomerSegmentation() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
-        <div><h1 className="text-xl font-black text-white">Customer Segmentation</h1><p className="text-slate-400 text-xs">Group customers by purchasing behaviour, engagement, visit frequency & revenue contribution — with RFM analysis.</p></div>
+        <div><h1 className="text-xl font-black text-white">Customer Segmentation</h1></div>
         <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2"><span>📅</span><span>Aug 1 – Aug 7, 2026</span></button>
       </div>
 
@@ -63,7 +65,8 @@ export default function AnalystCustomerSegmentation() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customer Distribution</h3>
           <div className="h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={customerSegments} dataKey="pct" nameKey="name" innerRadius={35} outerRadius={58} paddingAngle={3} label={({ pct }) => `${pct}%`} labelLine={false} fontSize={9}>
                   {customerSegments.map((s, i) => <Cell key={i} fill={s.color} />)}
@@ -71,6 +74,7 @@ export default function AnalystCustomerSegmentation() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="space-y-1">
             {customerSegments.map((s, i) => (
@@ -85,7 +89,8 @@ export default function AnalystCustomerSegmentation() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">RFM Analysis (Recency vs Frequency)</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" dataKey="recency" name="Recency" stroke="#64748B" fontSize={9} unit=" days" />
@@ -96,13 +101,15 @@ export default function AnalystCustomerSegmentation() {
                 </Scatter>
               </ScatterChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Behavioural Comparison</h3>
           <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <RadarChart data={segRadar}>
                 <PolarGrid stroke="#1E293B" />
                 <PolarAngleAxis dataKey="metric" stroke="#94A3B8" fontSize={8} />
@@ -113,6 +120,7 @@ export default function AnalystCustomerSegmentation() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
               </RadarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -122,7 +130,8 @@ export default function AnalystCustomerSegmentation() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Revenue Contribution by Segment</h3>
           <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={customerSegments}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="name" stroke="#64748B" fontSize={8} />
@@ -133,13 +142,15 @@ export default function AnalystCustomerSegmentation() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Retention Trends</h3>
           <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={retentionTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="month" stroke="#64748B" fontSize={10} />
@@ -151,6 +162,7 @@ export default function AnalystCustomerSegmentation() {
                 <Line type="monotone" dataKey="newCust" stroke="#8B5CF6" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>

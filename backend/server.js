@@ -6,9 +6,16 @@ const morgan = require('morgan');
 const { sequelize } = require('./config/db');
 
 // Import routes
+require('./models/analytics'); // Import analytics models so they are synced
 const authRoutes = require('./routes/auth');
 const storeRoutes = require('./routes/store');
 const cameraRoutes = require('./routes/cameras');
+const shelfRoutes = require('./routes/shelves');
+const productRoutes = require('./routes/products');
+const zoneRoutes = require('./routes/zones');
+const customerRoutes = require('./routes/customers');
+const transactionRoutes = require('./routes/transactions');
+const promotionRoutes = require('./routes/promotions');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,7 +23,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'],
   credentials: true
 }));
 app.use(morgan('dev'));
@@ -27,6 +34,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/cameras', cameraRoutes);
+app.use('/api/shelves', shelfRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/zones', zoneRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

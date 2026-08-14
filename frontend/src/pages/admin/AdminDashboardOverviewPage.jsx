@@ -1,44 +1,83 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell, LineChart, Line, BarChart, Bar
 } from "recharts";
+import { formatNumber } from "../../services/centralData";
 import { useCams } from "../../services/CamsContext";
+import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+
 
 export default function AdminDashboardOverviewPage() {
-  const { dateRange, setDateRange } = useCams();
+  const { globalFilter } = useCams();
+  const filter = globalFilter;
+  const selectedPeriod = filter.dateRange;
+
+  // Dynamic multiplier scale based on date filter
+  let mult = 1.0;
+  if (selectedPeriod === "Today")          mult = 0.15;
+  else if (selectedPeriod === "Yesterday") mult = 0.14;
+  else if (selectedPeriod === "Last 7 Days")  mult = 1.0;
+  else if (selectedPeriod === "Last 30 Days") mult = 4.1;
+  else if (selectedPeriod === "This Month") {
+    const dayOfMonth = new Date().getDate();
+    mult = parseFloat((dayOfMonth / 7).toFixed(2));
+  }
+  else if (selectedPeriod === "Custom Date Range" && filter?.startDate && filter?.endDate) {
+    const diffDays = Math.max(1, Math.round((new Date(filter.endDate) - new Date(filter.startDate)) / (1000 * 60 * 60 * 24)));
+    mult = parseFloat((diffDays / 7).toFixed(2));
+  }
+
+  // Custom Enterprise Tooltip Component for Donut Charts
+  const EnterpriseDonutTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-[#070C18] border border-[#1E293B] p-2.5 rounded-xl shadow-2xl font-mono text-xs text-white">
+          <span className="font-bold block flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color || data.fill || "#8B5CF6" }} />
+            {data.name}
+          </span>
+          <span className="text-slate-300 font-sans block mt-1">
+            Count / Metric: <strong className="text-white font-mono">{data.value}</strong>
+          </span>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // 1. System Performance (Line / Area Chart)
   const systemPerformanceData = [
-    { time: "00:00", cpu: 22, gpu: 35, memory: 45 },
-    { time: "04:00", cpu: 18, gpu: 28, memory: 42 },
-    { time: "08:00", cpu: 45, gpu: 62, memory: 58 },
-    { time: "12:00", cpu: 68, gpu: 84, memory: 72 },
-    { time: "16:00", cpu: 74, gpu: 89, memory: 78 },
-    { time: "20:00", cpu: 52, gpu: 68, memory: 65 },
-    { time: "24:00", cpu: 30, gpu: 42, memory: 50 },
+    { time: "00:00", cpu: Math.min(98, Math.round(22 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(35 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(45 * (0.8 + mult * 0.2))) },
+    { time: "04:00", cpu: Math.min(98, Math.round(18 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(28 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(42 * (0.8 + mult * 0.2))) },
+    { time: "08:00", cpu: Math.min(98, Math.round(45 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(62 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(58 * (0.8 + mult * 0.2))) },
+    { time: "12:00", cpu: Math.min(98, Math.round(68 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(84 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(72 * (0.8 + mult * 0.2))) },
+    { time: "16:00", cpu: Math.min(98, Math.round(74 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(89 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(78 * (0.8 + mult * 0.2))) },
+    { time: "20:00", cpu: Math.min(98, Math.round(52 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(68 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(65 * (0.8 + mult * 0.2))) },
+    { time: "24:00", cpu: Math.min(98, Math.round(30 * (0.8 + mult * 0.2))), gpu: Math.min(98, Math.round(42 * (0.8 + mult * 0.2))), memory: Math.min(98, Math.round(50 * (0.8 + mult * 0.2))) },
   ];
 
   // 2. Camera Status (Donut Chart)
   const cameraStatusData = [
-    { name: "Online", value: 3, color: "#10B981" },
-    { name: "Offline", value: 1, color: "#EF4444" },
+    { name: "Online Cameras", value: 3, color: "#10B981" },
+    { name: "Offline Cameras", value: 1, color: "#EF4444" },
   ];
 
   // 3. Infrastructure Health Indicators
   const infraHealth = [
-    { component: "Primary AI Edge Server", load: 68, status: "Optimal", color: "bg-emerald-500" },
-    { component: "NVIDIA RTX Edge GPU #1", load: 84, status: "High Load", color: "bg-amber-500" },
-    { component: "NVMe SSD Storage Array", load: 42, status: "Healthy", color: "bg-emerald-500" },
-    { component: "PostgreSQL Analytics DB", load: 55, status: "Healthy", color: "bg-emerald-500" },
+    { component: "Primary AI Edge Server", load: Math.min(98, Math.round(68 * (0.9 + mult * 0.1))), status: "Optimal", color: "bg-emerald-500" },
+    { component: "NVIDIA RTX Edge GPU #1", load: Math.min(98, Math.round(84 * (0.9 + mult * 0.1))), status: "High Load", color: "bg-amber-500" },
+    { component: "NVMe SSD Storage Array", load: Math.min(98, Math.round(42 * (0.9 + mult * 0.1))), status: "Healthy", color: "bg-emerald-500" },
+    { component: "PostgreSQL Analytics DB", load: Math.min(98, Math.round(55 * (0.9 + mult * 0.1))), status: "Healthy", color: "bg-emerald-500" },
   ];
 
   // 4. Database Overview (Utilization Chart)
   const dbUtilizationData = [
-    { metric: "Storage", val: 42, limit: 100 },
-    { metric: "IOPS", val: 58, limit: 100 },
-    { metric: "Active Queries", val: 34, limit: 100 },
-    { metric: "Connection Pool", val: 28, limit: 100 },
+    { metric: "Storage", val: Math.min(95, Math.round(42 * (0.9 + mult * 0.1))), limit: 100 },
+    { metric: "IOPS", val: Math.min(95, Math.round(58 * (0.9 + mult * 0.1))), limit: 100 },
+    { metric: "Active Queries", val: Math.min(95, Math.round(34 * (0.9 + mult * 0.1))), limit: 100 },
+    { metric: "Connection Pool", val: Math.min(95, Math.round(28 * (0.9 + mult * 0.1))), limit: 100 },
   ];
 
   // 5. API Performance (Response-time Graph)
@@ -69,77 +108,62 @@ export default function AdminDashboardOverviewPage() {
 
   return (
     <div className="space-y-6 font-sans text-slate-100 pb-8">
-      {/* HEADER WITH TITLE ONLY AND DATE FILTER */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl">
+      {/* HEADER */}
+      <div className="flex flex-wrap justify-between items-center gap-2">
         <h1 className="text-xl font-black text-white tracking-wide">Administrator Dashboard</h1>
-
-        <div className="flex items-center gap-3">
-          <span className="text-slate-400 text-xs font-medium">Period:</span>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="bg-[#0A1020] border border-[#273449] text-indigo-400 font-bold px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
-          >
-            <option value="Today">Today</option>
-            <option value="Yesterday">Yesterday</option>
-            <option value="Last 7 Days">Last 7 Days</option>
-            <option value="Last 30 Days">Last 30 Days</option>
-            <option value="This Month">This Month</option>
-            <option value="Custom Date Range">Custom Date Range</option>
-          </select>
-        </div>
       </div>
 
       {/* 1. SINGLE STORE KPI CARDS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 font-mono">
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-4 space-y-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Stores</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-sans">Total Stores</span>
           <h3 className="text-xl font-black text-white font-mono">1</h3>
-          <span className="text-[10px] font-bold text-emerald-400 block">Single Supermarket</span>
+          <span className="text-[10px] font-bold text-emerald-400 block font-sans">Single Supermarket</span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-4 space-y-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Cameras</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-sans">Total Cameras</span>
           <h3 className="text-xl font-black text-white font-mono">4</h3>
-          <span className="text-[10px] font-bold text-emerald-400 block">3 Online / 1 Offline</span>
+          <span className="text-[10px] font-bold text-emerald-400 block font-sans">3 Online / 1 Offline</span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-4 space-y-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Users</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-sans">Total Users</span>
           <h3 className="text-xl font-black text-white font-mono">4</h3>
-          <span className="text-[10px] font-bold text-purple-400 block">4 Security Roles</span>
+          <span className="text-[10px] font-bold text-purple-400 block font-sans">4 Security Roles</span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-4 space-y-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Store Online Status</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-sans">Store Status</span>
           <h3 className="text-xl font-black text-emerald-400 font-mono">Online</h3>
-          <span className="text-[10px] font-bold text-slate-400 block">Downtown Supermarket</span>
+          <span className="text-[10px] font-bold text-slate-400 block font-sans">Flagship Store</span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-4 space-y-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">System Uptime</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-sans">System Uptime</span>
           <h3 className="text-xl font-black text-white font-mono">99.9%</h3>
-          <span className="text-[10px] font-bold text-emerald-400 block">Optimal Operation</span>
+          <span className="text-[10px] font-bold text-emerald-400 block font-sans">Optimal Operation</span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-4 space-y-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active Alerts</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-sans">Active Alerts</span>
           <h3 className="text-xl font-black text-amber-400 font-mono">2</h3>
-          <span className="text-[10px] font-bold text-amber-400 block">Non-Critical Warning</span>
+          <span className="text-[10px] font-bold text-amber-400 block font-sans">Non-Critical Warning</span>
         </div>
       </div>
 
-      {/* 2. ANALYTICAL SECTION - STRICTLY TWO COMPONENTS PER ROW */}
+      {/* 2. ANALYTICAL SECTION */}
 
       {/* ROW 1: System Performance | Camera Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">System Performance Load (CPU / GPU / RAM)</h3>
             <span className="text-[10px] text-indigo-400 font-bold">24-Hour Telemetry</span>
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <AreaChart data={systemPerformanceData}>
                 <defs>
                   <linearGradient id="gpuGrad" x1="0" y1="0" x2="0" y2="1">
@@ -150,28 +174,32 @@ export default function AdminDashboardOverviewPage() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={9} unit="%" />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
                 <Area type="monotone" dataKey="gpu" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#gpuGrad)" name="GPU Load %" />
                 <Line type="monotone" dataKey="cpu" stroke="#3B82F6" strokeWidth={2} dot={false} name="CPU Load %" />
                 <Line type="monotone" dataKey="memory" stroke="#10B981" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="RAM Usage %" />
               </AreaChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
+        {/* CAMERA ONLINE/OFFLINE STATUS DONUT WITH ENTERPRISE TOOLTIP */}
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Camera Online / Offline Status</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Camera Online / Offline Status</h3>
           <div className="h-44 w-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={cameraStatusData} innerRadius={45} outerRadius={65} dataKey="value">
                   {cameraStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip content={<EnterpriseDonutTooltip />} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
             <div className="absolute text-center">
               <strong className="text-base text-white block">4 Total</strong>
               <span className="text-[9px] text-slate-400">75% Online</span>
@@ -191,7 +219,7 @@ export default function AdminDashboardOverviewPage() {
       {/* ROW 2: Infrastructure Health | Database Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Infrastructure Health Indicators</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Infrastructure Health Indicators</h3>
           <div className="space-y-4 pt-2">
             {infraHealth.map((item, idx) => (
               <div key={idx} className="space-y-1">
@@ -211,17 +239,19 @@ export default function AdminDashboardOverviewPage() {
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Database Overview & Resource Utilization</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Database Overview & Resource Utilization</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <BarChart data={dbUtilizationData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="metric" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={9} unit="%" />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
                 <Bar dataKey="val" fill="#6366F1" radius={[3, 3, 0, 0]} name="Utilization %" />
               </BarChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
       </div>
@@ -229,35 +259,40 @@ export default function AdminDashboardOverviewPage() {
       {/* ROW 3: API Performance | User Distribution by Roles */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">API Response Time Performance (ms)</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">API Response Time Performance (ms)</h3>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <LineChart data={apiPerformanceData}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={9} unit="ms" />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
                 <Line type="monotone" dataKey="inferenceMs" stroke="#10B981" strokeWidth={2} name="Vision Inference" />
                 <Line type="monotone" dataKey="analyticsMs" stroke="#3B82F6" strokeWidth={2} name="Analytics API" />
                 <Line type="monotone" dataKey="streamMs" stroke="#F59E0B" strokeWidth={2} name="Video Stream" />
               </LineChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
         </div>
 
+        {/* USER DISTRIBUTION DONUT WITH ENTERPRISE TOOLTIP */}
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">User Distribution by Security Roles</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">User Distribution by Security Roles</h3>
           <div className="h-44 w-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ComponentErrorBoundary>
+<ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={userRolesData} innerRadius={40} outerRadius={60} dataKey="count">
                   {userRolesData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip content={<EnterpriseDonutTooltip />} />
               </PieChart>
             </ResponsiveContainer>
+</ComponentErrorBoundary>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E293B] text-[10px]">
             {userRolesData.map((u, idx) => (
@@ -273,41 +308,41 @@ export default function AdminDashboardOverviewPage() {
       {/* ROW 4: Recent System Activities | System Operational Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Recent System Administrative Activities</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Recent System Administrative Activities</h3>
           <div className="space-y-3 pt-1">
             {recentActivities.map((act, idx) => (
-              <div key={idx} className="p-3 bg-[#0A1020] border border-[#1E293B] rounded-xl space-y-1">
+              <div key={idx} className="p-3 bg-[#070C18] border border-[#1E293B] rounded-xl space-y-1">
                 <div className="flex justify-between text-[10px]">
                   <span className={`font-bold ${act.color}`}>{act.type}</span>
                   <span className="text-slate-500">{act.time}</span>
                 </div>
-                <p className="text-white text-[11px]">{act.event}</p>
+                <p className="text-white text-[11px] font-sans">{act.event}</p>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Supermarket Infrastructure Summary</h3>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-[#1E293B] pb-3">Supermarket Infrastructure Summary</h3>
           <div className="space-y-2.5 text-[11px]">
             <div className="flex justify-between border-b border-[#1E293B] pb-2">
-              <span className="text-slate-400">Deployed Store Node:</span>
+              <span className="text-slate-400 font-sans">Deployed Store Node:</span>
               <span className="text-white font-bold">STR-101 (Downtown Flagship)</span>
             </div>
             <div className="flex justify-between border-b border-[#1E293B] pb-2">
-              <span className="text-slate-400">Authorized User Accounts:</span>
+              <span className="text-slate-400 font-sans">Authorized User Accounts:</span>
               <span className="text-emerald-400 font-bold">4 Accounts (Admin, SM, RA, MM)</span>
             </div>
             <div className="flex justify-between border-b border-[#1E293B] pb-2">
-              <span className="text-slate-400">Live Surveillance Streams:</span>
+              <span className="text-slate-400 font-sans">Live Surveillance Streams:</span>
               <span className="text-white font-bold">4 CCTV Cameras (1080p / 4K)</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Enterprise AI Engine:</span>
+              <span className="text-slate-400 font-sans">Enterprise AI Engine:</span>
               <span className="text-indigo-400 font-bold">YOLOv8 + ByteTrack TensorRT</span>
             </div>
           </div>
-          <div className="bg-indigo-500/10 border border-indigo-500/30 p-2.5 rounded-xl text-[10px] text-indigo-300">
+          <div className="bg-indigo-500/10 border border-indigo-500/30 p-2.5 rounded-xl text-[10px] text-indigo-300 font-sans">
             Administrator Portal is configured strictly for single-supermarket operational oversight.
           </div>
         </div>
