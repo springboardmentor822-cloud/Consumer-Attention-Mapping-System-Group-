@@ -36,14 +36,9 @@ past that (the demo recording is ~278 MB).
 
 ### Demo recording
 
-The one exception is `media/CAMS video.mp4`, the project demo recording,
-which is versioned through **Git LFS** so it can live on GitHub despite being
-larger than the 100 MB per-file limit. Cloning without LFS installed gives you
-a small text pointer instead of the video, so install it first:
-
-```bash
-git lfs install && git lfs pull
-```
+The one exception is `media/CAMS video.mp4`, the project demo recording. It is
+a compressed cut kept under GitHub's 100 MB per-file limit so it commits as an
+ordinary file - no Git LFS, no extra setup, and a plain `git clone` gets it.
 
 To work with footage locally:
 
