@@ -34,12 +34,21 @@ forces every collaborator to download all of it on clone. GitHub also rejects
 any single file over 100 MB outright, and typical store footage here is well
 past that (the demo recording is ~278 MB).
 
+### Demo recording
+
+The one exception is `media/CAMS video.mp4`, the project demo recording,
+which is versioned through **Git LFS** so it can live on GitHub despite being
+larger than the 100 MB per-file limit. Cloning without LFS installed gives you
+a small text pointer instead of the video, so install it first:
+
+```bash
+git lfs install && git lfs pull
+```
+
 To work with footage locally:
 
-1. Obtain the video file from the project's shared drive.
-
-   Demo recording: `<add the shared link here>`
-
+1. Use `media/CAMS video.mp4`, or obtain other footage from the project's
+   shared drive.
 2. Place it in `backend/uploads/videos/`.
 3. Upload and process it through the **Video Processing** page in the app, or
    `POST /api/video/process`.

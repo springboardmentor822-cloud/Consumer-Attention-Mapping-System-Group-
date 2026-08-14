@@ -58,6 +58,11 @@ backend/uploads/
 *.mov
 *.mkv
 *.webm
+# Exception: the project demo recording is versioned through Git LFS (see
+# .gitattributes) so it can live on GitHub despite the 100 MB per-file limit.
+# Only this directory is exempt - working footage still belongs in
+# backend/uploads/videos/ and stays out of git.
+!media/*.mp4
 
 # ---------------------------------------------------------------
 # Logs
