@@ -1,38 +1,41 @@
 import io
 import json
-from fastapi.responses import Response
 import os
 import time
 import threading
 import random
 import asyncio
+import datetime
+from typing import List, Dict, Optional
+from contextlib import asynccontextmanager
+
 import numpy as np
 import pandas as pd
-from typing import Dict, Optional
-from contextlib import asynccontextmanager
+import cv2
+import psutil
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-import psutil
-from typing import List, Dict, Optional # Added List here
-from database import engine, SessionLocal, Base, User, POSTransaction, StoreZone
-from models import StoreZoneDB, ProductAttractiveness, ShopperSession, Recommendation # Added models here
-from pydantic import BaseModel
-import cv2
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
+
+from fastapi import (
+    FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect,
+    Depends, Request, Response, Header,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+# --- SECURITY & OAUTH2 ---
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+
 # Import Database & Models
 import database
 import models
 import ml_engine
-from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import Depends, HTTPException
-from sqlalchemy.orm import Session
 from database import engine, SessionLocal, Base, User, POSTransaction, StoreZone
-import datetime
+from models import StoreZoneDB, ProductAttractiveness, ShopperSession, Recommendation
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Creates the database file and tables if they don't exist yet
 Base.metadata.create_all(bind=engine)
@@ -45,9 +48,6 @@ def get_db():
     finally:
         db.close()
 
-# Automatically create all database tables in sql_app.db / PostgreSQL on startup
-models.Base.metadata.create_all(bind=database.engine)
-
 try:
     from ultralytics import YOLO
     detector = YOLO('yolov8n.pt') 
@@ -57,18 +57,19 @@ except ImportError:
     print("⚠️ Ultralytics not installed. Run 'pip install ultralytics' for AI detection.")
 
 model_lock = threading.Lock()
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Step up one level to the root VisionRetail_Project directory
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
 # Build bulletproof absolute paths for the datasets
 CAMERA_DATASETS = {
-    1: os.path.join(BASE_DIR,"frontend", "public", "datasets", "archive"),
-    2: os.path.join(BASE_DIR, "frontend", "public", "datasets", "archive_1"),
-    3: os.path.join(BASE_DIR, "frontend", "public", "datasets", "archive_2_products"),
-    4: os.path.join(BASE_DIR, "frontend", "public", "datasets", "archive_3_shelves")
+    1: os.path.join(PROJECT_ROOT, "frontend", "public", "datasets", "archive"),
+    2: os.path.join(PROJECT_ROOT, "frontend", "public", "datasets", "archive_1"),
+    3: os.path.join(PROJECT_ROOT, "frontend", "public", "datasets", "archive_2_products"),
+    4: os.path.join(PROJECT_ROOT, "frontend", "public", "datasets", "archive_3_shelves")
 }
 
-DATASET_SALES = os.path.join(BASE_DIR, "frontend", "public", "datasets", "supermarket_sales - Sheet1.csv")
+DATASET_SALES = os.path.join(PROJECT_ROOT, "frontend", "public", "datasets", "supermarket_sales - Sheet1.csv")
 
 
 def filter_sales_df_by_time(df: pd.DataFrame, time_filter: str) -> pd.DataFrame:
@@ -104,18 +105,99 @@ def filter_sales_df_by_time(df: pd.DataFrame, time_filter: str) -> pd.DataFrame:
         return df[df['Date'] >= latest - pd.Timedelta(days=364)]
     return df
 
-USER_DB: Dict[str, Dict[str, str]] = {
-    "admin@visionretail.ai": {"password": "admin", "role": "Administrator"},
-    "manager@visionretail.ai": {"password": "manager", "role": "Store Manager"},
-    "analyst@visionretail.ai": {"password": "analyst", "role": "Retail Analyst"},
-    "marketing@visionretail.ai": {"password": "marketing", "role": "Marketing Manager"}
-}
+# ==========================================
+# OAUTH2 & SECURITY
+# ==========================================
+# Never hardcode this — fail loudly at startup in production rather than run
+# with a key anyone reading the source could forge tokens with.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # "development" | "production"
+IS_PROD = ENVIRONMENT == "production"
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if IS_PROD:
+        raise RuntimeError(
+            "SECRET_KEY environment variable is not set. Refusing to start in production without it."
+        )
+    SECRET_KEY = "dev-only-insecure-key-do-not-use-in-production"
+    print("⚠️ SECRET_KEY not set — using an insecure development default. Set it before deploying.")
+
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+COOKIE_NAME = "access_token"
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """Reads the JWT from the httpOnly cookie set at login, falling back to an
+    Authorization header for non-browser clients. Raises 401 if missing/invalid."""
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token formatting")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Expired or invalid token")
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    return user
+
+# Seed a few demo accounts into the real User table on first startup, so the
+# app is still logs-in-able out of the box. Unlike the old USER_DB dict, this
+# writes to the SAME table /api/auth/signup and /api/auth/login use, so
+# there's exactly one source of truth for accounts — no more "who's registered"
+# split-brain between an in-memory dict and the database.
+DEFAULT_SEED_USERS = [
+    {"email": "admin@visionretail.ai", "password": "admin", "role": "Administrator"},
+    {"email": "manager@visionretail.ai", "password": "manager", "role": "Store Manager"},
+    {"email": "analyst@visionretail.ai", "password": "analyst", "role": "Retail Analyst"},
+    {"email": "marketing@visionretail.ai", "password": "marketing", "role": "Marketing Manager"},
+]
+
+def seed_default_users():
+    db = database.SessionLocal()
+    try:
+        for seed in DEFAULT_SEED_USERS:
+            if not db.query(User).filter(User.email == seed["email"]).first():
+                db.add(User(email=seed["email"], password=get_password_hash(seed["password"]), role=seed["role"]))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️ Failed to seed default users: {e}")
+    finally:
+        db.close()
+
+# Shared secret the on-prem POS terminal/register sends so /api/v1/pos/webhook
+# can accept transactions without needing a full user login flow. Set this to
+# a real random value via env in production.
+POS_WEBHOOK_SECRET = os.getenv("POS_WEBHOOK_SECRET", "dev-only-pos-webhook-secret")
 
 REGISTERED_SHELVES = []
 REGISTERED_PRODUCTS = []
 
 # LIVE TELEMETRY STATE
-LIVE_POS = {"revenue": 892000, "conversions": 238}
 LATEST_BBOXES = {1: [], 2: [], 3: [], 4: []}
 CAMERA_LAST_UPDATE: Dict[int, float] = {}  # real timestamps, used for Camera Health alerts
 
@@ -641,12 +723,24 @@ scheduler.add_job(calculate_and_store_scores, 'interval', minutes=15)
 async def lifespan(app: FastAPI):
     load_inventory_metadata()
     calculate_and_store_scores()
+    seed_default_users()
     scheduler.start()
     yield
     scheduler.shutdown()
 
 app = FastAPI(title="VisionRetail AI Engine", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# allow_origins can't be "*" when allow_credentials=True — the CORS spec
+# forbids that combination and browsers will reject it, which would silently
+# break the httpOnly-cookie auth flow. Use an explicit, env-configurable origin.
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_ORIGIN],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class AuthCredentials(BaseModel):
     email: str
@@ -755,43 +849,52 @@ def create_account(credentials: dict, db: Session = Depends(get_db)):
     email = credentials.get("email")
     password = credentials.get("password")
     role = credentials.get("role", "Store Manager")
-    
+
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email and password required")
-        
-    # Check if user already exists
+
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Account already exists. Please sign in.")
-        
-    # Create new user in the database
-    new_user = User(email=email, password=password, role=role)
+
+    # Password is hashed before it ever touches the database — never store plaintext.
+    new_user = User(email=email, password=get_password_hash(password), role=role)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
     return {"status": "created", "role": new_user.role, "email": new_user.email}
 
 @app.post("/api/auth/login")
-def login(credentials: dict, db: Session = Depends(get_db)):
+def login(credentials: dict, response: Response, db: Session = Depends(get_db)):
     email = credentials.get("email")
     password = credentials.get("password")
-    
-    # Query the database for the user
+
     user = db.query(User).filter(User.email == email).first()
-    
-    if not user or user.password != password:
+    if not user or not verify_password(password, user.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-        
+
+    access_token = create_access_token(data={"sub": user.email, "role": user.role})
+
+    # httpOnly -> JS can't read this, so an XSS bug can't exfiltrate it the
+    # way it could with localStorage. secure=True (HTTPS-only cookie) is
+    # enforced in production; relaxed in dev since localhost is usually HTTP.
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        secure=IS_PROD,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
     return {"status": "authenticated", "role": user.role, "email": user.email}
-    
-    # Save the new user to the simulated database
-    USER_DB[creds.email] = {
-        "password": creds.password, 
-        "role": creds.role or "Store Manager"
-    }
-    
-    return {"status": "created", "email": creds.email, "role": creds.role}
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(key=COOKIE_NAME, path="/")
+    return {"status": "success"}
 
 @app.get("/api/camera/stream/{camera_id}")
 def live_camera_stream_feed(camera_id: int):
@@ -834,14 +937,14 @@ def get_behavioral_segments(db: Session = Depends(database.get_db)):
 
 
 @app.get("/api/v1/admin/users")
-def get_registered_users():
-    """Real registered accounts from USER_DB (populated by /api/auth/signup).
-    Replaces UsersTab's previously hardcoded fake employee rows.
-    NOTE: USER_DB is an in-memory dict, not a persistent database — it resets
-    on server restart. That's a real limitation to flag, not something to
-    paper over with fabricated 'Last Login' timestamps we don't track."""
-    users = [{"email": email, "role": info["role"]} for email, info in USER_DB.items()]
-    return {"status": "success", "data": users}
+def get_registered_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Real registered accounts, queried straight from the same `User` table
+    /api/auth/signup writes to — previously this read from a separate
+    in-memory USER_DB dict that signup never actually populated, so this
+    endpoint always returned only the 4 seed accounts no matter who signed up.
+    Requires an authenticated session (admin-facing data)."""
+    users = db.query(User).all()
+    return {"status": "success", "data": [{"email": u.email, "role": u.role} for u in users]}
 
 
 @app.get("/api/v1/analytics/attractiveness")
@@ -1164,7 +1267,8 @@ def get_dwell_analysis():
         }
     }
 
-
+import pandas as pd
+from fastapi import APIRouter, Depends
 @app.get("/api/v1/dashboard/behavior")
 def get_behavior_analysis():
     """
@@ -1258,6 +1362,30 @@ def get_customer_history(time_filter: str = "all", limit: int = 50):
 
     return {"status": "success", "data": data}
 
+@app.get("/api/sales")
+def get_sales_data():
+    """Reads the supermarket CSV dataset and returns analytical telemetry."""
+    if not os.path.exists(DATASET_SALES):
+        return {"status": "error", "message": "CSV file not found."}
+        
+    df = pd.read_csv(DATASET_SALES)
+    
+    total_revenue = float(df['Total'].sum())
+    total_transactions = int(len(df))
+    avg_basket_value = float(df['Total'].mean())
+    product_sales = df.groupby('Product line')['Total'].sum().round(2).to_dict()
+    
+    return {
+        "status": "success",
+        "metrics": {
+            "totalRevenue": total_revenue,
+            "totalTransactions": total_transactions,
+            "averageBasketValue": avg_basket_value
+        },
+        "charts": {
+            "productLineSales": product_sales
+        }
+    }
 
 @app.get("/api/v1/dashboard/segmentation")
 def get_segmentation(time_filter: str = "all"):
@@ -1879,32 +2007,62 @@ def get_reports_summary():
         }
     }
 
-@app.get("/api/v1/pos/live")
-def get_live_pos():
-    if random.random() > 0.4:
-        sale_amount = random.randint(150, 4500)
-        LIVE_POS["revenue"] += sale_amount
-        LIVE_POS["conversions"] += 1
-        
-        # Generate Customer ID and precise Timestamp for matching
-        customer_id = f"CUST-{random.randint(1000, 9999)}"
-        tx_time = time.time()
+@app.post("/api/v1/pos/webhook")
+def register_live_sale(sale_data: dict, x_webhook_secret: Optional[str] = Header(default=None), db: Session = Depends(get_db)):
+    """
+    Real POS ingestion endpoint — the register/terminal calls this with each
+    completed sale. Replaces the old random.randint() sale generator, which
+    fabricated 'live' revenue that never corresponded to an actual transaction.
+
+    Auth: a shared secret (not a user login — POS terminals aren't people
+    logging in) passed either as {"webhook_secret": "..."} in the body or an
+    X-Webhook-Secret header, checked against POS_WEBHOOK_SECRET.
+    """
+    provided_secret = sale_data.get("webhook_secret") or x_webhook_secret
+    if provided_secret != POS_WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid or missing webhook secret")
+
+    try:
+        amount = float(sale_data.get("amount", 0))
+        customer_id = sale_data.get("customer_id", "GUEST")
+        tx_time = datetime.datetime.now(datetime.timezone.utc)
+
+        new_tx = POSTransaction(customer_id=customer_id, total_amount=amount, timestamp=tx_time)
+        db.add(new_tx)
+        db.commit()
+
+        # Kept in memory too (short buffer) for the checkout-timestamp Re-ID
+        # matching in handle_expired_tracks(), which needs fast recent lookups
+        # without hitting the DB per-frame.
         RECENT_TRANSACTIONS.append({
-            "timestamp": tx_time,
+            "timestamp": tx_time.timestamp(),
             "customer_id": customer_id,
-            "amount": sale_amount
+            "amount": amount,
         })
         if len(RECENT_TRANSACTIONS) > 50:
             RECENT_TRANSACTIONS.pop(0)
-            
-        return {
-            "new_sale": True, 
-            "amount": sale_amount, 
-            "total_revenue": LIVE_POS["revenue"], 
-            "total_conversions": LIVE_POS["conversions"],
-            "recent_customer": customer_id
-        }
-    return {"new_sale": False, "total_revenue": LIVE_POS["revenue"], "total_conversions": LIVE_POS["conversions"]}
+
+        return {"status": "success", "message": "Sale recorded.", "amount": amount, "customer_id": customer_id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/pos/live")
+def get_live_pos(db: Session = Depends(get_db)):
+    """Real revenue/conversion totals from persisted POSTransaction rows —
+    no simulated numbers. 'today' is the server's current UTC calendar day."""
+    today_start = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    todays_transactions = db.query(POSTransaction).filter(POSTransaction.timestamp >= today_start).all()
+
+    total_revenue = sum(tx.total_amount for tx in todays_transactions)
+    total_conversions = len(todays_transactions)
+    latest = max(todays_transactions, key=lambda t: t.timestamp, default=None)
+
+    return {
+        "new_sale": latest is not None and (datetime.datetime.now(datetime.timezone.utc) - latest.timestamp.replace(tzinfo=datetime.timezone.utc)).total_seconds() < 5,
+        "total_revenue": round(total_revenue, 2),
+        "total_conversions": total_conversions,
+    }
 @app.websocket("/ws/ai/bboxes/{camera_id}")
 async def websocket_bboxes(websocket: WebSocket, camera_id: int):
     await websocket.accept()
