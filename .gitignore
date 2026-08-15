@@ -37,6 +37,7 @@ backend/processed/*
 backend/datasets/
 frontend/public/*.mp4
 !frontend/public/.gitkeep
+Screen Recording *.mp4
 
 # Databases
 *.db

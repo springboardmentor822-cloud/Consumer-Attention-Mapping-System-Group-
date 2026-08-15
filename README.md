@@ -4,6 +4,16 @@ An enterprise-grade, AI-powered Computer Vision and Retail Analytics platform th
 
 ---
 
+## 🎬 System Walkthrough & Demo
+
+![CAMS Demo Preview](docs/assets/demo_preview.gif)
+
+<video src="docs/assets/demo.mp4" controls width="100%"></video>
+
+> 📹 **Full Working Demo:** [Watch / Download Demo Video (`docs/assets/demo.mp4`)](docs/assets/demo.mp4)
+
+---
+
 ## 📌 Project Overview & System Architecture
 
 The **Consumer Attention Mapping System (CAMS)** equips retail executives, store managers, retail analysts, and marketing managers with real-time visual spatial intelligence to optimize store layouts, product shelf placement, and promotional effectiveness.
