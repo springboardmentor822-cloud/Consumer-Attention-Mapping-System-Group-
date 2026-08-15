@@ -30,14 +30,13 @@ Thumbs.db
 # Heavy runtime datasets and uploads/processed media
 backend/uploads/*
 !backend/uploads/.gitkeep
-!backend/uploads/*.mp4
+
 backend/processed/*
 !backend/processed/.gitkeep
-!backend/processed/*.mp4
+
 backend/datasets/
 frontend/public/*.mp4
 !frontend/public/.gitkeep
-
 
 # Databases
 *.db
