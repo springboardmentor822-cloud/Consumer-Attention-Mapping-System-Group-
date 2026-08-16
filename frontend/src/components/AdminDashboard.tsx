@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Shield, RefreshCw, AlertTriangle, UserPlus, Server, Monitor, Play, ShieldAlert } from 'lucide-react';
+import UsersCRUD from '../pages/UsersCRUD';
+import CamerasCRUD from '../pages/CamerasCRUD';
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'];
 
@@ -304,54 +306,11 @@ export default function AdminDashboard({ token, section = 'overview' }: AdminDas
 
       {/* Standalone sections */}
       {section === 'users' && (
-        <div className="bg-[#121218] border border-slate-800 rounded-xl p-6 shadow-lg space-y-4">
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest block">Registered User Management</span>
-          <div className="overflow-x-auto text-xs font-semibold text-slate-350">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-slate-800 uppercase tracking-wider text-[9px] text-slate-500">
-                  <th className="pb-3">User ID</th>
-                  <th className="pb-3">Email Address</th>
-                  <th className="pb-3">System Role</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-850">
-                {data.users.map((u) => (
-                  <tr key={u.id}>
-                    <td className="py-3 font-mono text-[10px] text-slate-500">{u.id.substring(0, 16)}...</td>
-                    <td className="py-3 text-slate-200">{u.email}</td>
-                    <td className="py-3">{u.role}</td>
-                    <td className="py-3">{u.is_active ? 'Active' : 'Disabled'}</td>
-                    <td className="py-3">
-                      <button onClick={() => handleToggleUser(u.id, u.is_active)} className="text-indigo-400 hover:text-indigo-300">Toggle Status</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <UsersCRUD />
       )}
 
       {section === 'cameras' && (
-        <div className="bg-[#121218] border border-slate-800 rounded-xl p-6 shadow-lg space-y-6">
-          <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center">
-            <UserPlus className="w-5 h-5 mr-2 text-indigo-400" /> Link Camera Hardware Stream
-          </h2>
-          <form onSubmit={handleAddCamera} className="space-y-4 text-xs max-w-md">
-            <div className="space-y-1">
-              <label className="text-slate-400 font-semibold block">Device/Camera Name</label>
-              <input type="text" value={camName} onChange={(e) => setCamName(e.target.value)} placeholder="e.g. Aisle 3 Rear Cam" className="w-full bg-[#1b1b24] border border-slate-800 rounded p-2 text-slate-200" required />
-            </div>
-            <div className="space-y-1">
-              <label className="text-slate-400 font-semibold block">RTSP / File Stream URL</label>
-              <input type="text" value={camUrl} onChange={(e) => setCamUrl(e.target.value)} placeholder="rtsp://admin:pwd@192.168.1.50/live" className="w-full bg-[#1b1b24] border border-slate-800 rounded p-2 text-slate-200" required />
-            </div>
-            <button type="submit" disabled={submittingCam} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold p-2.5 rounded transition-colors w-full">Register Stream Device</button>
-          </form>
-        </div>
+        <CamerasCRUD />
       )}
 
       {section === 'monitoring' && (
