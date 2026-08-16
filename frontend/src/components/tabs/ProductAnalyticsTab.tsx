@@ -36,8 +36,8 @@ export default function ProductAnalyticsTab({ timeFilter = 'all' }: { timeFilter
       setLoading(true);
       try {
         const [prodRes, scoreRes] = await Promise.all([
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/products?time_filter=${timeFilter}`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/attractiveness`)
+          fetch(`/api/backend/v1/dashboard/products?time_filter=${timeFilter}`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/attractiveness`, { credentials: 'include' })
         ]);
         
         const prodData = await prodRes.json();

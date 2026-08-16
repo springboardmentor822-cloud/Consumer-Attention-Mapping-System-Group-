@@ -13,7 +13,7 @@ export default function HeatmapTab({ timeFilter = 'all' }: { timeFilter?: string
 
   // STEP 1: Fetch the global planogram Layout
   useEffect(() => {
-    fetch('http://127.0.0.1:9000/api/v1/layout')
+    fetch('/api/backend/v1/layout', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {
@@ -28,7 +28,7 @@ export default function HeatmapTab({ timeFilter = 'all' }: { timeFilter?: string
     let isMounted = true;
     const fetchHeatmap = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/heatmap?layer=${activeLayer}&time_filter=${timeFilter}`);
+        const res = await fetch(`/api/backend/v1/dashboard/heatmap?layer=${activeLayer}&time_filter=${timeFilter}`, { credentials: 'include' });
         const data = await res.json();
         if (isMounted && data.status === "success") {
           setPoints(data.data);

@@ -9,7 +9,7 @@ export default function InfraTab() {
   useEffect(() => {
     let isMounted = true;
     const fetchHealth = () => {
-      fetch('http://127.0.0.1:9000/api/v1/dashboard/system-health')
+      fetch('/api/backend/v1/dashboard/system-health', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           if (isMounted && data.status === 'success') {

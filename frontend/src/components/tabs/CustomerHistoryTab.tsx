@@ -23,7 +23,7 @@ export default function CustomerHistoryTab({ timeFilter = 'all' }: { timeFilter?
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/customer-history?time_filter=${timeFilter}`);
+        const res = await fetch(`/api/backend/v1/dashboard/customer-history?time_filter=${timeFilter}`, { credentials: 'include' });
         const data = await res.json();
         if (isMounted && data.status === "success") {
           setHistory(data.data);

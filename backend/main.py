@@ -22,7 +22,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 # --- SECURITY & OAUTH2 ---
@@ -140,9 +140,16 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Reads the JWT from the httpOnly cookie set at login, falling back to an
-    Authorization header for non-browser clients. Raises 401 if missing/invalid."""
+    Authorization header for non-browser clients. Raises 401 if missing/invalid.
+
+    Plain `def`, not `async def` — this does a blocking synchronous DB query
+    (db.query(...).first()) and contains zero `await` calls, so declaring it
+    async bought nothing except running that blocking query directly on the
+    event loop, stalling every other concurrent request for its duration.
+    FastAPI auto-threadpools sync dependencies exactly like sync path
+    functions, which is what this actually needs."""
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         auth_header = request.headers.get("Authorization")
@@ -190,9 +197,42 @@ def seed_default_users():
         db.close()
 
 # Shared secret the on-prem POS terminal/register sends so /api/v1/pos/webhook
-# can accept transactions without needing a full user login flow. Set this to
-# a real random value via env in production.
-POS_WEBHOOK_SECRET = os.getenv("POS_WEBHOOK_SECRET", "dev-only-pos-webhook-secret")
+# can accept transactions without needing a full user login flow.
+POS_WEBHOOK_SECRET = os.getenv("POS_WEBHOOK_SECRET")
+if not POS_WEBHOOK_SECRET:
+    if IS_PROD:
+        # SECRET_KEY already refuses to boot in production without a real
+        # value (see above) — this had the same class of risk but wasn't
+        # held to the same bar: it silently fell back to the literal string
+        # below in every environment, production included. Since that
+        # string is sitting in this file (and now in anyone's copy of it),
+        # a deployed instance with POS_WEBHOOK_SECRET unset would accept
+        # POS transactions from anyone who'd read this source.
+        raise RuntimeError(
+            "POS_WEBHOOK_SECRET environment variable is not set. Refusing to start in "
+            "production without it — the fallback value is public (it's in this file)."
+        )
+    POS_WEBHOOK_SECRET = "dev-only-pos-webhook-secret"
+    print("⚠️ POS_WEBHOOK_SECRET not set — using an insecure development default. Set it before deploying.")
+
+# Which camera covers the Checkout zone, if any — see the detailed comment
+# at its usage site in handle_expired_tracks(). Set via env var; unset (None)
+# by default so no camera's tracks get matched to POS transactions until you
+# confirm one of them actually covers Checkout.
+_checkout_camera_env = os.getenv("CHECKOUT_CAMERA_ID")
+if _checkout_camera_env:
+    try:
+        CHECKOUT_CAMERA_ID = int(_checkout_camera_env)
+    except ValueError:
+        # A bare int(...) here would crash the whole app at import time with
+        # a traceback that doesn't say which env var caused it. Fail with a
+        # message that actually points at the fix, same as SECRET_KEY above.
+        raise RuntimeError(
+            f"CHECKOUT_CAMERA_ID is set to {_checkout_camera_env!r}, which isn't a valid "
+            f"integer camera ID. Set it to a number (e.g. CHECKOUT_CAMERA_ID=3) or unset it."
+        )
+else:
+    CHECKOUT_CAMERA_ID = None
 
 REGISTERED_SHELVES = []
 REGISTERED_PRODUCTS = []
@@ -204,24 +244,31 @@ CAMERA_LAST_UPDATE: Dict[int, float] = {}  # real timestamps, used for Camera He
 # ==========================================
 # APPEARANCE RE-ID & GLOBAL IDENTITY
 # ==========================================
+import deep_reid
+import pose_engine
+
 GLOBAL_PROFILES = {}  # global_id -> {"feature": np.array, "customer_id": None}
 GLOBAL_NEXT_ID = 1
+# Guards GLOBAL_PROFILES/GLOBAL_NEXT_ID. Each camera's MJPEG stream
+# (stream_camera_frames) runs on its own thread via StreamingResponse, and
+# all of them call into the same SimpleIOUTracker.update() / this identity
+# table concurrently. Previously unguarded: two cameras spotting new people
+# in the same instant could race on `GLOBAL_NEXT_ID += 1` (handing out a
+# duplicate global ID to two different people) or crash with
+# "RuntimeError: dictionary changed size during iteration" if one thread's
+# find_global_identity() scan overlapped another thread's insert.
+GLOBAL_ID_LOCK = threading.Lock()
 RECENT_TRANSACTIONS = []  # Stores recent POS transactions for timestamp matching
+RECENT_TRANSACTIONS_LOCK = threading.Lock()  # guards concurrent access from the POS webhook thread and camera tracker threads
 
-def extract_appearance_feature(frame, x1, y1, x2, y2):
-    """
-    OpenCV color histogram proxy for DeepSORT/OSNet feature extraction.
-    Creates a unique 64-dimensional feature vector based on shopper clothing.
-    """
-    crop = frame[max(0, int(y1)):int(y2), max(0, int(x1)):int(x2)]
-    if crop.size == 0: 
-        return None
-    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-    hist = cv2.calcHist([hsv], [0, 1], None, [8, 8], [0, 180, 0, 256])
-    cv2.normalize(hist, hist)
-    return hist.flatten()
+# See deep_reid.py — RECOMMENDED_MATCH_THRESHOLD is tuned for the CNN
+# embedding, not the old HSV histogram's 0.85. If torch isn't installed and
+# extract_feature() silently falls back to the histogram, this threshold
+# will be too lenient for that proxy; install torch to get both the better
+# embedding AND the threshold it was chosen for.
+GLOBAL_ID_MATCH_THRESHOLD = deep_reid.RECOMMENDED_MATCH_THRESHOLD
 
-def find_global_identity(feature_vector, match_threshold=0.85):
+def find_global_identity(feature_vector, match_threshold=GLOBAL_ID_MATCH_THRESHOLD):
     """Compares a new feature vector against known global profiles using Cosine Similarity."""
     if feature_vector is None or not GLOBAL_PROFILES:
         return None
@@ -232,7 +279,14 @@ def find_global_identity(feature_vector, match_threshold=0.85):
     for gid, profile in GLOBAL_PROFILES.items():
         prof_feat = profile["feature"]
         if prof_feat is None: continue
-        
+        if prof_feat.shape != feature_vector.shape:
+            # Defense in depth: this should no longer happen now that
+            # deep_reid.py's tier failures are sticky (see extract_feature),
+            # but a mismatched-length np.dot() throws ValueError, and a
+            # single corrupt comparison shouldn't take down matching against
+            # every other profile — skip it and keep going.
+            continue
+
         # Cosine similarity calculation
         dot_product = np.dot(feature_vector, prof_feat)
         norm_a = np.linalg.norm(feature_vector)
@@ -253,6 +307,13 @@ class SimpleIOUTracker:
         self.max_missed_frames = max_missed_frames
         self.tracks: Dict[int, dict] = {}
         self._next_id = 1
+        # One CAMERA_TRACKERS[camera_id] instance is shared by every open
+        # stream for that camera — if the same camera feed is viewed from
+        # two browser tabs (or two managers) at once, both requests run
+        # concurrent generator threads calling .update() on this SAME
+        # instance. Without a lock, self.tracks mutations and self._next_id
+        # increments race exactly like GLOBAL_PROFILES/GLOBAL_NEXT_ID did.
+        self._lock = threading.Lock()
 
     @staticmethod
     def _iou(box_a, box_b):
@@ -268,74 +329,91 @@ class SimpleIOUTracker:
         return (inter_area / union) if union > 0 else 0.0
 
     def update(self, detections: list, frame: np.ndarray):
-        now = time.time()
-        pairs = []
-        for tid, track in self.tracks.items():
-            for di, det in enumerate(detections):
+        with self._lock:
+            now = time.time()
+            pairs = []
+            for tid, track in self.tracks.items():
+                for di, det in enumerate(detections):
+                    box = (det["x1"], det["y1"], det["x2"], det["y2"])
+                    score = self._iou(track["last_box"], box)
+                    if score >= self.iou_threshold:
+                        pairs.append((score, tid, di))
+            pairs.sort(key=lambda p: p[0], reverse=True)
+
+            used_tracks, used_dets, matched_track_ids = set(), set(), set()
+
+            # 1. UPDATE EXISTING TRACKS
+            for score, tid, di in pairs:
+                if tid in used_tracks or di in used_dets: continue
+                used_tracks.add(tid)
+                used_dets.add(di)
+                det = detections[di]
                 box = (det["x1"], det["y1"], det["x2"], det["y2"])
-                score = self._iou(track["last_box"], box)
-                if score >= self.iou_threshold:
-                    pairs.append((score, tid, di))
-        pairs.sort(key=lambda p: p[0], reverse=True)
+                track = self.tracks[tid]
+                track["last_box"] = box
+                track["last_seen"] = now
+                track["missed"] = 0
+                reach = pose_engine.detect_reach(frame, box[0], box[1], box[2], box[3])
+                track["positions"].append({
+                    "t": now, "x1": box[0], "y1": box[1], "x2": box[2], "y2": box[3],
+                    "pose_detected": reach["pose_detected"], "reaching": reach["reaching"],
+                    "facing_offset": reach["facing_offset"],
+                })
+                det["track_id"] = tid
+                det["global_id"] = track["global_id"]
+                matched_track_ids.add(tid)
 
-        used_tracks, used_dets, matched_track_ids = set(), set(), set()
-        
-        # 1. UPDATE EXISTING TRACKS
-        for score, tid, di in pairs:
-            if tid in used_tracks or di in used_dets: continue
-            used_tracks.add(tid)
-            used_dets.add(di)
-            det = detections[di]
-            box = (det["x1"], det["y1"], det["x2"], det["y2"])
-            track = self.tracks[tid]
-            track["last_box"] = box
-            track["last_seen"] = now
-            track["missed"] = 0
-            track["positions"].append({"t": now, "x1": box[0], "y1": box[1], "x2": box[2], "y2": box[3]})
-            det["track_id"] = tid
-            det["global_id"] = track["global_id"]
-            matched_track_ids.add(tid)
+            # 2. CROSS-CAMERA RE-ID FOR NEW TRACKS
+            global GLOBAL_NEXT_ID
+            for di, det in enumerate(detections):
+                if di in used_dets: continue
+                box = (det["x1"], det["y1"], det["x2"], det["y2"])
+                feature = deep_reid.extract_feature(frame, box[0], box[1], box[2], box[3])
 
-        # 2. CROSS-CAMERA RE-ID FOR NEW TRACKS
-        global GLOBAL_NEXT_ID
-        for di, det in enumerate(detections):
-            if di in used_dets: continue
-            box = (det["x1"], det["y1"], det["x2"], det["y2"])
-            feature = extract_appearance_feature(frame, box[0], box[1], box[2], box[3])
-            
-            global_id = find_global_identity(feature)
-            if not global_id:
-                global_id = GLOBAL_NEXT_ID
-                GLOBAL_PROFILES[global_id] = {"feature": feature, "customer_id": None}
-                GLOBAL_NEXT_ID += 1
-            else:
-                # Update existing feature vector to account for lighting changes
-                old_feat = GLOBAL_PROFILES[global_id]["feature"]
-                if old_feat is not None and feature is not None:
-                    GLOBAL_PROFILES[global_id]["feature"] = (old_feat * 0.7) + (feature * 0.3)
+                # Locked: the lookup-or-create must be atomic, or two camera
+                # threads doing this at the same instant can both decide "no
+                # match, create new" and either hand out the same GLOBAL_NEXT_ID
+                # or corrupt GLOBAL_PROFILES mid-iteration. See GLOBAL_ID_LOCK.
+                with GLOBAL_ID_LOCK:
+                    global_id = find_global_identity(feature)
+                    if not global_id:
+                        global_id = GLOBAL_NEXT_ID
+                        GLOBAL_PROFILES[global_id] = {"feature": feature, "customer_id": None, "last_seen": now}
+                        GLOBAL_NEXT_ID += 1
+                    else:
+                        # Update existing feature vector to account for lighting changes
+                        old_feat = GLOBAL_PROFILES[global_id]["feature"]
+                        if old_feat is not None and feature is not None:
+                            GLOBAL_PROFILES[global_id]["feature"] = (old_feat * 0.7) + (feature * 0.3)
+                        GLOBAL_PROFILES[global_id]["last_seen"] = now  # see _evict_stale_global_profiles
 
-            tid = self._next_id
-            self._next_id += 1
-            self.tracks[tid] = {
-                "global_id": global_id,
-                "first_seen": now,
-                "last_seen": now,
-                "last_box": box,
-                "missed": 0,
-                "positions": [{"t": now, "x1": box[0], "y1": box[1], "x2": box[2], "y2": box[3]}],
-            }
-            det["track_id"] = tid
-            det["global_id"] = global_id
-            matched_track_ids.add(tid)
+                tid = self._next_id
+                self._next_id += 1
+                reach = pose_engine.detect_reach(frame, box[0], box[1], box[2], box[3])
+                self.tracks[tid] = {
+                    "global_id": global_id,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "last_box": box,
+                    "missed": 0,
+                    "positions": [{
+                        "t": now, "x1": box[0], "y1": box[1], "x2": box[2], "y2": box[3],
+                        "pose_detected": reach["pose_detected"], "reaching": reach["reaching"],
+                        "facing_offset": reach["facing_offset"],
+                    }],
+                }
+                det["track_id"] = tid
+                det["global_id"] = global_id
+                matched_track_ids.add(tid)
 
-        expired = []
-        for tid in list(self.tracks.keys()):
-            if tid not in matched_track_ids:
-                self.tracks[tid]["missed"] += 1
-                if self.tracks[tid]["missed"] > self.max_missed_frames:
-                    expired.append((tid, self.tracks.pop(tid)))
+            expired = []
+            for tid in list(self.tracks.keys()):
+                if tid not in matched_track_ids:
+                    self.tracks[tid]["missed"] += 1
+                    if self.tracks[tid]["missed"] > self.max_missed_frames:
+                        expired.append((tid, self.tracks.pop(tid)))
 
-        return detections, expired
+            return detections, expired
 
 CAMERA_TRACKERS: Dict[int, SimpleIOUTracker] = {
     1: SimpleIOUTracker(),
@@ -355,19 +433,74 @@ COMPLETED_SESSIONS_LOCK = threading.Lock()
 # by position only, matching storeZones.ts's camera1-camera4 labels.
 ZONE_NAMES: Dict[int, str] = {1: "Camera 1", 2: "Camera 2", 3: "Camera 3", 4: "Camera 4"}
 
+# Matches the cv2.resize(frame, (640, 360)) in stream_camera_frames — all
+# tracked position pixel coordinates are in this space. Named here instead
+# of repeated as a magic number so gaze/zone geometry stays in sync with the
+# actual stream resolution if that resize target ever changes.
+STREAM_FRAME_W, STREAM_FRAME_H = 640, 360
+
+def _get_camera_zones(camera_id: int) -> list:
+    """Real planogram zones assigned to this camera, straight from
+    StoreZoneDB — the same table the frontend's Layout Studio writes to via
+    POST /api/v1/layout. Replaces the old hardcoded mock_store_zones, which
+    had no connection to the actual store layout at all."""
+    db = database.SessionLocal()
+    try:
+        zones = db.query(StoreZoneDB).filter(StoreZoneDB.camera_assigned == camera_id).all()
+        return [{"id": z.id, "label": z.label, "x": z.x, "y": z.y, "w": z.w, "h": z.h, "category": z.category} for z in zones]
+    except Exception as e:
+        print(f"⚠️ Failed to load store zones for camera {camera_id}: {e}")
+        return []
+    finally:
+        db.close()
+
 def _detect_interactions(positions: list, camera_id: int, velocity_threshold_px_s: float = 15.0, min_pause_s: float = 0.5) -> dict:
     """
-    Upgrades basic pause detection into Action Recognition.
     Classifies pauses into specific interactions (Pickups & Comparisons).
+
+    Pickup detection now prefers TRUE action recognition over the old
+    dwell-time-only proxy: pose_engine.py physically checks, via arm/wrist
+    keypoints, whether the shopper's arm was extended in a shelf-reach
+    posture during each pause. A pause only counts as a pickup if at least
+    one frame within it had "reaching": True.
+
+    Pickup detection now prefers TRUE action recognition over the old
+    dwell-time-only proxy: pose_engine.py physically checks, via arm/wrist
+    keypoints, whether the shopper's arm was extended in a shelf-reach
+    posture during each pause. A pause only counts as a pickup if reaching
+    was detected on at least MIN_REACH_FRAMES_FOR_PICKUP separate frames
+    within it — not just once. A single-frame reach is exactly as likely to
+    be a transient gesture (pointing, adjusting a bag strap) as an actual
+    pickup; requiring it to persist across multiple processed frames
+    (already ~150-200ms apart due to the existing frame-throttling) cuts
+    down that specific false-positive case flagged during review, without
+    requiring a learned classifier. It doesn't eliminate it — a held point
+    or a lingering adjustment can still pass this bar — so pickup counts
+    remain a heuristic, not a validated ground truth.
+
+    This only applies when pose data actually came back for this track
+    (has_pose_data below) — if mediapipe isn't installed, or every frame in
+    this particular track had undetectable/occluded joints, we fall back to
+    the original "a pause >= 2.5s = a pickup" proxy rather than silently
+    reporting zero pickups. "detection_method" in the returned dict records
+    which path was used, so this isn't a silent quality regression.
     """
+    MIN_REACH_FRAMES_FOR_PICKUP = 2
+
     interactions = {
         "pickups": 0, 
         "comparisons": 0, 
         "total_pause_time": 0.0,
-        "raw_pause_count": 0
+        "raw_pause_count": 0,
+        "detection_method": "pose",  # or "dwell_time_proxy" — set below
     }
-    
+
+    has_pose_data = any(p.get("pose_detected") for p in positions)
+    if not has_pose_data:
+        interactions["detection_method"] = "dwell_time_proxy"
+
     pause_start = None
+    pause_reach_frames = 0
     prev = None
     
     for p in positions:
@@ -380,16 +513,26 @@ def _detect_interactions(positions: list, camera_id: int, velocity_threshold_px_
             if v < velocity_threshold_px_s:
                 if pause_start is None:
                     pause_start = prev["t"]
+                    pause_reach_frames = 0
+                if p.get("reaching"):
+                    pause_reach_frames += 1
             else:
                 if pause_start is not None:
                     dur = prev["t"] - pause_start
                     if dur >= min_pause_s:
                         interactions["raw_pause_count"] += 1
                         interactions["total_pause_time"] += dur
-                        # A pause longer than 2.5 seconds in a shelf zone triggers a "Pickup"
-                        if dur >= 2.5:
-                            interactions["pickups"] += 1
+                        if has_pose_data:
+                            # True action recognition: require the reach to
+                            # persist across multiple frames, not just one.
+                            if pause_reach_frames >= MIN_REACH_FRAMES_FOR_PICKUP:
+                                interactions["pickups"] += 1
+                        else:
+                            # Fallback: a pause longer than 2.5s in a shelf zone.
+                            if dur >= 2.5:
+                                interactions["pickups"] += 1
                     pause_start = None
+                    pause_reach_frames = 0
         prev = {"t": p["t"], "cx": cx, "cy": cy}
         
     if pause_start is not None and prev is not None:
@@ -397,8 +540,12 @@ def _detect_interactions(positions: list, camera_id: int, velocity_threshold_px_
         if dur >= min_pause_s:
             interactions["raw_pause_count"] += 1
             interactions["total_pause_time"] += dur
-            if dur >= 2.5:
-                interactions["pickups"] += 1
+            if has_pose_data:
+                if pause_reach_frames >= MIN_REACH_FRAMES_FOR_PICKUP:
+                    interactions["pickups"] += 1
+            else:
+                if dur >= 2.5:
+                    interactions["pickups"] += 1
                 
     # Multiple distinct pickups in one session triggers a "Comparison"
     if interactions["pickups"] >= 2:
@@ -406,46 +553,74 @@ def _detect_interactions(positions: list, camera_id: int, velocity_threshold_px_
         
     return interactions
 
-def _estimate_gaze_attention(positions: list, store_zones: dict, min_attention_s: float = 1.0) -> dict:
+def _estimate_gaze_attention(positions: list, zones: list, min_attention_s: float = 1.0) -> dict:
     """
-    Kinematic Gaze Estimator: Uses movement vectors and bounding box aspect ratios 
-    to approximate head direction and calculate true Attention Duration for shelves.
+    Kinematic Gaze Estimator: uses movement (slow + widening aspect ratio =
+    likely facing a shelf, same as before) combined with real 2D zone
+    geometry and, when pose data is available, a coarse head-facing signal
+    from pose_engine's nose-vs-shoulder-midpoint offset.
+
+    Two concrete fixes from the previous version:
+    1. Zone containment now checks BOTH x and y against the zone's real
+       bounding box (previously x-axis only — a person could be nowhere
+       near a shelf vertically and still register attention on it).
+    2. `zones` are real StoreZoneDB rows for this camera (see
+       _get_camera_zones), not a hardcoded placeholder dict disconnected
+       from the actual planogram.
+
+    This is still NOT true gaze/eye tracking — there's no head-pose or
+    eye-direction estimation, just body position + a rough facing bias.
+    Treat "attention" here as "plausibly facing this shelf while stationary
+    nearby," not as verified visual fixation.
     """
-    attention_log = {zone: 0.0 for zone in store_zones.keys()}
-    
-    if len(positions) < 5:
-        return attention_log
+    attention_log = {z["id"]: 0.0 for z in zones}
+    if not zones or len(positions) < 5:
+        return {}
 
     for i in range(2, len(positions)):
-        prev = positions[i-2]
+        prev = positions[i - 2]
         curr = positions[i]
-        
-        # Calculate velocity vector to determine body orientation
+
         dx = ((curr["x1"] + curr["x2"]) / 2) - ((prev["x1"] + prev["x2"]) / 2)
         dy = ((curr["y1"] + curr["y2"]) / 2) - ((prev["y1"] + prev["y2"]) / 2)
-        
-        # Calculate bounding box aspect ratio (taller = walking, wider = standing/reaching)
+
         w = curr["x2"] - curr["x1"]
         h = curr["y2"] - curr["y1"]
         aspect_ratio = w / h if h > 0 else 1.0
-        
-        dt = curr["t"] - prev["t"]
-        
-        # If moving very slowly and aspect ratio widens, they are likely facing a shelf
-        if (dx**2 + dy**2)**0.5 / (dt + 0.001) < 10.0 and aspect_ratio > 0.45:
-            # Project a gaze ray based on current position
-            cx, cy = (curr["x1"] + curr["x2"]) / 2, (curr["y1"] + curr["y2"]) / 2
-            
-            # Find the closest intersecting shelf zone
-            for zone_id, z_rect in store_zones.items():
-                if zone_id.startswith("shelf"):
-                    # Check if the gaze center point is near or inside the shelf boundary
-                    # (Assuming normalized coordinates 0-1 for z_rect like in your UI)
-                    if (z_rect["x"] * 640) <= cx <= ((z_rect["x"] + z_rect["w"]) * 640):
-                        attention_log[zone_id] += dt
-                        break # Only look at one shelf at a time
 
-    # Filter out accidental glances (must look for longer than min_attention_s)
+        dt = curr["t"] - prev["t"]
+        if dt <= 0:
+            continue
+
+        # If moving very slowly and aspect ratio widens, they are likely facing a shelf
+        if (dx**2 + dy**2)**0.5 / dt < 10.0 and aspect_ratio > 0.45:
+            cx, cy = (curr["x1"] + curr["x2"]) / 2, (curr["y1"] + curr["y2"]) / 2
+            facing_offset = curr.get("facing_offset")  # from pose_engine, may be None
+
+            for z in zones:
+                zx1, zy1 = z["x"] * STREAM_FRAME_W, z["y"] * STREAM_FRAME_H
+                zx2, zy2 = zx1 + z["w"] * STREAM_FRAME_W, zy1 + z["h"] * STREAM_FRAME_H
+
+                # Real 2D containment — both axes, not x-only.
+                if not (zx1 <= cx <= zx2 and zy1 <= cy <= zy2):
+                    continue
+
+                # If we have a facing signal, require it to at least not
+                # contradict the zone's side of the frame (a coarse sanity
+                # check, not a precise gaze ray — see docstring).
+                if facing_offset is not None:
+                    zone_center_x = (zx1 + zx2) / 2
+                    person_is_left_of_zone = cx < zone_center_x
+                    facing_right = facing_offset > 0.05
+                    facing_left = facing_offset < -0.05
+                    if person_is_left_of_zone and facing_left:
+                        continue  # facing away from this zone
+                    if not person_is_left_of_zone and facing_right:
+                        continue
+
+                attention_log[z["id"]] += dt
+                break  # only credit one zone per frame
+
     return {z: round(dur, 2) for z, dur in attention_log.items() if dur >= min_attention_s}
 
 def _summarize_expired_track(camera_id: int, track_id: int, track: dict) -> dict:
@@ -464,12 +639,10 @@ def _summarize_expired_track(camera_id: int, track_id: int, track: dict) -> dict
     # 1. Process actions using the new interaction engine
     interaction_data = _detect_interactions(positions, camera_id)
 
-    # 2. Process Gaze & Attention (NEW)
-    mock_store_zones = {
-        "shelf_electronics": {"x": 0.2, "y": 0.4, "w": 0.15, "h": 0.2},
-        "shelf_beauty": {"x": 0.6, "y": 0.4, "w": 0.15, "h": 0.2}
-    }
-    attention_data = _estimate_gaze_attention(positions, mock_store_zones)
+    # 2. Process Gaze & Attention — real per-camera planogram zones now,
+    # not a hardcoded mock dict (see _get_camera_zones / _estimate_gaze_attention)
+    camera_zones = _get_camera_zones(camera_id)
+    attention_data = _estimate_gaze_attention(positions, camera_zones)
 
     step = max(1, len(positions) // 15)
     positions_sample = [
@@ -483,6 +656,7 @@ def _summarize_expired_track(camera_id: int, track_id: int, track: dict) -> dict
         "pauses": [1] * interaction_data["raw_pause_count"], # Maintained for backward compatibility
         "pickups": interaction_data["pickups"],
         "comparisons": interaction_data["comparisons"],
+        "pickup_detection_method": interaction_data["detection_method"],  # "pose" or "dwell_time_proxy"
         "attention_log": attention_data, # <--- NEW Gaze Analytics added here
         "first_seen": track["first_seen"],
         "last_seen": track["last_seen"],
@@ -557,29 +731,40 @@ def handle_expired_tracks(camera_id: int, expired_tracks: list):
             summary["global_id"] = track.get("global_id")
             
             # --- CHECKOUT TIMESTAMP MATCHING ---
-            # NOTE: under the current floor plan (storeZones.ts), none of the
-            # 4 cameras is physically mounted at Checkout — they're clustered
-            # at the center of the floor, and Checkout is a separate,
-            # camera-less zone (bottom-left). The old assumption here
-            # ("Camera 1 is Checkout Area", left over from the previous
-            # corner-camera layout) is no longer physically true, so this
-            # match no longer fires for any camera. If a camera ends up
-            # positioned near enough to Checkout in your real setup to make
-            # this a reasonable proxy again, set REID_CHECKOUT_CAMERA_ID
-            # below to that camera's ID — until then this is left disabled
-            # rather than silently matching the wrong camera's tracks to POS
-            # transactions.
-            REID_CHECKOUT_CAMERA_ID = None
-            if REID_CHECKOUT_CAMERA_ID is not None and camera_id == REID_CHECKOUT_CAMERA_ID:
+            # Which camera (if any) is physically pointed at Checkout is a
+            # store-layout fact, not something this code can infer — set it
+            # via the CHECKOUT_CAMERA_ID env var once you know which of the
+            # 4 cameras covers that zone (or leave unset if none do yet,
+            # matching the current center-clustered floor plan in
+            # storeZones.ts, where Checkout is a separate camera-less zone).
+            # Left disabled by default rather than silently guessing, since a
+            # wrong guess here would mislink real POS transactions to the
+            # wrong shopper's track.
+            if CHECKOUT_CAMERA_ID is not None and camera_id == CHECKOUT_CAMERA_ID:
                 track_end_time = track["last_seen"]
-                # Look for a POS transaction within 15 seconds of the shopper leaving the frame
-                for tx in reversed(RECENT_TRANSACTIONS):
-                    if abs(track_end_time - tx["timestamp"]) <= 15.0:
-                        customer_id = tx["customer_id"]
-                        GLOBAL_PROFILES[track["global_id"]]["customer_id"] = customer_id
+                # Best-fit match, not first-found: among transactions within
+                # the 15s window that haven't already been claimed by another
+                # track, pick the one closest in time. Claiming it immediately
+                # prevents a second shopper's track (e.g. two people checking
+                # out ~10s apart) from also matching the same transaction —
+                # the previous version had no claiming at all, so any
+                # transaction could be linked to multiple shoppers.
+                with RECENT_TRANSACTIONS_LOCK:
+                    best_tx, best_diff = None, None
+                    for tx in RECENT_TRANSACTIONS:
+                        if tx["claimed"]:
+                            continue
+                        diff = abs(track_end_time - tx["timestamp"])
+                        if diff <= 15.0 and (best_diff is None or diff < best_diff):
+                            best_tx, best_diff = tx, diff
+                    if best_tx is not None:
+                        best_tx["claimed"] = True
+                        customer_id = best_tx["customer_id"]
+                        with GLOBAL_ID_LOCK:  # same lock guarding this dict in SimpleIOUTracker.update()
+                            if track["global_id"] in GLOBAL_PROFILES:
+                                GLOBAL_PROFILES[track["global_id"]]["customer_id"] = customer_id
                         summary["matched_customer_id"] = customer_id
-                        print(f"🔗 RE-ID MATCH: Global Track {track['global_id']} linked to Customer {customer_id}!")
-                        break
+                        print(f"🔗 RE-ID MATCH: Global Track {track['global_id']} linked to Customer {customer_id} (Δt={best_diff:.1f}s)")
                         
             COMPLETED_SESSIONS_BUFFER.append(summary)
             new_summaries.append(summary)
@@ -714,10 +899,29 @@ def load_inventory_metadata():
             REGISTERED_SHELVES.append({"id": f"SHELF-00{idx+1}", "name": f"{str(cat_name).title()} Display", "category": str(cat_name).title(), "rating": f"{score} / 10"})
             sku = f"{str(cat_name)[:3].upper()}-00{idx}"
             REGISTERED_PRODUCTS.append({"id": f"PROD-{100 + idx}", "name": f"Top {str(cat_name).title()}", "sku": sku, "returns": int(row['total_sold'] * 0.05), "comparisons": int(row['total_sold'] * 1.5)})
-    except Exception as e: pass
+    except Exception as e:
+        print(f"⚠️ load_inventory_metadata failed to read {DATASET_SALES}: {e}")
+
+# Global cross-camera identity profiles never expired on their own — every
+# new shopper detected added a permanent entry with no equivalent to
+# SimpleIOUTracker's max_missed_frames cleanup. Over weeks of uptime that's
+# an unbounded memory leak (a growing dict of embedding vectors that's never
+# pruned). This runs on the same scheduler as calculate_and_store_scores,
+# dropping any profile not seen in the last GLOBAL_PROFILE_TTL_HOURS.
+GLOBAL_PROFILE_TTL_HOURS = float(os.getenv("GLOBAL_PROFILE_TTL_HOURS", "24"))
+
+def _evict_stale_global_profiles():
+    cutoff = time.time() - (GLOBAL_PROFILE_TTL_HOURS * 3600)
+    with GLOBAL_ID_LOCK:
+        stale_ids = [gid for gid, profile in GLOBAL_PROFILES.items() if profile.get("last_seen", 0) < cutoff]
+        for gid in stale_ids:
+            del GLOBAL_PROFILES[gid]
+    if stale_ids:
+        print(f"🧹 Evicted {len(stale_ids)} stale global shopper profile(s) (unseen for >{GLOBAL_PROFILE_TTL_HOURS}h).")
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(calculate_and_store_scores, 'interval', minutes=15) 
+scheduler.add_job(_evict_stale_global_profiles, 'interval', hours=1)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -742,14 +946,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class AuthCredentials(BaseModel):
-    email: str
-    password: str
+class SignupRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    # bcrypt's real limit is 72 BYTES, and passlib's modern bcrypt handler
+    # raises (not silently truncates) past that — a max_length=128 here
+    # would let e.g. a 100-char password pass validation and then crash
+    # get_password_hash() with an unhandled 500. Capping at 72 keeps every
+    # accepted password inside bcrypt's actual limit; this is a char count,
+    # not bytes, so it's still conservative for any multi-byte UTF-8 password.
+    password: str = Field(..., min_length=8, max_length=72)
     role: Optional[str] = "Store Manager"
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., min_length=1, max_length=254)
+    password: str = Field(..., min_length=1, max_length=72)
+
+class POSWebhookRequest(BaseModel):
+    amount: float = Field(..., ge=0)  # ge, not gt — a fully-discounted/free item is a legitimate $0 sale, not invalid input
+    customer_id: Optional[str] = "GUEST"
+    webhook_secret: Optional[str] = None
 
 def stream_camera_frames(camera_id: int):
     folder_path = CAMERA_DATASETS.get(camera_id, "datasets/archive")
-    images = []
     video_file = None
 
     if os.path.exists(folder_path):
@@ -758,10 +976,7 @@ def stream_camera_frames(camera_id: int):
                 if f.lower().endswith(('.mp4', '.avi', '.mov')):
                     video_file = os.path.join(root_dir, f)
                     break
-                elif f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                    images.append(os.path.join(root_dir, f))
             if video_file: break
-        images = sorted(images)
 
     stream_delay = 0.033
     process_every_n_frames = 5 
@@ -799,7 +1014,13 @@ def stream_camera_frames(camera_id: int):
 
                     LATEST_BBOXES[camera_id] = current_boxes
                     CAMERA_LAST_UPDATE[camera_id] = time.time()
-                except Exception as e: pass
+                except Exception as e:
+                    # Was a bare `pass` — silently ate every failure in this
+                    # block, including the GLOBAL_PROFILES dimension-mismatch
+                    # bug fixed in deep_reid.py (a ValueError here would have
+                    # vanished with zero trace of what broke or why tracking
+                    # for a camera just stopped updating). Log it instead.
+                    print(f"⚠️ Detection/tracking loop failed for camera {camera_id}: {e}")
 
             cv2.putText(frame, f"Cam {camera_id} - AI Live Stream", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 212), 2)
             ret_enc, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
@@ -845,20 +1066,28 @@ def get_system_health():
         }
     }
 @app.post("/api/auth/signup")
-def create_account(credentials: dict, db: Session = Depends(get_db)):
-    email = credentials.get("email")
-    password = credentials.get("password")
-    role = credentials.get("role", "Store Manager")
-
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Email and password required")
-
-    existing_user = db.query(User).filter(User.email == email).first()
+def create_account(credentials: SignupRequest, db: Session = Depends(get_db)):
+    # Was `credentials: dict` with manual .get() calls — no validation, no
+    # OpenAPI schema, and a malformed body (wrong type, missing field) would
+    # either silently coerce to None or fail somewhere non-obvious downstream
+    # instead of a clean 422 at the boundary. SignupRequest now enforces
+    # required fields and reasonable length bounds automatically.
+    existing_user = db.query(User).filter(User.email == credentials.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Account already exists. Please sign in.")
 
     # Password is hashed before it ever touches the database — never store plaintext.
-    new_user = User(email=email, password=get_password_hash(password), role=role)
+    # SignupRequest.password's max_length=72 is a CHARACTER limit, but bcrypt's
+    # actual limit is 72 BYTES — a 72-char password full of multi-byte UTF-8
+    # (emoji, etc.) can still exceed that and make passlib's bcrypt handler
+    # raise. Catching it here turns that into a clean 400 instead of an
+    # unhandled 500.
+    try:
+        hashed_password = get_password_hash(credentials.password)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Password is too long (bcrypt supports at most 72 bytes).")
+
+    new_user = User(email=credentials.email, password=hashed_password, role=credentials.role)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -866,12 +1095,9 @@ def create_account(credentials: dict, db: Session = Depends(get_db)):
     return {"status": "created", "role": new_user.role, "email": new_user.email}
 
 @app.post("/api/auth/login")
-def login(credentials: dict, response: Response, db: Session = Depends(get_db)):
-    email = credentials.get("email")
-    password = credentials.get("password")
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password):
+def login(credentials: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not verify_password(credentials.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
@@ -897,14 +1123,23 @@ def logout(response: Response):
     return {"status": "success"}
 
 @app.get("/api/camera/stream/{camera_id}")
-def live_camera_stream_feed(camera_id: int):
+def live_camera_stream_feed(camera_id: int, current_user: User = Depends(get_current_user)):
+    # Live video of real people in the store — this and the bbox WebSocket
+    # below were the two most sensitive endpoints in the whole app and, until
+    # now, the only ones with zero auth. IMPORTANT for the frontend: an
+    # <img src="http://<backend-host>/api/camera/stream/1"> pointed directly
+    # at the backend's own port will NOT carry the auth cookie — SameSite=Lax
+    # blocks cookies on cross-site subresource requests like this. It has to
+    # go through the same-origin proxy already set up for login
+    # (/api/backend/camera/stream/1, per next.config.js's rewrite), the same
+    # way the login page was wired to /api/backend/auth/login earlier.
     return StreamingResponse(stream_camera_frames(camera_id), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/api/inventory/shelves")
-def list_shelves(): return REGISTERED_SHELVES
+def list_shelves(current_user: User = Depends(get_current_user)): return REGISTERED_SHELVES
 
 @app.get("/api/v1/dashboard/behavioral-segments")
-def get_behavioral_segments(db: Session = Depends(database.get_db)):
+def get_behavioral_segments(db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
     """
     Real shopper-archetype breakdown, matching the 5 segments named in the
     Milestone 3 spec (Explorers, Quick Buyers, Comparison Shoppers, Impulse
@@ -948,11 +1183,11 @@ def get_registered_users(db: Session = Depends(get_db), current_user: User = Dep
 
 
 @app.get("/api/v1/analytics/attractiveness")
-def get_attractiveness_scores(db: Session = Depends(database.get_db)):
+def get_attractiveness_scores(db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
     return db.query(models.ProductAttractiveness).all()
 
 @app.get("/api/v1/recommendations")
-def get_optimization_recommendations(db: Session = Depends(database.get_db)):
+def get_optimization_recommendations(db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
     return db.query(models.Recommendation).all()
 
 def generate_dynamic_ai_insights(db: Session, role: str):
@@ -979,7 +1214,7 @@ def generate_dynamic_ai_insights(db: Session, role: str):
     return insights
 
 @app.get("/api/v1/dashboard/telemetry")
-def get_dashboard_telemetry(role: str = "Store Manager", time_filter: str = "all", db: Session = Depends(database.get_db)):
+def get_dashboard_telemetry(role: str = "Store Manager", time_filter: str = "all", db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
     """Serves dynamic KPI data and AI insights to the React OverviewTab based on role."""
     if not os.path.exists(DATASET_SALES):
         return {"status": "error", "message": "Dataset not found"}
@@ -1062,7 +1297,7 @@ class ZoneItem(BaseModel):
     category: str
     cameraAssigned: int
 @app.get("/api/v1/layout")
-def get_store_layout(db: Session = Depends(get_db)):
+def get_store_layout(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Fetches the global planogram for all Heatmaps and the Layout Studio."""
     zones = db.query(StoreZoneDB).all()
     if not zones:
@@ -1074,7 +1309,7 @@ def get_store_layout(db: Session = Depends(get_db)):
     ]}
 
 @app.post("/api/v1/layout")
-def save_store_layout(zones: List[ZoneItem], db: Session = Depends(get_db)):
+def save_store_layout(zones: List[ZoneItem], db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Overwrites the global planogram with the new layout from the Studio."""
     try:
         # Clear the old layout
@@ -1095,7 +1330,7 @@ def save_store_layout(zones: List[ZoneItem], db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/dashboard/products")
-def get_products(time_filter: str = "all"):
+def get_products(time_filter: str = "all", current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES): 
         return {"status": "error", "message": "Dataset not found"}
         
@@ -1150,7 +1385,7 @@ def get_products(time_filter: str = "all"):
     return {"status": "success", "data": data}
 
 @app.get("/api/v1/dashboard/category-performance")
-def get_category_performance(time_filter: str = "all"):
+def get_category_performance(time_filter: str = "all", current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES):
         return {"status": "error"}
     df = pd.read_csv(DATASET_SALES)
@@ -1170,7 +1405,7 @@ def get_category_performance(time_filter: str = "all"):
     return {"status": "success", "data": categories}
 
 @app.get("/api/v1/dashboard/visitors")
-def get_visitors(time_filter: str = "all"):
+def get_visitors(time_filter: str = "all", current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES):
         return {"status": "error"}
     df = pd.read_csv(DATASET_SALES)
@@ -1201,7 +1436,7 @@ def get_visitors(time_filter: str = "all"):
     }
 
 @app.get("/api/v1/dashboard/dwell")
-def get_dwell_analysis():
+def get_dwell_analysis(current_user: User = Depends(get_current_user)):
     """
     Real dwell-time analytics computed entirely from completed shopper tracks
     produced by the server-side YOLOv8 + IOU tracker (see SimpleIOUTracker /
@@ -1270,7 +1505,7 @@ def get_dwell_analysis():
 import pandas as pd
 from fastapi import APIRouter, Depends
 @app.get("/api/v1/dashboard/behavior")
-def get_behavior_analysis():
+def get_behavior_analysis(current_user: User = Depends(get_current_user)):
     """
     Real, movement-derived behavior signals from completed shopper tracks.
 
@@ -1334,7 +1569,7 @@ def get_behavior_analysis():
 
 
 @app.get("/api/v1/dashboard/customer-history")
-def get_customer_history(time_filter: str = "all", limit: int = 50):
+def get_customer_history(time_filter: str = "all", limit: int = 50, current_user: User = Depends(get_current_user)):
     """Real recent-transaction feed from DATASET_SALES. Previously called by
     CustomerHistoryTab but never implemented — this was a dead endpoint."""
     if not os.path.exists(DATASET_SALES):
@@ -1363,7 +1598,7 @@ def get_customer_history(time_filter: str = "all", limit: int = 50):
     return {"status": "success", "data": data}
 
 @app.get("/api/sales")
-def get_sales_data():
+def get_sales_data(current_user: User = Depends(get_current_user)):
     """Reads the supermarket CSV dataset and returns analytical telemetry."""
     if not os.path.exists(DATASET_SALES):
         return {"status": "error", "message": "CSV file not found."}
@@ -1388,7 +1623,7 @@ def get_sales_data():
     }
 
 @app.get("/api/v1/dashboard/segmentation")
-def get_segmentation(time_filter: str = "all"):
+def get_segmentation(time_filter: str = "all", current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES):
         return {"status": "error"}
     df = pd.read_csv(DATASET_SALES)
@@ -1428,7 +1663,7 @@ def get_segmentation(time_filter: str = "all"):
     return {"status": "success", "data": clusters}
 
 @app.get("/api/v1/dashboard/traffic")
-def get_traffic_trend(time_filter: str = "all"):
+def get_traffic_trend(time_filter: str = "all", current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES):
         return {"status": "error", "message": "Dataset not found"}
     df = pd.read_csv(DATASET_SALES)
@@ -1453,7 +1688,7 @@ def get_traffic_trend(time_filter: str = "all"):
     return {"status": "success", "data": trend_data}
 
 @app.get("/api/v1/dashboard/zones")
-def get_zones(time_filter: str = "all"):
+def get_zones(time_filter: str = "all", current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES):
         return {"status": "error", "message": "Dataset not found"}
     df = pd.read_csv(DATASET_SALES)
@@ -1496,7 +1731,7 @@ def get_zones(time_filter: str = "all"):
     return {"status": "success", "data": zones}
 
 @app.get("/api/v1/dashboard/ai-insights")
-def get_ai_insights():
+def get_ai_insights(current_user: User = Depends(get_current_user)):
     if not os.path.exists(DATASET_SALES):
         return {"status": "error", "message": "Dataset not found"}
     try:
@@ -1560,7 +1795,7 @@ def get_ai_insights():
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/v1/dashboard/export")
-def export_system_data(format: str = Query("csv", enum=["csv", "json"]), metric: str = Query("all", enum=["all", "products", "telemetry"])):
+def export_system_data(format: str = Query("csv", enum=["csv", "json"]), metric: str = Query("all", enum=["all", "products", "telemetry"]), current_user: User = Depends(get_current_user)):
     try:
         export_payload = []
         if os.path.exists(DATASET_SALES):
@@ -1627,7 +1862,7 @@ def calculate_attractiveness(attention_s, interactions, pickups, conversions, re
     return round(score, 1)
 
 @app.get("/api/v1/dashboard/attractiveness")
-def get_attractiveness_scores():
+def get_attractiveness_scores(current_user: User = Depends(get_current_user)):
     """API Endpoint to serve live Attractiveness Scores to the dashboard."""
     
     # Mocking historical + live data fusion for the demonstration
@@ -1663,7 +1898,7 @@ def get_attractiveness_scores():
 # ==========================================
 
 @app.get("/api/v1/dashboard/alerts")
-def get_system_alerts(db: Session = Depends(database.get_db)):
+def get_system_alerts(db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
     """
     Rule-based alerts in the 4 categories named by the Milestone 4 spec
     (Shelf Performance, Product Visibility, Traffic Anomaly, Camera Health),
@@ -1763,7 +1998,7 @@ def get_system_alerts(db: Session = Depends(database.get_db)):
 
 
 @app.get("/api/v1/dashboard/heatmap")
-def get_heatmap_data(layer: str = "traffic", time_filter: str = "all", db: Session = Depends(get_db)):
+def get_heatmap_data(layer: str = "traffic", time_filter: str = "all", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Real heatmap points, in 3 layers matching the spec's Heatmap Layer
     Generation step.
@@ -1873,7 +2108,7 @@ def get_heatmap_data(layer: str = "traffic", time_filter: str = "all", db: Sessi
 
     return {"status": "success", "data": points, "has_data": len(points) > 0, "message": message}
 @app.get("/api/v1/dashboard/shelves")
-def get_shelf_metrics():
+def get_shelf_metrics(current_user: User = Depends(get_current_user)):
     with COMPLETED_SESSIONS_LOCK:
         sessions = list(COMPLETED_SESSIONS_BUFFER)
 
@@ -1916,7 +2151,7 @@ def get_shelf_metrics():
     return {"status": "success", "data": zones, "has_data": True}
 
 @app.get("/api/v1/dashboard/journey")
-def get_journey_analysis():
+def get_journey_analysis(current_user: User = Depends(get_current_user)):
     """
     Real per-camera completed-session counts as "zones" — the only part of
     a shopper journey the current 4-camera center cluster can actually
@@ -1967,7 +2202,7 @@ def get_journey_analysis():
     }
 
 @app.get("/api/v1/dashboard/reports")
-def get_reports_summary():
+def get_reports_summary(current_user: User = Depends(get_current_user)):
     weekly_visitors = 0
     top_sales_category = "N/A"
     if os.path.exists(DATASET_SALES):
@@ -2008,7 +2243,7 @@ def get_reports_summary():
     }
 
 @app.post("/api/v1/pos/webhook")
-def register_live_sale(sale_data: dict, x_webhook_secret: Optional[str] = Header(default=None), db: Session = Depends(get_db)):
+def register_live_sale(sale_data: POSWebhookRequest, x_webhook_secret: Optional[str] = Header(default=None), db: Session = Depends(get_db)):
     """
     Real POS ingestion endpoint — the register/terminal calls this with each
     completed sale. Replaces the old random.randint() sale generator, which
@@ -2018,13 +2253,13 @@ def register_live_sale(sale_data: dict, x_webhook_secret: Optional[str] = Header
     logging in) passed either as {"webhook_secret": "..."} in the body or an
     X-Webhook-Secret header, checked against POS_WEBHOOK_SECRET.
     """
-    provided_secret = sale_data.get("webhook_secret") or x_webhook_secret
+    provided_secret = sale_data.webhook_secret or x_webhook_secret
     if provided_secret != POS_WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="Invalid or missing webhook secret")
 
     try:
-        amount = float(sale_data.get("amount", 0))
-        customer_id = sale_data.get("customer_id", "GUEST")
+        amount = sale_data.amount  # POSWebhookRequest.amount is a required float >= 0 — no manual parsing/defaulting needed
+        customer_id = sale_data.customer_id or "GUEST"
         tx_time = datetime.datetime.now(datetime.timezone.utc)
 
         new_tx = POSTransaction(customer_id=customer_id, total_amount=amount, timestamp=tx_time)
@@ -2033,14 +2268,18 @@ def register_live_sale(sale_data: dict, x_webhook_secret: Optional[str] = Header
 
         # Kept in memory too (short buffer) for the checkout-timestamp Re-ID
         # matching in handle_expired_tracks(), which needs fast recent lookups
-        # without hitting the DB per-frame.
-        RECENT_TRANSACTIONS.append({
-            "timestamp": tx_time.timestamp(),
-            "customer_id": customer_id,
-            "amount": amount,
-        })
-        if len(RECENT_TRANSACTIONS) > 50:
-            RECENT_TRANSACTIONS.pop(0)
+        # without hitting the DB per-frame. "claimed" prevents the same
+        # transaction from being matched to two different shoppers' tracks —
+        # see handle_expired_tracks for the matching side of this.
+        with RECENT_TRANSACTIONS_LOCK:
+            RECENT_TRANSACTIONS.append({
+                "timestamp": tx_time.timestamp(),
+                "customer_id": customer_id,
+                "amount": amount,
+                "claimed": False,
+            })
+            if len(RECENT_TRANSACTIONS) > 50:
+                RECENT_TRANSACTIONS.pop(0)
 
         return {"status": "success", "message": "Sale recorded.", "amount": amount, "customer_id": customer_id}
     except Exception as e:
@@ -2048,7 +2287,7 @@ def register_live_sale(sale_data: dict, x_webhook_secret: Optional[str] = Header
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/v1/pos/live")
-def get_live_pos(db: Session = Depends(get_db)):
+def get_live_pos(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Real revenue/conversion totals from persisted POSTransaction rows —
     no simulated numbers. 'today' is the server's current UTC calendar day."""
     today_start = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -2063,8 +2302,49 @@ def get_live_pos(db: Session = Depends(get_db)):
         "total_revenue": round(total_revenue, 2),
         "total_conversions": total_conversions,
     }
+def get_current_user_ws(websocket: WebSocket) -> Optional[User]:
+    """WebSocket counterpart to get_current_user(). Starlette's WebSocket
+    doesn't carry an HTTP Request object the way a normal route does, so this
+    reads the cookie/header directly off the handshake instead of reusing
+    get_current_user() as a Depends() — same validation logic, different
+    entry point. Returns None instead of raising, so the caller can close
+    the connection cleanly (a WebSocket handshake can't return an HTTP 401;
+    the right move is to accept-then-close or reject before accept)."""
+    token = websocket.cookies.get(COOKIE_NAME)
+    if not token:
+        auth_header = websocket.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None:
+            return None
+    except JWTError:
+        return None
+
+    db = database.SessionLocal()
+    try:
+        return db.query(User).filter(User.email == email).first()
+    finally:
+        db.close()
+
 @app.websocket("/ws/ai/bboxes/{camera_id}")
 async def websocket_bboxes(websocket: WebSocket, camera_id: int):
+    # Live shopper tracking coordinates — same sensitivity as the video
+    # stream above, and was equally unauthenticated until now. A WebSocket
+    # can't be rejected with a normal Depends()-raised HTTPException the way
+    # an HTTP route can (there's no response body to attach a 401 to before
+    # the handshake completes), so auth has to be checked manually and the
+    # connection closed with a WS close code instead.
+    user = get_current_user_ws(websocket)
+    if user is None:
+        await websocket.close(code=1008)  # 1008 = Policy Violation
+        return
+
     await websocket.accept()
     try:
         while True:

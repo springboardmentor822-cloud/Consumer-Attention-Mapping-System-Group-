@@ -15,11 +15,11 @@ export default function UniversalAnalyticsTab({ title }: { title: string }) {
     const fetchAll = async () => {
       try {
         const [trafficRes, dwellRes, behaviorRes, segRes] = await Promise.all([
-          fetch('http://127.0.0.1:9000/api/v1/dashboard/traffic'),
-          fetch('http://127.0.0.1:9000/api/v1/dashboard/dwell'),
-          fetch('http://127.0.0.1:9000/api/v1/dashboard/behavior'),
-          fetch('http://127.0.0.1:9000/api/v1/dashboard/behavioral-segments'),
-        ]);
+          fetch('/api/backend/v1/dashboard/traffic', { credentials: 'include' }),
+          fetch('/api/backend/v1/dashboard/dwell', { credentials: 'include' }),
+          fetch('/api/backend/v1/dashboard/behavior', { credentials: 'include' }),
+          fetch('/api/backend/v1/dashboard/behavioral-segments', { credentials: 'include' }),
+       ]);
         const traffic = await trafficRes.json();
         if (isMounted && traffic.status === "success") setTrafficTrend(traffic.data || []);
 

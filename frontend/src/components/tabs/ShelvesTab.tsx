@@ -17,7 +17,7 @@ export default function ShelvesTab() {
   const [loading, setLoading] = useState(true);
 
   const fetchShelves = () => {
-    fetch('http://127.0.0.1:9000/api/v1/dashboard/shelves')
+    fetch('/api/backend/v1/dashboard/shelves', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {

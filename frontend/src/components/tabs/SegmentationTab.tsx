@@ -29,7 +29,7 @@ export default function SegmentationTab({ timeFilter = 'all' }: { timeFilter?: s
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/segmentation?time_filter=${timeFilter}`);
+        const res = await fetch(`/api/backend/v1/dashboard/segmentation?time_filter=${timeFilter}`, { credentials: 'include' });
         const data = await res.json();
         if (isMounted && data.status === "success") setSegments(data.data);
       } catch (err) {
@@ -49,7 +49,7 @@ export default function SegmentationTab({ timeFilter = 'all' }: { timeFilter?: s
   // can't currently be joined to the same shopper.
   useEffect(() => {
     let isMounted = true;
-    fetch('http://127.0.0.1:9000/api/v1/dashboard/behavioral-segments')
+    fetch('/api/backend/v1/dashboard/behavioral-segments', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (isMounted && data.status === "success") {

@@ -16,7 +16,7 @@ export default function AlertsTab() {
   const [loading, setLoading] = useState(true);
 
   const fetchAlerts = () => {
-    fetch('http://127.0.0.1:9000/api/v1/dashboard/alerts')
+    fetch('/api/backend/v1/dashboard/alerts', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {

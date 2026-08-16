@@ -59,7 +59,7 @@ export default function JourneyTab({ timeFilter = 'all' }: { timeFilter?: string
 
   // 1. Fetch Dynamic Layout
   useEffect(() => {
-    fetch('http://127.0.0.1:9000/api/v1/layout')
+    fetch('/api/backend/v1/layout', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") setDynamicZones(data.data);
@@ -72,7 +72,7 @@ export default function JourneyTab({ timeFilter = 'all' }: { timeFilter?: string
     let isMounted = true;
     const fetchData = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/journey?time_filter=${timeFilter}`);
+        const res = await fetch(`/api/backend/v1/dashboard/journey?time_filter=${timeFilter}`, { credentials: 'include' });
         const resData: JourneyResponse = await res.json();
         if (isMounted && resData.status === "success") {
           setData(resData.data);

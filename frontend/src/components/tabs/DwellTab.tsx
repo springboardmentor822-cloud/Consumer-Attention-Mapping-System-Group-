@@ -50,7 +50,7 @@ export default function DwellTab() {
   useEffect(() => {
     let isMounted = true;
     const fetchDwell = () => {
-      fetch('http://127.0.0.1:9000/api/v1/dashboard/dwell')
+      fetch('/api/backend/v1/dashboard/dwell', { credentials: 'include' })
         .then(res => res.json())
         .then(json => {
           if (isMounted && json.status === "success") {

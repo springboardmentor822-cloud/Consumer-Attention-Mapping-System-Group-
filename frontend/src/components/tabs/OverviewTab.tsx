@@ -59,7 +59,7 @@ const MiniHeatmap = () => {
 
   // Fetch the Global Layout
   useEffect(() => {
-    fetch('http://127.0.0.1:9000/api/v1/layout')
+    fetch('/api/backend/v1/layout', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") setDynamicZones(data.data);
@@ -71,7 +71,7 @@ const MiniHeatmap = () => {
   useEffect(() => {
     let isMounted = true;
     const fetchHeatmapData = () => {
-      fetch('http://127.0.0.1:9000/api/v1/dashboard/heatmap')
+      fetch('/api/backend/v1/dashboard/heatmap', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           if (isMounted && data.status === "success") {
@@ -173,13 +173,13 @@ export default function OverviewTab({ role, timeFilter = 'all' }: { role: string
       setLoading(true);
       try {
         const [telRes, prodRes, dwellRes, shelfRes, behaviorRes, segRes, alertsRes] = await Promise.all([
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/telemetry?role=${encodeURIComponent(role)}&time_filter=${timeFilter}`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/products?time_filter=${timeFilter}`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/dwell`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/shelves`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/behavior`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/segmentation?time_filter=${timeFilter}`),
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/alerts`),
+          fetch(`/api/backend/v1/dashboard/telemetry?role=${encodeURIComponent(role)}&time_filter=${timeFilter}`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/products?time_filter=${timeFilter}`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/dwell`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/shelves`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/behavior`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/segmentation?time_filter=${timeFilter}`, { credentials: 'include' }),
+          fetch(`/api/backend/v1/dashboard/alerts`, { credentials: 'include' }),
         ]);
 
         const telData = await telRes.json();
@@ -256,7 +256,7 @@ export default function OverviewTab({ role, timeFilter = 'all' }: { role: string
                 {cameraFeeds.map((cam) => (
                   <div key={cam.id} className="aspect-video bg-slate-900 rounded-lg border border-slate-800 relative overflow-hidden flex items-end">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`http://127.0.0.1:9000/api/camera/stream/${cam.id}`} alt={cam.name} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={`/api/backend/camera/stream/${cam.id}`} alt={cam.name} className="absolute inset-0 w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none"></div>
                     <span className="text-[8px] bg-black/60 px-1.5 py-0.5 rounded text-slate-200 absolute top-1 left-1 font-mono z-10">{cam.name}</span>
                     <span className="text-[8px] text-emerald-400 ml-auto p-1 z-10 flex items-center font-semibold"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>Live</span>
@@ -449,7 +449,7 @@ export default function OverviewTab({ role, timeFilter = 'all' }: { role: string
                 {cameraFeeds.map((cam) => (
                   <div key={cam.id} className="aspect-video bg-slate-900 rounded-lg border border-slate-800 relative overflow-hidden flex items-end">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`http://127.0.0.1:9000/api/camera/stream/${cam.id}`} alt={cam.name} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={`/api/backend/camera/stream/${cam.id}`} alt={cam.name} className="absolute inset-0 w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none"></div>
                     <span className="text-[8px] bg-black/60 px-1.5 py-0.5 rounded text-slate-200 absolute top-1 left-1 font-mono z-10">{cam.name}</span>
                     <span className="text-[8px] text-emerald-400 ml-auto p-1 z-10 flex items-center font-semibold"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>Live</span>

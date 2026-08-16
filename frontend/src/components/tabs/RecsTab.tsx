@@ -15,7 +15,7 @@ export default function RecsTab() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch('http://127.0.0.1:9000/api/v1/recommendations')
+    fetch('/api/backend/v1/recommendations', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (isMounted) setRecs(Array.isArray(data) ? data : []);

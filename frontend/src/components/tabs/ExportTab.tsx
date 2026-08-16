@@ -30,7 +30,7 @@ export default function ExportTab() {
     setIsExporting(true);
     setPendingMetric(metric);
     try {
-      const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/export?format=${format}&metric=${metric}`);
+      const res = await fetch(`/api/backend/v1/dashboard/export?format=${format}&metric=${metric}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Network response was not ok");
       
       const blob = await res.blob();

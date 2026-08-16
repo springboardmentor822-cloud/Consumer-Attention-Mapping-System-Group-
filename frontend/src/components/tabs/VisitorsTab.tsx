@@ -26,7 +26,7 @@ export default function VisitorsTab({ timeFilter = 'all' }: { timeFilter?: strin
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/visitors?time_filter=${timeFilter}`);
+        const res = await fetch(`/api/backend/v1/dashboard/visitors?time_filter=${timeFilter}`, { credentials: 'include' });
         const data = await res.json();
         if (isMounted && data.status === "success") setStats(data.data);
       } catch (err) {

@@ -12,7 +12,7 @@ export default function SessionsTab() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch('http://127.0.0.1:9000/api/v1/admin/users')
+    fetch('/api/backend/v1/admin/users', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (isMounted && data.status === "success") setUsers(data.data || []);

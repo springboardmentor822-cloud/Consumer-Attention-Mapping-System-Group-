@@ -15,7 +15,7 @@ export default function TrafficTab({ timeFilter = 'all' }: { timeFilter?: string
   useEffect(() => {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset loading flag before refetching when timeFilter changes
   setLoading(true);
-  fetch(`http://127.0.0.1:9000/api/v1/dashboard/traffic?time_filter=${timeFilter}`)
+  fetch(`/api/backend/v1/dashboard/traffic?time_filter=${timeFilter}`, { credentials: 'include' })
     .then(res => res.json())
     .then(json => {
       if (json.status === "success") setTrend(json.data);

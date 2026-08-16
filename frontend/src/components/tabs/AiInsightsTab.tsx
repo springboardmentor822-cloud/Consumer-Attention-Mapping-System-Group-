@@ -21,7 +21,7 @@ export default function AiInsightsTab({ timeFilter = 'all' }: { timeFilter?: str
     const fetchInsights = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/ai-insights?time_filter=${timeFilter}`);
+        const res = await fetch(`/api/backend/v1/dashboard/ai-insights?time_filter=${timeFilter}`, { credentials: 'include' });
         const data = await res.json();
         if (isMounted && data.status === "success") {
           setInsights(data.data);

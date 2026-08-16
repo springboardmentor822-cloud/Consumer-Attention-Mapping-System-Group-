@@ -111,22 +111,22 @@ export default function ReportsTab({ role = 'Store Manager' }: { role?: string }
       setLoading(true);
       try {
         const calls: Promise<Response>[] = [
-          fetch(`http://127.0.0.1:9000/api/v1/dashboard/reports?role=${encodeURIComponent(role)}`),
+          fetch(`/api/backend/v1/dashboard/reports?role=${encodeURIComponent(role)}`, { credentials: 'include' }),
         ];
         if (wantsShelvesAlerts) {
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/shelves'));
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/alerts'));
+          calls.push(fetch('/api/backend/v1/dashboard/shelves', { credentials: 'include' }));
+          calls.push(fetch('/api/backend/v1/dashboard/alerts', { credentials: 'include' }));
         }
         if (wantsDwellBehavior) {
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/dwell'));
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/behavior'));
+          calls.push(fetch('/api/backend/v1/dashboard/dwell', { credentials: 'include' }));
+          calls.push(fetch('/api/backend/v1/dashboard/behavior', { credentials: 'include' }));
         }
         if (wantsSegments) {
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/segmentation'));
+          calls.push(fetch('/api/backend/v1/dashboard/segmentation', { credentials: 'include' }));
         }
         if (wantsMarketing) {
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/category-performance'));
-          calls.push(fetch('http://127.0.0.1:9000/api/v1/dashboard/visitors'));
+          calls.push(fetch('/api/backend/v1/dashboard/category-performance', { credentials: 'include' }));
+          calls.push(fetch('/api/backend/v1/dashboard/visitors', { credentials: 'include' }));
         }
 
         const responses = await Promise.all(calls);
@@ -169,16 +169,10 @@ export default function ReportsTab({ role = 'Store Manager' }: { role?: string }
     return () => { isMounted = false; };
   }, [role, wantsShelvesAlerts, wantsDwellBehavior, wantsSegments, wantsMarketing]);
 
-  // NOTE: there is no real PDF-generation backend yet (the spec calls for one
-  // — Milestone 4, Step 2). Rather than fake a download with a setTimeout and
-  // an alert(), this calls the export endpoint that actually exists and
-  // returns real data, honestly labeled as JSON rather than promising a PDF.
-  // Real PDF export, generated server-side via WeasyPrint from the same
-  // real per-role data shown on screen (see /dashboard/reports/pdf).
   const handlePdfExport = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch(`http://127.0.0.1:9000/api/v1/dashboard/reports/pdf?role=${encodeURIComponent(role)}`);
+      const response = await fetch(`/api/backend/v1/dashboard/reports/pdf?role=${encodeURIComponent(role)}`, { credentials: 'include' });
       if (!response.ok) throw new Error('PDF export failed');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -200,7 +194,7 @@ export default function ReportsTab({ role = 'Store Manager' }: { role?: string }
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch('http://127.0.0.1:9000/api/v1/dashboard/export?format=json&metric=all');
+      const response = await fetch('/api/backend/v1/dashboard/export?format=json&metric=all', { credentials: 'include' });
       if (!response.ok) throw new Error('Export failed');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

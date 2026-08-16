@@ -21,7 +21,7 @@ export default function StoreLayoutTab() {
 
   // STEP 1: Fetch the global layout on load
   useEffect(() => {
-    fetch('http://127.0.0.1:9000/api/v1/layout')
+    fetch('/api/backend/v1/layout', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success" && data.data.length > 0) {
@@ -55,9 +55,10 @@ export default function StoreLayoutTab() {
   const handlePublishLayout = async () => {
     setIsPublishing(true);
     try {
-      const response = await fetch('http://127.0.0.1:9000/api/v1/layout', {
+      const response = await fetch('/api/backend/v1/layout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(zones)
       });
       if (response.ok) {
@@ -66,8 +67,8 @@ export default function StoreLayoutTab() {
         alert("❌ Failed to sync layout. Check backend terminal.");
       }
     } catch (err) {
-  console.error("Layout sync error:", err);
-  alert("❌ Cannot connect to backend server.");
+      console.error("Layout sync error:", err);
+      alert("❌ Cannot connect to backend server.");
     } finally {
       setIsPublishing(false);
     }

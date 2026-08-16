@@ -25,7 +25,7 @@ export default function BehaviorTab() {
   useEffect(() => {
     let isMounted = true;
     const fetchBehavior = () => {
-      fetch('http://127.0.0.1:9000/api/v1/dashboard/behavior')
+      fetch('/api/backend/v1/dashboard/behavior', { credentials: 'include' })
         .then(res => res.json())
         .then(json => {
           if (isMounted && json.status === "success") setData(json.data);

@@ -44,7 +44,7 @@ export default function AttentionTab() {
     // "gaze duration", which isn't something the camera setup can measure —
     // the Mall/MERL feeds are overhead/downward-angle, so faces usually
     // aren't visible for real gaze estimation. Relabeled honestly below.
-    fetch('http://127.0.0.1:9000/api/v1/dashboard/dwell')
+    fetch('/api/backend/v1/dashboard/dwell', { credentials: 'include' })
       .then(res => res.json())
       .then(json => {
         if (isMounted && json.status === "success") setData(json.data);

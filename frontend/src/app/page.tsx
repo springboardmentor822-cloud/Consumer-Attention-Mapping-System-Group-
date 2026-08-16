@@ -27,25 +27,27 @@ import StoreLayoutTab from '@/components/tabs/StoreLayoutTab';
 
 const getSidebarForRole = (role: string) => {
   if (role === 'Administrator') return [
-    { title: "System Admin", tabs: ['Overview', 'Executive Reports', 'Data Export', 'Hardware & Infrastructure', 'Security & Audit Logs'] },
+    { title: "System Admin", tabs: ['Overview', 'Executive Reports', 'Hardware & Infrastructure', 'Security & Audit Logs'] },
     { title: "Governance", tabs: ['Identity & Access (IAM)'] },
-    { title: "Spatial Vision", tabs: ['Live Floor Operations', 'Store Layout', 'Customer Journey'] },
+    { title: "Spatial Vision", tabs: ['Live Floor Operations', 'Customer Journey'] },
     { title: "System Config", tabs: ['Global Settings'] }
   ];
   if (role === 'Retail Analyst') return [
-    { title: "Core Dashboard", tabs: ['Overview', 'Executive Reports', 'Data Export', 'AI Insights'] },
+    { title: "Core Dashboard", tabs: ['Overview', 'Executive Reports', 'AI Insights'] },
     { title: "Analytics Engine", tabs: ['Audience Intelligence', 'Merchandising Analytics', 'Behavioral Metrics'] },
-    { title: "Spatial Engagement", tabs: ['Customer Journey'] }
+    { title: "Spatial Engagement", tabs: ['Customer Journey'] },
+    { title: "Data & Tools", tabs: ['System Tools'] }
   ];
   if (role === 'Marketing Manager') return [
-    { title: "Core Dashboard", tabs: ['Overview', 'Executive Reports', 'Data Export', 'AI Insights'] },
+    { title: "Core Dashboard", tabs: ['Overview', 'Executive Reports', 'AI Insights'] },
     { title: "Audience & Campaigns", tabs: ['Audience Intelligence', 'Campaign A/B', 'Recommendations'] },
-    { title: "Spatial Engagement", tabs: ['Customer Journey', 'Micro-Level Shelves'] }
+    { title: "Spatial Engagement", tabs: ['Customer Journey', 'Micro-Level Shelves'] },
+    { title: "Data & Tools", tabs: ['System Tools'] }
   ];
   return [ // Default Store Manager
-    { title: "Core Dashboard", tabs: ['Overview', 'Executive Reports', 'Data Export', 'AI Insights'] },
+    { title: "Core Dashboard", tabs: ['Overview', 'Executive Reports', 'AI Insights'] },
     { title: "Store Operations", tabs: ['Inventory & Sales', 'Customer History'] },
-    { title: "Spatial Vision", tabs: ['Live Floor Operations', 'Store Layout'] },
+    { title: "Spatial Vision", tabs: ['Live Floor Operations'] },
     { title: "System", tabs: ['System Tools'] }
   ];
 };
@@ -70,7 +72,9 @@ export default function Home() {
 
     const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
     try {
-      const response = await fetch(`http://127.0.0.1:9000${endpoint}`, {
+      // Relative proxy path to ensure cookies are attached properly
+      const proxyEndpoint = endpoint.replace('/api/', '/api/backend/');
+      const response = await fetch(proxyEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role: isLoginMode ? 'unassigned' : role })
@@ -81,7 +85,13 @@ export default function Home() {
         setIsAuthenticated(true);
         setActiveTab('Overview');
       } else {
-        setAuthError(data.detail || 'Authentication failed');
+        if (Array.isArray(data.detail) && data.detail.length > 0) {
+          setAuthError(`Validation Error: ${data.detail[0].msg}`);
+        } else if (typeof data.detail === 'string') {
+          setAuthError(data.detail);
+        } else {
+          setAuthError('Authentication failed. Please try again.');
+        }
       }
     } catch (error) {
       console.error(error);
