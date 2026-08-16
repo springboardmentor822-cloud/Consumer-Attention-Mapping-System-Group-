@@ -1,0 +1,14 @@
+{
+  "dataset_key": "coco",
+  "name": "COCO Person Detection Dataset",
+  "purpose": "Extract baseline weights for tracking human bodies (Shoppers)",
+  "status": "ready",
+  "metadata": {
+    "classes": [
+      "person"
+    ],
+    "version": "COCO-2017 Person Subset",
+    "task": "Shopper Body Detection",
+    "image_count": 500
+  }
+}

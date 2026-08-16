@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "Coca-Cola 500ml",
+    "category": "Beverages",
+    "sku": "BEV-COKE-500",
+    "price": 1.99,
+    "image_url": "/images/coke.png",
+    "created_at": "2026-07-14T11:33:09.528627"
+  },
+  {
+    "id": 2,
+    "name": "Lays Classic Chips",
+    "category": "Snacks",
+    "sku": "SNK-LAYS-CLS",
+    "price": 3.49,
+    "image_url": "/images/lays.png",
+    "created_at": "2026-07-14T11:33:09.528630"
+  },
+  {
+    "id": 3,
+    "name": "Oreo Cookies 120g",
+    "category": "Snacks",
+    "sku": "SNK-OREO-120",
+    "price": 2.99,
+    "image_url": "/images/oreo.png",
+    "created_at": "2026-07-14T11:33:09.528632"
+  }
+]

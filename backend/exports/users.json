@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "email": "admin@attention.com",
+    "hashed_password": "$2b$12$X4n6.HP.mTMfxzFKiE6e4uQFi5oN2bEWtfruBdO1OKheyZE5AJLky",
+    "full_name": "Super Admin",
+    "role": "Administrator",
+    "is_active": true,
+    "created_at": "2026-07-14T11:33:09.509535"
+  },
+  {
+    "id": 2,
+    "email": "manager@attention.com",
+    "hashed_password": "$2b$12$fy/NEoBbnDDcqt5vTVyQf.ZtmXsqNPbIrayfJuOpU618EZNCbjJf6",
+    "full_name": "Store Manager Dave",
+    "role": "Store Manager",
+    "is_active": true,
+    "created_at": "2026-07-14T11:33:09.509539"
+  },
+  {
+    "id": 3,
+    "email": "analyst@attention.com",
+    "hashed_password": "$2b$12$d3mbT7hFwukjUMzmALbHWOrvgpzSgFidTe0gu1q7yJjJlVlS8PGI2",
+    "full_name": "Analyst Sarah",
+    "role": "Retail Analyst",
+    "is_active": true,
+    "created_at": "2026-07-14T11:33:09.509541"
+  },
+  {
+    "id": 4,
+    "email": "marketing@attention.com",
+    "hashed_password": "$2b$12$Tf.OqvQwsRDhBBKxp5aMle8IYaFKDYKFJtY5SI52LP8Kx2jaHA8fG",
+    "full_name": "Marketer Alice",
+    "role": "Marketing Manager",
+    "is_active": true,
+    "created_at": "2026-07-14T11:33:09.509542"
+  }
+]

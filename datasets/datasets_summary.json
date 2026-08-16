@@ -1,0 +1,26 @@
+{
+  "coco": {
+    "name": "COCO Person Detection Dataset",
+    "path": "C:\\Users\\koush\\OneDrive\\Documents\\Consumer Attention Mapping\\datasets\\coco",
+    "status": "ready",
+    "purpose": "Extract baseline weights for tracking human bodies (Shoppers)"
+  },
+  "sku110k": {
+    "name": "SKU-110K Shelf Products Dataset",
+    "path": "C:\\Users\\koush\\OneDrive\\Documents\\Consumer Attention Mapping\\datasets\\sku110k",
+    "status": "ready",
+    "purpose": "Recognize tightly packed items on shelves & detect shopper shelf interaction"
+  },
+  "retail_checkout": {
+    "name": "Retail Product Checkout Dataset",
+    "path": "C:\\Users\\koush\\OneDrive\\Documents\\Consumer Attention Mapping\\datasets\\retail_checkout",
+    "status": "ready",
+    "purpose": "Detect packed items at checkout lanes & register interactions"
+  },
+  "retail_store_traffic": {
+    "name": "Retail Store Traffic Dataset",
+    "path": "C:\\Users\\koush\\OneDrive\\Documents\\Consumer Attention Mapping\\datasets\\retail_store_traffic",
+    "status": "ready",
+    "purpose": "Simulate live camera feeds across Foyer, Aisle, and Checkout zones"
+  }
+}

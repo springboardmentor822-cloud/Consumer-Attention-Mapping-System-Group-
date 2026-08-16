@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "shelf_id": 2,
+    "product_id": 1,
+    "position_x": 0.5,
+    "position_y": 0.2,
+    "min_stock": 5,
+    "current_stock": 12
+  },
+  {
+    "id": 2,
+    "shelf_id": 3,
+    "product_id": 2,
+    "position_x": 1.2,
+    "position_y": 0.5,
+    "min_stock": 4,
+    "current_stock": 8
+  },
+  {
+    "id": 3,
+    "shelf_id": 3,
+    "product_id": 3,
+    "position_x": 2.0,
+    "position_y": 0.8,
+    "min_stock": 6,
+    "current_stock": 15
+  }
+]

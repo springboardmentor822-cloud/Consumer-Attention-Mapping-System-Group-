@@ -1,0 +1,16 @@
+{
+  "dataset_key": "sku110k",
+  "name": "SKU-110K Shelf Products Dataset",
+  "purpose": "Recognize tightly packed items on shelves & detect shopper shelf interaction",
+  "status": "ready",
+  "metadata": {
+    "classes": [
+      "shelf_item",
+      "beverage_bottle",
+      "snack_pack"
+    ],
+    "version": "SKU-110K Retail Subset",
+    "task": "Dense Shelf Object Detection",
+    "image_count": 1100
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "dataset_key": "retail_checkout",
+  "name": "Retail Product Checkout Dataset",
+  "purpose": "Detect packed items at checkout lanes & register interactions",
+  "status": "ready",
+  "metadata": {
+    "classes": [
+      "checkout_item",
+      "barcoded_product",
+      "register_scanner"
+    ],
+    "version": "RPC-V1 Subset",
+    "task": "Checkout Item & Bottleneck Detection",
+    "image_count": 350
+  }
+}

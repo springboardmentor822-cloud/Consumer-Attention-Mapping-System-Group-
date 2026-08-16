@@ -1,0 +1,31 @@
+{
+  "dataset": "Retail Product Checkout Dataset",
+  "schema_version": "1.0",
+  "sample_entries": [
+    {
+      "image_id": "retail_checkout_001.jpg",
+      "annotations": [
+        {
+          "class_name": "shopper",
+          "bbox": [
+            120,
+            80,
+            240,
+            450
+          ],
+          "confidence": 0.94
+        },
+        {
+          "class_name": "shelf_product",
+          "bbox": [
+            320,
+            150,
+            400,
+            220
+          ],
+          "confidence": 0.91
+        }
+      ]
+    }
+  ]
+}

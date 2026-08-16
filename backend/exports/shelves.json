@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "store_id": 1,
+    "name": "Zone A: Entrance/Main Foyer",
+    "zone_name": "Entrance/Exit Foyer",
+    "width": 4.0,
+    "height": 3.0,
+    "coordinates_json": "{\"x\": 10, \"y\": 10, \"w\": 80, \"h\": 12}",
+    "created_at": "2026-07-14T11:33:09.524187"
+  },
+  {
+    "id": 2,
+    "store_id": 1,
+    "name": "Shelf 1 (Beverages)",
+    "zone_name": "Main Product Aisle",
+    "width": 2.4,
+    "height": 1.8,
+    "coordinates_json": "{\"x\": 10, \"y\": 30, \"w\": 38, \"h\": 15}",
+    "created_at": "2026-07-14T11:33:09.524203"
+  },
+  {
+    "id": 3,
+    "store_id": 1,
+    "name": "Shelf 2 (Snacks)",
+    "zone_name": "Main Product Aisle",
+    "width": 3.0,
+    "height": 2.0,
+    "coordinates_json": "{\"x\": 52, \"y\": 30, \"w\": 38, \"h\": 15}",
+    "created_at": "2026-07-14T11:33:09.524205"
+  },
+  {
+    "id": 4,
+    "store_id": 1,
+    "name": "Zone C: Checkout Lanes",
+    "zone_name": "Checkout Lanes",
+    "width": 5.0,
+    "height": 2.0,
+    "coordinates_json": "{\"x\": 10, \"y\": 75, \"w\": 80, \"h\": 15}",
+    "created_at": "2026-07-14T11:33:09.524206"
+  }
+]

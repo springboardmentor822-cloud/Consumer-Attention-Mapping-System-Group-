@@ -1,0 +1,1008 @@
+{
+  "overview": {
+    "selected_store_id": 1,
+    "store_name": "Flagship Superstore #1",
+    "store_type": "Type A",
+    "store_size_sqft": 151315,
+    "total_revenue": 222402808.85,
+    "total_records": 10244,
+    "total_stores": 1,
+    "total_departments": 77,
+    "avg_weekly_sales": 21710.54,
+    "sales_per_sqft": 1469.8,
+    "top_department": {
+      "dept_id": 92,
+      "category_name": "Premium Beverages & Liquor",
+      "total_sales": 19370632.64,
+      "sales_share_pct": 8.71,
+      "avg_weekly_sales": 135458.97,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 1
+    },
+    "holiday_analysis": {
+      "holiday_avg_weekly": 23039.39,
+      "normal_avg_weekly": 21609.63,
+      "holiday_sales_lift_pct": 6.62
+    }
+  },
+  "departments": [
+    {
+      "dept_id": 92,
+      "category_name": "Premium Beverages & Liquor",
+      "total_sales": 19370632.64,
+      "sales_share_pct": 8.71,
+      "avg_weekly_sales": 135458.97,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 1
+    },
+    {
+      "dept_id": 95,
+      "category_name": "Groceries & Dry Goods",
+      "total_sales": 17270404.89,
+      "sales_share_pct": 7.77,
+      "avg_weekly_sales": 120772.06,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 2
+    },
+    {
+      "dept_id": 90,
+      "category_name": "Bakery & Fresh Gourmet",
+      "total_sales": 11787139.34,
+      "sales_share_pct": 5.3,
+      "avg_weekly_sales": 82427.55,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 3
+    },
+    {
+      "dept_id": 38,
+      "category_name": "Apparel & Fashion",
+      "total_sales": 11436885.83,
+      "sales_share_pct": 5.14,
+      "avg_weekly_sales": 79978.22,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 4
+    },
+    {
+      "dept_id": 93,
+      "category_name": "Product Line #93",
+      "total_sales": 10252983.08,
+      "sales_share_pct": 4.61,
+      "avg_weekly_sales": 71699.18,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 5
+    },
+    {
+      "dept_id": 91,
+      "category_name": "Product Line #91",
+      "total_sales": 9186168.91,
+      "sales_share_pct": 4.13,
+      "avg_weekly_sales": 64238.94,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 6
+    },
+    {
+      "dept_id": 94,
+      "category_name": "Product Line #94",
+      "total_sales": 9034821.25,
+      "sales_share_pct": 4.06,
+      "avg_weekly_sales": 63180.57,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 7
+    },
+    {
+      "dept_id": 40,
+      "category_name": "Product Line #40",
+      "total_sales": 8366988.51,
+      "sales_share_pct": 3.76,
+      "avg_weekly_sales": 58510.41,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 8
+    },
+    {
+      "dept_id": 72,
+      "category_name": "Consumer Electronics & TV",
+      "total_sales": 6776862.22,
+      "sales_share_pct": 3.05,
+      "avg_weekly_sales": 47390.64,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 9
+    },
+    {
+      "dept_id": 2,
+      "category_name": "Meats & Prepared Deli",
+      "total_sales": 6592598.93,
+      "sales_share_pct": 2.96,
+      "avg_weekly_sales": 46102.09,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 10
+    },
+    {
+      "dept_id": 87,
+      "category_name": "Product Line #87",
+      "total_sales": 6578897.64,
+      "sales_share_pct": 2.96,
+      "avg_weekly_sales": 46006.28,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 11
+    },
+    {
+      "dept_id": 13,
+      "category_name": "Apparel & Accessories",
+      "total_sales": 5533081.91,
+      "sales_share_pct": 2.49,
+      "avg_weekly_sales": 38692.88,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 12
+    },
+    {
+      "dept_id": 4,
+      "category_name": "Frozen Foods & Ice Cream",
+      "total_sales": 5285874.09,
+      "sales_share_pct": 2.38,
+      "avg_weekly_sales": 36964.15,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 13
+    },
+    {
+      "dept_id": 8,
+      "category_name": "Health & Personal Care",
+      "total_sales": 5107710.84,
+      "sales_share_pct": 2.3,
+      "avg_weekly_sales": 35718.26,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 14
+    },
+    {
+      "dept_id": 97,
+      "category_name": "Product Line #97",
+      "total_sales": 5034650.88,
+      "sales_share_pct": 2.26,
+      "avg_weekly_sales": 35207.35,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 15
+    },
+    {
+      "dept_id": 79,
+      "category_name": "Product Line #79",
+      "total_sales": 4858395.39,
+      "sales_share_pct": 2.18,
+      "avg_weekly_sales": 33974.79,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 16
+    },
+    {
+      "dept_id": 10,
+      "category_name": "Baby Products & Diapers",
+      "total_sales": 4437774.25,
+      "sales_share_pct": 2.0,
+      "avg_weekly_sales": 31033.39,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 17
+    },
+    {
+      "dept_id": 81,
+      "category_name": "Product Line #81",
+      "total_sales": 4258639.61,
+      "sales_share_pct": 1.91,
+      "avg_weekly_sales": 29780.7,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 18
+    },
+    {
+      "dept_id": 96,
+      "category_name": "Product Line #96",
+      "total_sales": 4056723.46,
+      "sales_share_pct": 1.82,
+      "avg_weekly_sales": 33251.83,
+      "records_count": 122,
+      "stores_count": 1,
+      "rank": 19
+    },
+    {
+      "dept_id": 9,
+      "category_name": "Beauty & Cosmetics",
+      "total_sales": 4012873.47,
+      "sales_share_pct": 1.8,
+      "avg_weekly_sales": 28062.05,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 20
+    },
+    {
+      "dept_id": 11,
+      "category_name": "Household Cleaning & Paper",
+      "total_sales": 3563455.7,
+      "sales_share_pct": 1.6,
+      "avg_weekly_sales": 24919.27,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 21
+    },
+    {
+      "dept_id": 7,
+      "category_name": "Confectionery & Sweets",
+      "total_sales": 3513007.7,
+      "sales_share_pct": 1.58,
+      "avg_weekly_sales": 24566.49,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 22
+    },
+    {
+      "dept_id": 5,
+      "category_name": "Pantry & Canned Goods",
+      "total_sales": 3468885.58,
+      "sales_share_pct": 1.56,
+      "avg_weekly_sales": 24257.94,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 23
+    },
+    {
+      "dept_id": 16,
+      "category_name": "Toys, Hobbies & Games",
+      "total_sales": 3453601.77,
+      "sales_share_pct": 1.55,
+      "avg_weekly_sales": 24151.06,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 24
+    },
+    {
+      "dept_id": 1,
+      "category_name": "Fresh Produce & Bakery",
+      "total_sales": 3219405.18,
+      "sales_share_pct": 1.45,
+      "avg_weekly_sales": 22513.32,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 25
+    },
+    {
+      "dept_id": 23,
+      "category_name": "Product Line #23",
+      "total_sales": 3092115.41,
+      "sales_share_pct": 1.39,
+      "avg_weekly_sales": 21623.18,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 26
+    },
+    {
+      "dept_id": 82,
+      "category_name": "Product Line #82",
+      "total_sales": 2964084.11,
+      "sales_share_pct": 1.33,
+      "avg_weekly_sales": 20727.86,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 27
+    },
+    {
+      "dept_id": 46,
+      "category_name": "Product Line #46",
+      "total_sales": 2811807.55,
+      "sales_share_pct": 1.26,
+      "avg_weekly_sales": 19662.99,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 28
+    },
+    {
+      "dept_id": 80,
+      "category_name": "Product Line #80",
+      "total_sales": 2450921.99,
+      "sales_share_pct": 1.1,
+      "avg_weekly_sales": 17139.31,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 29
+    },
+    {
+      "dept_id": 14,
+      "category_name": "Electronics & Computers",
+      "total_sales": 2183402.78,
+      "sales_share_pct": 0.98,
+      "avg_weekly_sales": 15268.55,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 30
+    },
+    {
+      "dept_id": 3,
+      "category_name": "Dairy & Refrigerated Goods",
+      "total_sales": 1880518.36,
+      "sales_share_pct": 0.85,
+      "avg_weekly_sales": 13150.48,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 31
+    },
+    {
+      "dept_id": 55,
+      "category_name": "Product Line #55",
+      "total_sales": 1832951.6,
+      "sales_share_pct": 0.82,
+      "avg_weekly_sales": 12817.84,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 32
+    },
+    {
+      "dept_id": 98,
+      "category_name": "Product Line #98",
+      "total_sales": 1691371.22,
+      "sales_share_pct": 0.76,
+      "avg_weekly_sales": 11827.77,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 33
+    },
+    {
+      "dept_id": 74,
+      "category_name": "Product Line #74",
+      "total_sales": 1666354.32,
+      "sales_share_pct": 0.75,
+      "avg_weekly_sales": 11652.83,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 34
+    },
+    {
+      "dept_id": 34,
+      "category_name": "Product Line #34",
+      "total_sales": 1648908.93,
+      "sales_share_pct": 0.74,
+      "avg_weekly_sales": 11530.83,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 35
+    },
+    {
+      "dept_id": 49,
+      "category_name": "Product Line #49",
+      "total_sales": 1635624.17,
+      "sales_share_pct": 0.74,
+      "avg_weekly_sales": 11437.93,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 36
+    },
+    {
+      "dept_id": 12,
+      "category_name": "Pet Supplies & Animal Care",
+      "total_sales": 1511015.98,
+      "sales_share_pct": 0.68,
+      "avg_weekly_sales": 10566.55,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 37
+    },
+    {
+      "dept_id": 25,
+      "category_name": "Product Line #25",
+      "total_sales": 1451784.16,
+      "sales_share_pct": 0.65,
+      "avg_weekly_sales": 10152.34,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 38
+    },
+    {
+      "dept_id": 17,
+      "category_name": "Sporting Goods & Outdoor",
+      "total_sales": 1315107.78,
+      "sales_share_pct": 0.59,
+      "avg_weekly_sales": 9196.56,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 39
+    },
+    {
+      "dept_id": 32,
+      "category_name": "Product Line #32",
+      "total_sales": 1172981.58,
+      "sales_share_pct": 0.53,
+      "avg_weekly_sales": 8202.67,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 40
+    },
+    {
+      "dept_id": 22,
+      "category_name": "Product Line #22",
+      "total_sales": 1151446.89,
+      "sales_share_pct": 0.52,
+      "avg_weekly_sales": 8052.08,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 41
+    },
+    {
+      "dept_id": 42,
+      "category_name": "Product Line #42",
+      "total_sales": 1135466.65,
+      "sales_share_pct": 0.51,
+      "avg_weekly_sales": 7940.33,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 42
+    },
+    {
+      "dept_id": 21,
+      "category_name": "Product Line #21",
+      "total_sales": 1116608.43,
+      "sales_share_pct": 0.5,
+      "avg_weekly_sales": 7808.45,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 43
+    },
+    {
+      "dept_id": 67,
+      "category_name": "Product Line #67",
+      "total_sales": 1063350.48,
+      "sales_share_pct": 0.48,
+      "avg_weekly_sales": 7436.02,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 44
+    },
+    {
+      "dept_id": 26,
+      "category_name": "Product Line #26",
+      "total_sales": 967823.61,
+      "sales_share_pct": 0.44,
+      "avg_weekly_sales": 6768.0,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 45
+    },
+    {
+      "dept_id": 24,
+      "category_name": "Product Line #24",
+      "total_sales": 884796.73,
+      "sales_share_pct": 0.4,
+      "avg_weekly_sales": 6187.39,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 46
+    },
+    {
+      "dept_id": 18,
+      "category_name": "Automotive & Hardware",
+      "total_sales": 877479.4,
+      "sales_share_pct": 0.39,
+      "avg_weekly_sales": 7765.3,
+      "records_count": 113,
+      "stores_count": 1,
+      "rank": 47
+    },
+    {
+      "dept_id": 33,
+      "category_name": "Product Line #33",
+      "total_sales": 850339.66,
+      "sales_share_pct": 0.38,
+      "avg_weekly_sales": 5946.43,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 48
+    },
+    {
+      "dept_id": 83,
+      "category_name": "Product Line #83",
+      "total_sales": 815679.0,
+      "sales_share_pct": 0.37,
+      "avg_weekly_sales": 5704.05,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 49
+    },
+    {
+      "dept_id": 44,
+      "category_name": "Product Line #44",
+      "total_sales": 696799.59,
+      "sales_share_pct": 0.31,
+      "avg_weekly_sales": 4872.72,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 50
+    },
+    {
+      "dept_id": 6,
+      "category_name": "Beverages & Snacks",
+      "total_sales": 686654.56,
+      "sales_share_pct": 0.31,
+      "avg_weekly_sales": 4801.78,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 51
+    },
+    {
+      "dept_id": 29,
+      "category_name": "Product Line #29",
+      "total_sales": 665098.75,
+      "sales_share_pct": 0.3,
+      "avg_weekly_sales": 4651.04,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 52
+    },
+    {
+      "dept_id": 20,
+      "category_name": "Home Decor & Furnishings",
+      "total_sales": 585094.73,
+      "sales_share_pct": 0.26,
+      "avg_weekly_sales": 4091.57,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 53
+    },
+    {
+      "dept_id": 56,
+      "category_name": "Product Line #56",
+      "total_sales": 572068.73,
+      "sales_share_pct": 0.26,
+      "avg_weekly_sales": 4000.48,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 54
+    },
+    {
+      "dept_id": 85,
+      "category_name": "Product Line #85",
+      "total_sales": 527080.2,
+      "sales_share_pct": 0.24,
+      "avg_weekly_sales": 3685.88,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 55
+    },
+    {
+      "dept_id": 30,
+      "category_name": "Product Line #30",
+      "total_sales": 488387.19,
+      "sales_share_pct": 0.22,
+      "avg_weekly_sales": 3415.3,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 56
+    },
+    {
+      "dept_id": 58,
+      "category_name": "Product Line #58",
+      "total_sales": 482263.85,
+      "sales_share_pct": 0.22,
+      "avg_weekly_sales": 3372.47,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 57
+    },
+    {
+      "dept_id": 37,
+      "category_name": "Product Line #37",
+      "total_sales": 400470.8,
+      "sales_share_pct": 0.18,
+      "avg_weekly_sales": 2800.5,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 58
+    },
+    {
+      "dept_id": 71,
+      "category_name": "Product Line #71",
+      "total_sales": 390743.69,
+      "sales_share_pct": 0.18,
+      "avg_weekly_sales": 2732.47,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 59
+    },
+    {
+      "dept_id": 35,
+      "category_name": "Product Line #35",
+      "total_sales": 362609.52,
+      "sales_share_pct": 0.16,
+      "avg_weekly_sales": 2535.73,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 60
+    },
+    {
+      "dept_id": 31,
+      "category_name": "Product Line #31",
+      "total_sales": 344420.26,
+      "sales_share_pct": 0.15,
+      "avg_weekly_sales": 2408.53,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 61
+    },
+    {
+      "dept_id": 52,
+      "category_name": "Product Line #52",
+      "total_sales": 336827.83,
+      "sales_share_pct": 0.15,
+      "avg_weekly_sales": 2355.44,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 62
+    },
+    {
+      "dept_id": 36,
+      "category_name": "Product Line #36",
+      "total_sales": 211097.11,
+      "sales_share_pct": 0.09,
+      "avg_weekly_sales": 1476.2,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 63
+    },
+    {
+      "dept_id": 27,
+      "category_name": "Product Line #27",
+      "total_sales": 196574.9,
+      "sales_share_pct": 0.09,
+      "avg_weekly_sales": 1374.65,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 64
+    },
+    {
+      "dept_id": 19,
+      "category_name": "Office & School Supplies",
+      "total_sales": 180039.65,
+      "sales_share_pct": 0.08,
+      "avg_weekly_sales": 1259.02,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 65
+    },
+    {
+      "dept_id": 41,
+      "category_name": "Product Line #41",
+      "total_sales": 152262.06,
+      "sales_share_pct": 0.07,
+      "avg_weekly_sales": 1064.77,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 66
+    },
+    {
+      "dept_id": 60,
+      "category_name": "Product Line #60",
+      "total_sales": 146002.4,
+      "sales_share_pct": 0.07,
+      "avg_weekly_sales": 1021.0,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 67
+    },
+    {
+      "dept_id": 59,
+      "category_name": "Product Line #59",
+      "total_sales": 122661.84,
+      "sales_share_pct": 0.06,
+      "avg_weekly_sales": 857.78,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 68
+    },
+    {
+      "dept_id": 48,
+      "category_name": "Product Line #48",
+      "total_sales": 114715.99,
+      "sales_share_pct": 0.05,
+      "avg_weekly_sales": 917.73,
+      "records_count": 125,
+      "stores_count": 1,
+      "rank": 69
+    },
+    {
+      "dept_id": 28,
+      "category_name": "Product Line #28",
+      "total_sales": 84815.3,
+      "sales_share_pct": 0.04,
+      "avg_weekly_sales": 593.11,
+      "records_count": 143,
+      "stores_count": 1,
+      "rank": 70
+    },
+    {
+      "dept_id": 54,
+      "category_name": "Product Line #54",
+      "total_sales": 12092.5,
+      "sales_share_pct": 0.01,
+      "avg_weekly_sales": 90.92,
+      "records_count": 133,
+      "stores_count": 1,
+      "rank": 71
+    },
+    {
+      "dept_id": 99,
+      "category_name": "Product Line #99",
+      "total_sales": 11325.37,
+      "sales_share_pct": 0.01,
+      "avg_weekly_sales": 306.09,
+      "records_count": 37,
+      "stores_count": 1,
+      "rank": 72
+    },
+    {
+      "dept_id": 77,
+      "category_name": "Product Line #77",
+      "total_sales": 2031.0,
+      "sales_share_pct": 0.0,
+      "avg_weekly_sales": 677.0,
+      "records_count": 3,
+      "stores_count": 1,
+      "rank": 73
+    },
+    {
+      "dept_id": 45,
+      "category_name": "Product Line #45",
+      "total_sales": 1703.65,
+      "sales_share_pct": 0.0,
+      "avg_weekly_sales": 24.0,
+      "records_count": 71,
+      "stores_count": 1,
+      "rank": 74
+    },
+    {
+      "dept_id": 51,
+      "category_name": "Product Line #51",
+      "total_sales": 1079.52,
+      "sales_share_pct": 0.0,
+      "avg_weekly_sales": 32.71,
+      "records_count": 33,
+      "stores_count": 1,
+      "rank": 75
+    },
+    {
+      "dept_id": 78,
+      "category_name": "Product Line #78",
+      "total_sales": 46.0,
+      "sales_share_pct": 0.0,
+      "avg_weekly_sales": 11.5,
+      "records_count": 4,
+      "stores_count": 1,
+      "rank": 76
+    },
+    {
+      "dept_id": 47,
+      "category_name": "Product Line #47",
+      "total_sales": -2562.0,
+      "sales_share_pct": -0.0,
+      "avg_weekly_sales": -116.45,
+      "records_count": 22,
+      "stores_count": 1,
+      "rank": 77
+    }
+  ],
+  "stores": [
+    {
+      "store_id": 1,
+      "type": "A",
+      "size_sqft": 151315,
+      "total_sales": 222402808.85,
+      "sales_per_sqft": 1469.8,
+      "dept_count": 77
+    }
+  ],
+  "trends": [
+    {
+      "period": "2010-02",
+      "sales": 6307344.1
+    },
+    {
+      "period": "2010-03",
+      "sales": 5871293.98
+    },
+    {
+      "period": "2010-04",
+      "sales": 7422801.92
+    },
+    {
+      "period": "2010-05",
+      "sales": 5929938.64
+    },
+    {
+      "period": "2010-06",
+      "sales": 6084081.46
+    },
+    {
+      "period": "2010-07",
+      "sales": 7244483.04
+    },
+    {
+      "period": "2010-08",
+      "sales": 6075952.95
+    },
+    {
+      "period": "2010-09",
+      "sales": 5829793.92
+    },
+    {
+      "period": "2010-10",
+      "sales": 7150641.75
+    },
+    {
+      "period": "2010-11",
+      "sales": 6485547.06
+    },
+    {
+      "period": "2010-12",
+      "sales": 8876953.18
+    },
+    {
+      "period": "2011-01",
+      "sales": 5480050.97
+    },
+    {
+      "period": "2011-02",
+      "sales": 6399887.57
+    },
+    {
+      "period": "2011-03",
+      "sales": 6307375.48
+    },
+    {
+      "period": "2011-04",
+      "sales": 7689123.6
+    },
+    {
+      "period": "2011-05",
+      "sales": 6128431.8
+    },
+    {
+      "period": "2011-06",
+      "sales": 6194971.74
+    },
+    {
+      "period": "2011-07",
+      "sales": 7227654.31
+    },
+    {
+      "period": "2011-08",
+      "sales": 6144985.73
+    },
+    {
+      "period": "2011-09",
+      "sales": 7379542.34
+    },
+    {
+      "period": "2011-10",
+      "sales": 6072327.75
+    },
+    {
+      "period": "2011-11",
+      "sales": 6864972.83
+    },
+    {
+      "period": "2011-12",
+      "sales": 9032594.71
+    },
+    {
+      "period": "2012-01",
+      "sales": 5723690.52
+    },
+    {
+      "period": "2012-02",
+      "sales": 6798074.91
+    },
+    {
+      "period": "2012-03",
+      "sales": 8201997.4
+    },
+    {
+      "period": "2012-04",
+      "sales": 6511214.82
+    },
+    {
+      "period": "2012-05",
+      "sales": 6446962.46
+    },
+    {
+      "period": "2012-06",
+      "sales": 8020582.84
+    },
+    {
+      "period": "2012-07",
+      "sales": 6233946.67
+    },
+    {
+      "period": "2012-08",
+      "sales": 7897619.59
+    },
+    {
+      "period": "2012-09",
+      "sales": 6122381.52
+    },
+    {
+      "period": "2012-10",
+      "sales": 6245587.29
+    }
+  ],
+  "store_types": [
+    {
+      "type": "A",
+      "store_count": 1,
+      "total_sales": 222402808.85,
+      "avg_size_sqft": 151315,
+      "share_pct": 100.0
+    }
+  ],
+  "dataset_info": {
+    "status": "ready",
+    "dataset_name": "CAMS Project Datasets (Store #1 Primary Context)",
+    "target_store": "Store #1 (Type A Superstore - 151,315 sq ft)",
+    "files": [
+      {
+        "file_name": "sales data-set.csv (Store #1)",
+        "purpose": "Product & Department Revenue Analytics",
+        "row_count": 10244,
+        "file_size_mb": 0.35,
+        "key_columns": [
+          "Store=1",
+          "Dept",
+          "Date",
+          "Weekly_Sales",
+          "IsHoliday"
+        ]
+      },
+      {
+        "file_name": "coco_person_annotations.json",
+        "purpose": "Shopper Body Detection & Tracking Weights",
+        "row_count": 250,
+        "file_size_mb": 0.12,
+        "key_columns": [
+          "images",
+          "annotations",
+          "bbox",
+          "category_id=1 (person)"
+        ]
+      },
+      {
+        "file_name": "sku110k_shelf_items.json",
+        "purpose": "Dense Shelf Product & Item Recognition",
+        "row_count": 180,
+        "file_size_mb": 0.08,
+        "key_columns": [
+          "shelf_product",
+          "bbox",
+          "confidence"
+        ]
+      },
+      {
+        "file_name": "retail_checkout_items.json",
+        "purpose": "Checkout Lane Item & Counter Interactions",
+        "row_count": 120,
+        "file_size_mb": 0.05,
+        "key_columns": [
+          "shopper",
+          "shelf_product",
+          "bbox"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "dataset_key": "retail_store_traffic",
+  "name": "Retail Store Traffic Dataset",
+  "purpose": "Simulate live camera feeds across Foyer, Aisle, and Checkout zones",
+  "status": "ready",
+  "metadata": {
+    "zones": [
+      "Zone 1: Entrance/Exit Foyer (Camera 1)",
+      "Zone 2: Main Product Aisle (Cameras 2 & 3)",
+      "Zone 3: Checkout Lanes (Camera 4)"
+    ],
+    "version": "CAMS-CCTV-V1",
+    "video_count": 4
+  }
+}
