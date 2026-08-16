@@ -95,13 +95,13 @@ Scans database metrics and system states to generate live notifications:
 
 ---
 
-## Milestone 3 Implementation (Approved)
+## Milestone 3 Implementation 
 * Completed the core video ingestion pipeline with YOLOv8 person detection and ByteTrack tracking.
 * Designed the 3x3 Store Manager surveillance grid and Retail Analyst flow metrics.
 * Implemented K-Means clustering, Kalman coordinate filters, and 2D floorplan heatmaps.
 * Integrated the main dashboard shell, navigation menus, and role permissions.
 
-## Milestone 4 Implementation (Additive Updates)
+## Milestone 4 Implementation 
 * **Administrator dashboard integration**: Integrated `<UsersCRUD />` and `<CamerasCRUD />` to enable user provisioning, role assignments, stream state controls (start, stop, restart), and hardware removals.
 * **Background alerting worker**: Extended `notification_worker.py` to evaluate shelf attention, product visibility, congestion spikes, traffic drops, and camera connection states with a 2-hour suppression window.
 * **Analytical PDF & Excel exports**: Enriched the reports controller to query `AnalyticsService` and output fully populated PDF tables and multi-tab Excel sheets.
