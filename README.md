@@ -292,3 +292,7 @@ shorter retention or explicit consent regardless of retention length.
 - `MILESTONE_1_SUBMISSION.md` — if this project is being submitted
   against a specific milestone checklist, this maps each requirement to
   the exact file(s) that satisfy it, in plain language
+
+## 🎥 Project Workflow Screen Recording
+
+-watch the Complete Project Workflow-(https://drive.google.com/file/d/1wqM3pvPiyzDl91CYev_VUMDwLqjmbtz5/view?usp=drivesdk)
