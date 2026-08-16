@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: sqlite:///./ci.db
+        run: python -m pytest app/tests/ -v
+
+  ai-modules-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module:
+          - { path: ai_models/video_intake, tests: "test_intake.py" }
+          - { path: ai_models/detection, tests: "." }
+          - { path: ai_models/calibration, tests: "test_homography.py" }
+          - { path: ai_models/attention, tests: "test_head_pose.py test_gaze_mapping.py" }
+          - { path: scripts/dataset_import, tests: "test_import_dataset.py" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install module dependencies
+        working-directory: ${{ matrix.module.path }}
+        run: pip install -r requirements.txt
+      - name: Download sample test video (video_intake and detection modules only)
+        if: contains(matrix.module.path, 'video_intake') || contains(matrix.module.path, 'detection')
+        run: |
+          mkdir -p ai_models/video_intake/sample_data
+          curl -sL -o ai_models/video_intake/sample_data/vtest.avi \
+            https://raw.githubusercontent.com/opencv/opencv/master/samples/data/vtest.avi
+      - name: Run tests
+        working-directory: ${{ matrix.module.path }}
+        run: python -m pytest ${{ matrix.module.tests }} -v
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build

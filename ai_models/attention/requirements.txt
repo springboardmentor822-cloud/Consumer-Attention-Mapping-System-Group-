@@ -1,0 +1,7 @@
+opencv-python-headless==4.13.0.88
+numpy>=1.26,<2.0
+requests==2.32.3
+pytest==8.2.0
+
+# Only needed for real landmark extraction (production path):
+# mediapipe>=0.10

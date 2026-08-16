@@ -1,0 +1,50 @@
+[
+  {
+    "id": "entrance",
+    "name": "Entrance",
+    "source": "sample_media/mall_entrance_baskets.mp4",
+    "start_offset_frames": 0
+  },
+  {
+    "id": "aisle_1",
+    "name": "Aisle 1",
+    "source": "sample_media/mall_produce_pickup.mp4",
+    "start_offset_frames": 0
+  },
+  {
+    "id": "aisle_2",
+    "name": "Aisle 2",
+    "source": "sample_media/mall_corridor_promo.mp4",
+    "start_offset_frames": 150
+  },
+  {
+    "id": "aisle_3",
+    "name": "Aisle 3",
+    "source": "sample_media/mall_counter_browsing.mp4",
+    "start_offset_frames": 0
+  },
+  {
+    "id": "aisle_4",
+    "name": "Aisle 4",
+    "source": "sample_media/mall_atrium.mp4",
+    "start_offset_frames": 500
+  },
+  {
+    "id": "promotion_area",
+    "name": "Promotion Area",
+    "source": "sample_media/mall_corridor_promo.mp4",
+    "start_offset_frames": 0
+  },
+  {
+    "id": "checkout",
+    "name": "Checkout",
+    "source": "sample_media/mall_checkout_payment.mp4",
+    "start_offset_frames": 0
+  },
+  {
+    "id": "exit",
+    "name": "Exit",
+    "source": "sample_media/mall_walkway.mp4",
+    "start_offset_frames": 200
+  }
+]

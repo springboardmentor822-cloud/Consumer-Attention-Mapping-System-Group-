@@ -1,0 +1,421 @@
+{
+  "info": {
+    "name": "Consumer Attention Mapping System - Milestone 1",
+    "description": "Tests Registration, Login/JWT, Store & Shelf CRUD, and failure states (unauthorized access, duplicate email, wrong password) against the FastAPI backend.\n\nRun order matters (top to bottom) - later requests reuse variables (access_token, store_id, shelf_id) captured from earlier ones.\n\nSet the `base_url` collection variable to wherever the backend is running (default: http://localhost:8000).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "test_email", "value": "" },
+    { "key": "access_token", "value": "" },
+    { "key": "store_id", "value": "" },
+    { "key": "shelf_id", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generate a unique email once per collection run so re-running",
+          "// this collection doesn't fail on 'Email already registered'.",
+          "if (!pm.collectionVariables.get('test_email')) {",
+          "  pm.collectionVariables.set('test_email', 'milestone1_' + Date.now() + '@example.com');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register (success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Milestone Tester\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"TestPass123\",\n  \"role\": \"administrator\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response contains the registered email', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.email).to.eql(pm.collectionVariables.get('test_email'));",
+                  "  pm.expect(body.is_active).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register (failure - duplicate email)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Milestone Tester\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"TestPass123\",\n  \"role\": \"administrator\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 Bad Request for duplicate email', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error message mentions the email is taken', function () {",
+                  "  pm.expect(pm.response.json().detail).to.include('already registered');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (failure - wrong password)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "{{test_email}}" },
+                { "key": "password", "value": "WrongPassword" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized for wrong password', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (success - get JWT)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "{{test_email}}" },
+                { "key": "password", "value": "TestPass123" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response contains an access_token (JWT)', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.access_token).to.be.a('string');",
+                  "  pm.expect(body.access_token.split('.').length).to.eql(3); // JWTs have 3 dot-separated parts",
+                  "  pm.collectionVariables.set('access_token', body.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user /auth/me (success)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/me", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "me"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK with a valid token', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Returns the correct logged-in user', function () {",
+                  "  pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('test_email'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user /auth/me (failure - no token)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v1/auth/me", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "me"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized without a token', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Stores",
+      "item": [
+        {
+          "name": "Get stores (failure - unauthorized, no token)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v1/stores", "host": ["{{base_url}}"], "path": ["api", "v1", "stores"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized without a token', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create store (success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Milestone Demo Store\",\n  \"city\": \"Testville\",\n  \"country\": \"Testland\",\n  \"floor_width_m\": 20,\n  \"floor_height_m\": 12\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/stores", "host": ["{{base_url}}"], "path": ["api", "v1", "stores"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Store has correct name and an id', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.name).to.eql('Milestone Demo Store');",
+                  "  pm.expect(body.id).to.be.a('number');",
+                  "  pm.collectionVariables.set('store_id', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get stores (success)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/stores", "host": ["{{base_url}}"], "path": ["api", "v1", "stores"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is a non-empty array containing our created store', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "  const ids = body.map(s => s.id);",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('store_id'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get single store by id (success)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/stores/{{store_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "stores", "{{store_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get single store by id (failure - not found)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/stores/999999", "host": ["{{base_url}}"], "path": ["api", "v1", "stores", "999999"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404 Not Found for a nonexistent store', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Shelves",
+      "item": [
+        {
+          "name": "Create shelf under store (success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": {{store_id}},\n  \"name\": \"Aisle 1 Shelf A\",\n  \"aisle\": \"1\",\n  \"position_coordinates\": \"[[0,0],[2,0],[2,1],[0,1]]\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/shelves", "host": ["{{base_url}}"], "path": ["api", "v1", "shelves"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Shelf is linked to the correct store', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.store_id).to.eql(pm.collectionVariables.get('store_id'));",
+                  "  pm.collectionVariables.set('shelf_id', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get shelves for store (success)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shelves?store_id={{store_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "shelves"],
+              "query": [{ "key": "store_id", "value": "{{store_id}}" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response includes our created shelf', function () {",
+                  "  const ids = pm.response.json().map(s => s.id);",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('shelf_id'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create shelf (failure - unauthorized, no token)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_id\": {{store_id}},\n  \"name\": \"Should Not Be Created\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/shelves", "host": ["{{base_url}}"], "path": ["api", "v1", "shelves"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized without a token', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
