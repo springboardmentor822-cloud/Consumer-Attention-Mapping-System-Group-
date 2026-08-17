@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { AlertTriangle, Users, Clock, Award, Activity, Lightbulb } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -91,7 +91,11 @@ class SimpleHeat {
   }
 }
 
-export function HeatmapDashboard(): JSX.Element {
+interface HeatmapDashboardProps {
+  storeId?: string;
+}
+
+export function HeatmapDashboard({ storeId: propStoreId }: HeatmapDashboardProps = {}): JSX.Element {
   const { user } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heatRef = useRef<SimpleHeat | null>(null);
@@ -101,127 +105,157 @@ export function HeatmapDashboard(): JSX.Element {
   
   const [kpis, setKpis] = useState<KPIStats | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [zones, setZones] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'live' | 'historical'>('historical');
-  const [timeRange, setTimeRange] = useState<number>(24);
+  const [timeRange, setTimeRange] = useState<number>(720);
   
-  const storeId = user?.store_id || 'test-store-id';
+  const resolvedStoreId = propStoreId || user?.store_id || null;
 
   // Fetch static analytics data
   useEffect(() => {
+    if (!resolvedStoreId) return;
+
     const fetchAnalytics = async () => {
       try {
-        const [kpiData, recsData] = await Promise.all([
-          analyticsApi.getKPIs(storeId),
-          analyticsApi.getRecommendations(storeId)
-        ]);
+        let kpiData = null;
+        let recsData = [];
+        let zonesData = [];
+
+        try { 
+          const kpiRes = await axios.get(`http://localhost:8000/api/analytics/kpis/${resolvedStoreId}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          kpiData = kpiRes.data;
+        } catch (e) { console.error("KPIs fail", e); }
+        try { recsData = await analyticsApi.getRecommendations(resolvedStoreId); } catch (e) { console.error("Recs fail", e); }
+        try { 
+          const res = await fetch(`http://localhost:8000/api/stream/zones/${resolvedStoreId}`);
+          if (res.ok) zonesData = await res.json();
+        } catch (e) { console.error("Zones fail", e); }
+        
         setKpis(kpiData);
         setRecommendations(recsData);
+        setZones(zonesData);
       } catch (err) {
         console.error("Failed to fetch analytics:", err);
       }
     };
     fetchAnalytics();
-  }, [storeId]);
+  }, [resolvedStoreId]);
 
-  // Load historical heatmap or set up live WS
+  // Load historical heatmap
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (viewMode !== 'historical' || !resolvedStoreId || !canvasRef.current) return;
     
     if (!heatRef.current) {
       heatRef.current = new SimpleHeat(canvasRef.current);
     }
     
+    const fetchHistoricalHeatmap = async () => {
+      try {
+        const res = await axios.get(`http://localhost:8000/api/analytics/heatmaps/${resolvedStoreId}?time_range_minutes=${timeRange}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        const data = res.data;
+        
+        if (heatRef.current && canvasRef.current) {
+          heatRef.current.clear();
+          if (data.max_val) {
+            heatRef.current.max(data.max_val);
+          }
+          const w = canvasRef.current.width;
+          const h = canvasRef.current.height;
+          // Data points are returned in a 100x100 grid scale
+          data.points.forEach((p: any) => {
+            const px = (p[0] / 100) * w;
+            const py = (p[1] / 100) * h;
+            heatRef.current?.add([px, py, p[2] * 2]); // Boost density intensity slightly
+          });
+          heatRef.current.draw();
+        }
+      } catch (err) {
+        console.error("Failed to fetch heatmap data:", err);
+      }
+    };
+    fetchHistoricalHeatmap();
+  }, [resolvedStoreId, viewMode, timeRange]);
+
+  // Live Mode setup
+  useEffect(() => {
+    if (viewMode !== 'live' || !resolvedStoreId || !canvasRef.current) return;
+    
+    if (!heatRef.current) {
+      heatRef.current = new SimpleHeat(canvasRef.current);
+    }
+    
+    heatRef.current.clear();
+    heatRef.current.clear();
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//localhost:8000/ws/tracking/${resolvedStoreId}`;
     let ws: WebSocket | null = null;
     let isActive = true;
 
-    if (viewMode === 'historical') {
-      // Fetch KDE historical heatmap data
-      const fetchHistoricalHeatmap = async () => {
-        try {
-          const data = await analyticsApi.getHeatmap(storeId, timeRange);
-          if (isActive && heatRef.current && canvasRef.current) {
-            heatRef.current.clear();
-            const w = canvasRef.current.width;
-            const h = canvasRef.current.height;
-            // Data points are returned in a 100x100 grid scale
-            data.points.forEach((p) => {
-              const px = (p[0] / 100) * w;
-              const py = (p[1] / 100) * h;
-              heatRef.current?.add([px, py, p[2]]);
-            });
-            heatRef.current.draw();
-          }
-        } catch (err) {
-          console.error("Failed to fetch heatmap data:", err);
+    const connectWs = () => {
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => setConnectionStatus('connected');
+      
+      ws.onclose = () => {
+        setConnectionStatus('disconnected');
+        if (isActive && viewMode === 'live') {
+          setTimeout(connectWs, 3000);
         }
       };
-      fetchHistoricalHeatmap();
-    } else {
-      // Live Mode setup
-      heatRef.current.clear();
-      const wsUrl = `ws://localhost:8000/api/ws/tracking/${storeId}`;
       
-      const connectWs = () => {
-        ws = new WebSocket(wsUrl);
-        
-        ws.onopen = () => setConnectionStatus('connected');
-        ws.onclose = () => {
-          setConnectionStatus('disconnected');
-          if (isActive && viewMode === 'live') {
-            setTimeout(connectWs, 3000);
-          }
-        };
-        
-        const shopperPositions = new Map<string, {x: number, y: number, time: number}>();
-        
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
+      const shopperPositions = new Map<string, {x: number, y: number, time: number}>();
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (heatRef.current && canvasRef.current) {
+            const px = (data.x / 100) * canvasRef.current.width;
+            const py = (data.y / 100) * canvasRef.current.height;
             
-            if (heatRef.current && canvasRef.current) {
-              const px = (data.x / 100) * canvasRef.current.width;
-              const py = (data.y / 100) * canvasRef.current.height;
-              
-              heatRef.current.add([px, py, 1]);
-              
-              if (heatRef.current.data.length > 3000) {
-                heatRef.current.data = heatRef.current.data.slice(-1500);
-              }
-              
-              requestAnimationFrame(() => heatRef.current?.draw());
+            heatRef.current.add([px, py, 1]);
+            
+            if (heatRef.current.data.length > 3000) {
+              heatRef.current.data = heatRef.current.data.slice(-1500);
             }
             
-            const now = Date.now();
-            shopperPositions.set(data.shopper_id, { x: data.x, y: data.y, time: now });
-            
-            let activeCount = 0;
-            let anomalies = 0;
-            for (const [id, pos] of shopperPositions.entries()) {
-              if (now - pos.time > 5000) {
-                shopperPositions.delete(id);
-              } else {
-                activeCount++;
-              }
-            }
-            if (activeCount > 20) anomalies++;
-            
-            setActiveShoppers(activeCount);
-            setAnomalyCount(anomalies);
-            
-          } catch (e) {
-            console.error("Error parsing WS message", e);
+            requestAnimationFrame(() => heatRef.current?.draw());
           }
-        };
+          
+          const now = Date.now();
+          shopperPositions.set(data.shopper_id, { x: data.x, y: data.y, time: now });
+          
+          let activeCount = 0;
+          let anomalies = 0;
+          for (const [id, pos] of shopperPositions.entries()) {
+            if (now - pos.time > 5000) {
+              shopperPositions.delete(id);
+            } else {
+              activeCount++;
+            }
+          }
+          if (activeCount > 20) anomalies++;
+          
+          setActiveShoppers(activeCount);
+          setAnomalyCount(anomalies);
+          
+        } catch (e) {
+          console.error("Error parsing WS message", e);
+        }
       };
-      
-      connectWs();
-    }
+    };
+    
+    connectWs();
     
     return () => {
       isActive = false;
       if (ws) ws.close();
     };
-  }, [storeId, viewMode, timeRange]);
+  }, [resolvedStoreId, viewMode]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -331,57 +365,24 @@ export function HeatmapDashboard(): JSX.Element {
                    }}>
               </div>
               
-              {/* Outer Walls */}
-              <div className="absolute inset-4 border-[3px] border-amber-400/80 rounded-sm pointer-events-none"></div>
-              <div className="absolute inset-6 border-[2px] border-slate-400/50 pointer-events-none"></div>
-              
-              {/* Top Section (Counters/Backroom) */}
-              <div className="absolute top-6 left-6 w-[40%] h-[20%] border-b-2 border-r-2 border-slate-300 bg-slate-200/50 flex items-center justify-center">
-                <span className="text-slate-400 text-sm font-semibold">1</span>
-              </div>
-              <div className="absolute top-6 left-[46%] w-[25%] h-[15%] border-b-2 border-slate-300 bg-slate-200/50 flex items-center justify-center">
-                <span className="text-slate-400 text-sm font-semibold">5</span>
-              </div>
-              
-              {/* Left Aisle */}
-              <div className="absolute top-[30%] left-6 w-[10%] h-[35%] border-2 border-slate-400 bg-white shadow-sm flex items-center justify-center">
-                <span className="text-slate-400 text-sm font-semibold">2</span>
-              </div>
-              
-              {/* Central Aisles */}
-              <div className="absolute top-[35%] left-[25%] w-[15%] h-[8%] border-2 border-slate-400 bg-white shadow-sm flex items-center justify-center">
-                <span className="text-slate-400 text-sm font-semibold">3</span>
-              </div>
-              <div className="absolute top-[55%] left-[30%] w-[20%] h-[10%] border-2 border-slate-400 bg-white shadow-sm flex items-center justify-center">
-                <span className="text-slate-400 text-sm font-semibold">4</span>
-              </div>
-              
-              {/* Right L-Shaped Counter */}
-              <div className="absolute top-[40%] right-[15%] w-[25%] h-[15%]">
-                <div className="absolute bottom-0 right-0 w-full h-[40%] border-2 border-slate-400 bg-white shadow-sm"></div>
-                <div className="absolute top-0 right-0 w-[15%] h-full border-2 border-slate-400 bg-white shadow-sm"></div>
-                <div className="absolute top-0 left-0 w-[15%] h-full border-2 border-slate-400 bg-white shadow-sm"></div>
-                <div className="absolute inset-0 flex items-center justify-center pt-2">
-                  <span className="text-slate-400 text-sm font-semibold">7</span>
-                </div>
-              </div>
-              
-              {/* Bottom Entrance/Checkout Zone */}
-              <div className="absolute bottom-6 left-[15%] right-[15%] h-[8%] border-t-2 border-slate-300 bg-slate-100/50 flex items-center justify-center space-x-12">
-                 <div className="w-8 h-8 rounded-full border border-slate-300"></div>
-                 <div className="w-8 h-8 rounded-full border border-slate-300"></div>
-                 <div className="w-8 h-8 rounded-full border border-slate-300"></div>
-                 <span className="text-slate-400 text-sm font-semibold ml-4">6</span>
-              </div>
-              
-              {/* Highlight Circles */}
-              <div className="absolute bottom-[20%] left-[10%] w-32 h-32 rounded-full bg-indigo-500/20 border-2 border-indigo-400 flex flex-col items-center justify-center shadow-lg">
-                <span className="text-indigo-800 font-bold text-sm leading-tight text-center">Additional<br/>Space</span>
-              </div>
-              
-              <div className="absolute bottom-[20%] right-[15%] w-28 h-28 rounded-full bg-emerald-400/30 border-2 border-emerald-400 flex flex-col items-center justify-center shadow-lg">
-                <span className="text-emerald-800 font-bold text-sm leading-tight text-center">Empty<br/>Area</span>
-              </div>
+              {/* Dynamic Database Zones Overlay */}
+              {zones.map((zone, idx) => {
+                const c = zone.coordinates || {};
+                const x = c.x_min || 0;
+                const y = c.y_min || 0;
+                const w = (c.x_max || 100) - x;
+                const h = (c.y_max || 100) - y;
+                
+                return (
+                  <div key={idx} 
+                       className="absolute border-[2px] border-slate-500/40 bg-white/10 shadow-sm flex items-center justify-center pointer-events-none z-20 overflow-hidden"
+                       style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%` }}>
+                     <span className="text-slate-800 text-xs font-bold px-2 py-1 bg-white/60 rounded backdrop-blur drop-shadow-sm text-center leading-tight">
+                       {zone.zone_name}
+                     </span>
+                  </div>
+                );
+              })}
               
               {/* Heatmap Layer */}
               <canvas 

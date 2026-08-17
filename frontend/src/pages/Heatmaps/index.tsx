@@ -1,74 +1,72 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { PageHeader } from '../../components/common/PageHeader';
-import { Map, RefreshCw } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { useToast } from '../../components/ui/toast';
-
-const mockHeatmapGrid = [
-  { id: 1, name: 'Cosmetics Sector A', intensity: 'Hot', color: 'bg-rose-500/80 text-white' },
-  { id: 2, name: 'Cosmetics Sector B', intensity: 'Warm', color: 'bg-amber-500/80 text-white' },
-  { id: 3, name: 'Hair Care Top', intensity: 'Cool', color: 'bg-sky-500/80 text-white' },
-  { id: 4, name: 'Fragrances Display', intensity: 'Hot', color: 'bg-rose-500/80 text-white' },
-  { id: 5, name: 'Promotions Endcap', intensity: 'Hot', color: 'bg-rose-500/80 text-white' },
-  { id: 6, name: 'Checkout Counter', intensity: 'Warm', color: 'bg-amber-500/80 text-white' },
-];
+import { HeatmapDashboard } from '../Dashboard/components/HeatmapDashboard';
+import { useAuth } from '../../contexts/AuthContext';
+import { listStores } from '../../services/store';
+import type { Store } from '../../types/store';
+import { LoadingState } from '../../components/common/LoadingState';
 
 export function HeatmapsPage(): JSX.Element {
-  const { toast } = useToast();
-  const [loading, setLoading] = React.useState(false);
+  const { user } = useAuth();
+  const [stores, setStores] = React.useState<Store[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast({ title: 'Heatmap re-compiled', description: 'Updated with latest real-time visitor patterns.', type: 'success' });
-    }, 800);
-  };
+  React.useEffect(() => {
+    const fetchStores = async () => {
+      try {
+        const storeData = await listStores();
+        setStores(storeData);
+        if (user?.store_id) {
+          setSelectedStoreId(user.store_id);
+        } else if (storeData.length > 0) {
+          setSelectedStoreId(storeData[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to fetch stores", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void fetchStores();
+  }, [user]);
+
+  if (loading) {
+    return <LoadingState message="Loading heatmaps configuration..." />;
+  }
 
   return (
-    <div>
-      <PageHeader
-        title="Attention Heatmaps"
-        description="Visualize physical hot-zones, shelf engagement densities, and bottleneck sectors."
-        actions={
-          <Button onClick={handleRefresh} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Recompile Heatmap
-          </Button>
-        }
-      />
-
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Map className="h-5 w-5 text-emerald-500" />
-              Shelf Attention Overlay View
-            </CardTitle>
-            <CardDescription>Grid representations of eye-tracking and dwell density metrics across primary displays.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 max-w-5xl">
-              {mockHeatmapGrid.map((gridItem) => (
-                <div
-                  key={gridItem.id}
-                  className={`rounded-2xl p-6 flex flex-col justify-between h-36 shadow-soft ${gridItem.color}`}
-                >
-                  <span className="font-semibold text-lg">{gridItem.name}</span>
-                  <div className="flex justify-between items-center mt-4">
-                    <span className="text-xs uppercase tracking-wider bg-white/20 px-2 py-1 rounded">
-                      {gridItem.intensity} Zone
-                    </span>
-                    <span className="text-xs font-semibold">
-                      {gridItem.intensity === 'Hot' ? '🔥 92%' : gridItem.intensity === 'Warm' ? '⚡ 60%' : '❄️ 22%'}
-                    </span>
-                  </div>
-                </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <PageHeader
+          title="Attention Heatmaps"
+          description="Visualize physical hot-zones, shelf engagement densities, and bottleneck sectors in real-time."
+        />
+        {user?.role === 'Administrator' && stores.length > 0 && (
+          <div className="mt-4 sm:mt-0">
+            <select
+              value={selectedStoreId || ''}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+              className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-md text-white focus:outline-none focus:border-blue-500"
+            >
+              {stores.map(store => (
+                <option key={store.id} value={store.id}>
+                  {store.store_name}
+                </option>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </select>
+          </div>
+        )}
+      </div>
+      
+      <div className="w-full">
+        {selectedStoreId ? (
+          <HeatmapDashboard storeId={selectedStoreId} />
+        ) : (
+          <div className="p-8 text-center text-slate-400 bg-slate-900/50 rounded-lg border border-slate-800">
+            No stores available to display heatmaps.
+          </div>
+        )}
       </div>
     </div>
   );

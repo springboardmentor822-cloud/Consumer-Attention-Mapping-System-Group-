@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Wifi, WifiOff, Video, Activity } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
@@ -21,7 +21,6 @@ import { listStores } from '../../services/store';
 import type { Camera } from '../../types/camera';
 import type { Store } from '../../types/store';
 import { useToast } from '../../components/ui/toast';
-import { LiveStoreHeatmap } from '../Dashboard/components/LiveStoreHeatmap';
 import { LiveVideoFeed } from '../Dashboard/components/LiveVideoFeed';
 
 const cameraSchema = z.object({
@@ -36,13 +35,14 @@ type CameraFormValues = z.infer<typeof cameraSchema>;
 export function CamerasPage(): JSX.Element {
   const { user } = useAuth();
   const { toast } = useToast();
-  const canMutate = user?.role === 'Store Manager';
+  const canMutate = user?.role === 'Administrator';
   const [stores, setStores] = React.useState<Store[]>([]);
   const [cameras, setCameras] = React.useState<Camera[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingCamera, setEditingCamera] = React.useState<Camera | null>(null);
   const [deletingCamera, setDeletingCamera] = React.useState<Camera | null>(null);
+  const [streamStatus, setStreamStatus] = React.useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
 
   const { register, handleSubmit, reset } = useForm<CameraFormValues>({
     resolver: zodResolver(cameraSchema),
@@ -100,79 +100,120 @@ export function CamerasPage(): JSX.Element {
     }
   };
 
+  const activeCameras = cameras.filter(c => c.status === 'active');
+  const selectedCamera = activeCameras.length > 0 ? activeCameras[0] : (cameras.length > 0 ? cameras[0] : null);
+  const derivedStoreId = selectedCamera?.store_id ?? user?.store_id ?? null;
+  const derivedCameraId = selectedCamera?.id ?? null;
+  const derivedCameraName = selectedCamera?.camera_name ?? selectedCamera?.name ?? 'Live Webcam';
+
   return (
     <div>
       <PageHeader
-        title="Camera Management"
-        description="Manage and monitor camera video feeds assigned to retail layouts and store locations."
-        actions={canMutate ? <Button onClick={openCreateDialog}><Plus className="h-4 w-4" />Create Camera</Button> : undefined}
+        title={user?.role === 'Administrator' ? "Camera Management" : "Live Camera Monitoring"}
+        description={user?.role === 'Administrator' ? "Configure and manage store cameras, AI streams, and YOLOv8 pipelines." : "Monitor connected camera streams assigned to your store."}
+        actions={canMutate ? <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Create Camera</Button> : undefined}
       />
 
       {loading ? <LoadingState /> : cameras.length === 0 ? <EmptyState title="No cameras found" description="Register a camera stream and link it to an active store configuration." actionLabel={canMutate ? 'Create Camera' : undefined} onAction={canMutate ? openCreateDialog : undefined} /> : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <LiveStoreHeatmap />
-            <LiveVideoFeed />
+
+          {/* Status Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="bg-card/50 backdrop-blur border-border/60">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="p-3 bg-emerald-500/10 rounded-xl">
+                  <Wifi className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Camera Status</p>
+                  <p className="text-xl font-bold">{activeCameras.length} Connected</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 backdrop-blur border-border/60">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="p-3 bg-blue-500/10 rounded-xl">
+                  <Video className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Stream Status</p>
+                  <p className="text-xl font-bold">{activeCameras.length > 0 ? (streamStatus === 'connected' ? 'LIVE' : streamStatus.toUpperCase()) : 'OFFLINE'}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 backdrop-blur border-border/60">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="p-3 bg-purple-500/10 rounded-xl">
+                  <Activity className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Processing</p>
+                  <p className="text-xl font-bold">YOLOv8 + ByteTrack</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><h3 className="text-lg font-semibold leading-none tracking-tight">Camera Grid View (Live Feed)</h3></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {cameras.map((camera, i) => (
-                  <div key={`feed-${camera.id}`} className="aspect-video bg-slate-900 rounded border border-slate-700 flex flex-col items-center justify-center relative overflow-hidden group">
-                    <div className="absolute top-2 left-2 flex items-center gap-2 text-xs font-bold text-white z-10">
-                      <span className={`w-2 h-2 rounded-full animate-pulse ${camera.status === 'active' ? 'bg-rose-500' : camera.status === 'maintenance' ? 'bg-amber-500' : 'bg-slate-500'}`}></span> 
-                      LIVE - {camera.camera_name}
-                    </div>
-                    {camera.status === 'active' ? (
-                        <>
-                          <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors"></div>
-                          <div className="text-white/20 font-mono text-sm tracking-widest">{camera.camera_source}</div>
-                        </>
-                    ) : (
-                        <div className="text-white/40 text-sm font-medium italic">Signal Lost</div>
-                    )}
-                    <div className="absolute bottom-2 left-2 text-[10px] text-white/70 bg-black/50 px-2 py-1 rounded backdrop-blur">
-                      Store ID: {camera.store_id.substring(0,8)}...
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Live AI Tracking Feed — Single clean view */}
+          <div className="w-full flex justify-center mb-6">
+            <div className="w-full max-w-[900px] aspect-video">
+              {derivedStoreId ? (
+                <LiveVideoFeed 
+                  storeId={derivedStoreId} 
+                  onStatusChange={setStreamStatus}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full w-full text-slate-400 bg-black/50 rounded-xl border border-border/60 backdrop-blur">
+                  <Video className="w-12 h-12 mb-4 opacity-50" />
+                  <p>No active camera found. Waiting for configuration...</p>
+                </div>
+              )}
+            </div>
+          </div>
 
+          {/* Camera Records Table */}
           <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Camera Name</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Store</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cameras.map((camera) => (
-                <TableRow key={camera.id}>
-                  <TableCell className="font-medium">{camera.camera_name}</TableCell>
-                  <TableCell className="max-w-xs truncate">{camera.camera_source}</TableCell>
-                  <TableCell><Badge>{camera.status}</Badge></TableCell>
-                  <TableCell>{camera.store_id}</TableCell>
-                  <TableCell className="text-right">
-                    {canMutate ? (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditDialog(camera)}><Pencil className="h-4 w-4" />Edit</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setDeletingCamera(camera)}><Trash2 className="h-4 w-4" />Delete</Button>
-                      </div>
-                    ) : <span className="text-sm text-muted-foreground">Read only</span>}
-                  </TableCell>
+            <CardHeader>
+              <CardTitle className="text-lg">Camera Records</CardTitle>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Camera Name</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {cameras.map((camera) => {
+                  const storeName = stores.find(s => s.id === camera.store_id)?.store_name || camera.store_id;
+                  return (
+                    <TableRow key={camera.id}>
+                      <TableCell className="font-medium">{camera.camera_name}</TableCell>
+                      <TableCell className="max-w-xs truncate font-mono text-xs">{camera.camera_source}</TableCell>
+                      <TableCell>
+                        <Badge className={camera.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}>
+                          {camera.status === 'active' ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
+                          {camera.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">{storeName}</TableCell>
+                      <TableCell className="text-right">
+                        {canMutate ? (
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(camera)}><Pencil className="h-4 w-4" />Edit</Button>
+                            <Button variant="destructive" size="sm" onClick={() => setDeletingCamera(camera)}><Trash2 className="h-4 w-4" />Delete</Button>
+                          </div>
+                        ) : <span className="text-sm text-muted-foreground">Read only</span>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
         </div>
       )}
 
@@ -201,7 +242,7 @@ export function CamerasPage(): JSX.Element {
           </div>
           <div className="space-y-2">
             <Label htmlFor="camera_source">Camera Source</Label>
-            <Input id="camera_source" {...register('camera_source')} />
+            <Input id="camera_source" placeholder="0 for webcam, or URL/path" {...register('camera_source')} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>

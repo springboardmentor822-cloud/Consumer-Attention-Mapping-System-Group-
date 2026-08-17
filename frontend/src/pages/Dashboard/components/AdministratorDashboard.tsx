@@ -1,11 +1,40 @@
-import * as React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import Plot from 'react-plotly.js';
-import { LiveStoreHeatmap } from './LiveStoreHeatmap';
-import { LiveVideoFeed } from './LiveVideoFeed';
+import { systemApi, auditApi, SystemStats } from '../../../api/system';
+import { alertsApi, Alert } from '../../../api/alerts';
 
 export function AdministratorDashboard(): JSX.Element {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<SystemStats | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        let statsRes = null;
+        let logsRes = [];
+        let alertsRes = { alerts: [] };
+
+        try { statsRes = await systemApi.getStats(); } catch (e) { console.error("Stats fail", e); }
+        try { logsRes = await auditApi.getLogs(10); } catch (e) { console.error("Logs fail", e); }
+        try { alertsRes = await alertsApi.getAlerts(); } catch (e) { console.error("Alerts fail", e); }
+
+        setStats(statsRes);
+        setLogs(logsRes || []);
+        setAlerts(alertsRes.alerts || []);
+      } catch (error) {
+        console.error("Failed to fetch admin data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const chartLayout = {
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
@@ -15,178 +44,107 @@ export function AdministratorDashboard(): JSX.Element {
     yaxis: { gridcolor: '#334155' }
   };
 
+  if (loading) {
+    return <div className="p-8 text-center"><div className="animate-pulse">Loading system metrics...</div></div>;
+  }
+
+  const roleNames = stats?.users_by_role ? Object.keys(stats.users_by_role) : [];
+  const roleCounts = stats?.users_by_role ? Object.values(stats.users_by_role) : [];
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
-          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Platform Administration</span>
-          <h2 className="text-2xl font-bold mt-1">System Health & Infrastructure Diagnostics</h2>
+          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-widest">Platform Control</span>
+          <h2 className="text-2xl font-bold mt-1">System Administration</h2>
         </div>
-        <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200">
+        <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-200">
           Administrator Active
         </Badge>
       </div>
 
-      {/* SECTION 1: System Overview */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 1 - System Overview</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>System Uptime</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ x: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], y: [99.9, 99.8, 100, 99.9, 99.9], type: 'scatter', mode: 'lines+markers', marker: { color: '#10b981' } }]}
-                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 40, b: 30 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>API Requests Over Time</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ x: ['10AM', '11AM', '12PM', '1PM', '2PM'], y: [1200, 1500, 3000, 2500, 1800], fill: 'tozeroy', type: 'scatter', marker: { color: '#3b82f6' } }]}
-                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 40, b: 30 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="bg-card/50 backdrop-blur border-border/60">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Users</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{stats?.total_users || 0}</div><p className="text-xs text-muted-foreground mt-1">{stats?.active_users || 0} active</p></CardContent>
+        </Card>
+        <Card className="bg-card/50 backdrop-blur border-border/60">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Stores Managed</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{stats?.total_stores || 0}</div><p className="text-xs text-muted-foreground mt-1">Across all regions</p></CardContent>
+        </Card>
+        <Card className="bg-card/50 backdrop-blur border-border/60">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Cameras Online</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold text-emerald-500">{stats?.cameras_online || 0} / {stats?.total_cameras || 0}</div><p className="text-xs text-muted-foreground mt-1">{stats?.cameras_offline || 0} offline</p></CardContent>
+        </Card>
+        <Card className="bg-card/50 backdrop-blur border-border/60">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">System Alerts</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold text-rose-500">{stats?.open_alerts || 0}</div><p className="text-xs text-muted-foreground mt-1">Require attention</p></CardContent>
+        </Card>
+      </div>
 
-      {/* SECTION 2: User Analytics */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 2 - User Analytics</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>Users by Role</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ values: [2, 8, 4, 3], labels: ['Admin', 'Store Mgr', 'Analyst', 'Marketing'], type: 'pie', hole: 0 }]}
-                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 10, b: 10 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>Active Users per Store</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ x: ['Downtown', 'Uptown', 'Suburbs'], y: [5, 3, 4], type: 'bar', marker: { color: '#8b5cf6' } }]}
-                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 30, b: 30 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="bg-card/50 backdrop-blur border-border/60">
+          <CardHeader><CardTitle>User Distribution by Role</CardTitle></CardHeader>
+          <CardContent>
+            <Plot
+              data={[{ values: roleCounts, labels: roleNames, type: 'pie', hole: 0.6, marker: { colors: ['#f43f5e', '#3b82f6', '#8b5cf6', '#10b981'] } }]}
+              layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 10, b: 10 } }}
+              useResizeHandler={true}
+              config={{ displayModeBar: false }}
+              style={{ width: '100%', minHeight: '250px' }}
+            />
+          </CardContent>
+        </Card>
 
-      {/* SECTION 3: Camera Monitoring & Live Tracking */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 3 - AI Camera Monitoring & Live Tracking</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          <LiveStoreHeatmap />
-          <LiveVideoFeed />
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>Camera Status</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ values: [42, 3], labels: ['Online', 'Offline'], type: 'pie', hole: 0.6, marker: { colors: ['#10b981', '#ef4444'] } }]}
-                layout={{ ...chartLayout, height: 200, margin: { t: 10, r: 10, l: 10, b: 10 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>Cameras by Store</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ x: ['Downtown', 'Uptown', 'Suburbs'], y: [18, 12, 15], type: 'bar', marker: { color: '#0ea5e9' } }]}
-                layout={{ ...chartLayout, height: 200, margin: { t: 10, r: 10, l: 30, b: 30 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>Live Feed Grid (Simulated)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="h-16 bg-slate-800 rounded animate-pulse border border-slate-700 flex items-center justify-center text-[10px]">Cam 1</div>
-                <div className="h-16 bg-slate-800 rounded animate-pulse border border-slate-700 flex items-center justify-center text-[10px]">Cam 2</div>
-                <div className="h-16 bg-slate-800 rounded animate-pulse border border-slate-700 flex items-center justify-center text-[10px]">Cam 3</div>
-                <div className="h-16 bg-slate-800 rounded animate-pulse border border-slate-700 flex items-center justify-center text-[10px]">Cam 4</div>
+        <Card className="bg-card/50 backdrop-blur border-border/60">
+          <CardHeader><CardTitle>System Alerts (Critical)</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {alerts.filter(a => a.severity === 'critical').slice(0, 3).map(alert => (
+              <div key={alert.id} className="p-3 border border-rose-500/20 bg-rose-500/10 rounded-lg flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-rose-400">{alert.alert_type.toUpperCase()}</p>
+                  <p className="text-xs text-rose-400/80">{alert.message}</p>
+                </div>
+                <span className="text-xs bg-rose-500/20 text-rose-400 px-2 py-1 rounded">Action Req</span>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+            ))}
+            {alerts.filter(a => a.severity === 'critical').length === 0 && (
+              <div className="text-center p-4 text-emerald-500/80">No critical alerts detected</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* SECTION 4: Infrastructure Monitoring */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 4 - Infrastructure Monitoring</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">CPU Usage</CardTitle></CardHeader><CardContent><Plot data={[{ y: [40, 50, 45, 60, 55], type: 'scatter', mode: 'lines', marker: { color: '#f59e0b' } }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Memory Usage</CardTitle></CardHeader><CardContent><Plot data={[{ y: [60, 62, 61, 65, 63], type: 'scatter', mode: 'lines', marker: { color: '#6366f1' } }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">GPU Usage</CardTitle></CardHeader><CardContent><Plot data={[{ y: [80, 85, 90, 85, 88], type: 'scatter', mode: 'lines', marker: { color: '#10b981' } }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Disk Usage</CardTitle></CardHeader><CardContent><Plot data={[{ y: [45, 45, 46, 46, 46], type: 'scatter', mode: 'lines', marker: { color: '#64748b' } }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Network Traffic</CardTitle></CardHeader><CardContent><Plot data={[{ y: [120, 150, 110, 180, 160], type: 'scatter', mode: 'lines', marker: { color: '#0ea5e9' } }]} layout={{...chartLayout, height: 150, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-        </div>
-      </section>
-
-      {/* SECTION 5: API Performance */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 5 - API Performance</h3>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">API Response Time</CardTitle></CardHeader><CardContent><Plot data={[{ y: [42, 45, 38, 55, 40], type: 'scatter', mode: 'lines' }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Endpoint Response Time</CardTitle></CardHeader><CardContent><Plot data={[{ x: ['/users', '/auth', '/cams'], y: [30, 80, 45], type: 'bar' }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Request Volume</CardTitle></CardHeader><CardContent><Plot data={[{ y: [1000, 1200, 800, 1500, 1100], fill: 'tozeroy', type: 'scatter' }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-        </div>
-      </section>
-
-      {/* SECTION 6: Security Monitoring */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 6 - Security Monitoring</h3>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Login Attempts</CardTitle></CardHeader><CardContent><Plot data={[{ y: [12, 15, 8, 25, 14], type: 'scatter', mode: 'lines', marker: { color: '#f59e0b'} }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Failed Logins</CardTitle></CardHeader><CardContent><Plot data={[{ x: ['Mon', 'Tue', 'Wed'], y: [2, 5, 1], type: 'bar', marker: { color: '#ef4444'} }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:30,b:20}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-          <Card className="bg-card/50"><CardHeader><CardTitle className="text-sm">Auth Status</CardTitle></CardHeader><CardContent><Plot data={[{ values: [95, 5], labels: ['Success', 'Failed'], type: 'pie', hole: 0.5, marker: { colors: ['#10b981', '#ef4444']} }]} layout={{...chartLayout, height: 180, margin: {t:0,r:0,l:0,b:0}}} config={{displayModeBar: false}} style={{width:'100%', height:'100%'}} /></CardContent></Card>
-        </div>
-      </section>
-
-      {/* SECTION 7: Audit Logs */}
-      <section>
-        <h3 className="text-xl font-bold mb-4">Section 7 - Audit Logs</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="bg-card/50 backdrop-blur border-border/60">
-            <CardHeader><CardTitle>System Events Timeline</CardTitle></CardHeader>
-            <CardContent>
-              <Plot
-                data={[{ x: ['2023-10-01', '2023-10-02', '2023-10-03', '2023-10-04'], y: [10, 15, 5, 20], type: 'bar', marker: { color: '#8b5cf6'} }]}
-                layout={{ ...chartLayout, height: 250, margin: { t: 10, r: 10, l: 30, b: 30 } }}
-                config={{ displayModeBar: false }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur border-border/60 overflow-hidden">
-            <CardHeader><CardTitle>Recent Audit History</CardTitle></CardHeader>
-            <CardContent className="space-y-3 h-[250px] overflow-y-auto">
-              <div className="text-sm border-b border-border pb-2"><span className="text-emerald-500 font-bold">10:42 AM</span> - Admin modified camera config</div>
-              <div className="text-sm border-b border-border pb-2"><span className="text-emerald-500 font-bold">09:15 AM</span> - System backup completed</div>
-              <div className="text-sm border-b border-border pb-2"><span className="text-emerald-500 font-bold">08:30 AM</span> - Store Manager role created</div>
-              <div className="text-sm border-b border-border pb-2"><span className="text-rose-500 font-bold">02:11 AM</span> - Failed login attempt (IP: 192.168.1.5)</div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      <Card className="bg-card/50 backdrop-blur border-border/60">
+        <CardHeader><CardTitle>Security Audit Log</CardTitle></CardHeader>
+        <CardContent>
+          <div className="relative overflow-x-auto">
+            <table className="w-full text-sm text-left text-muted-foreground">
+              <thead className="text-xs uppercase bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="px-6 py-3">Timestamp</th>
+                  <th className="px-6 py-3">Action</th>
+                  <th className="px-6 py-3">Resource</th>
+                  <th className="px-6 py-3">IP Address</th>
+                  <th className="px-6 py-3">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <tr key={log.id} className="border-b border-border/50">
+                    <td className="px-6 py-3">{new Date(log.created_at).toLocaleString()}</td>
+                    <td className="px-6 py-3"><Badge variant="outline" className={log.action.includes('fail') ? 'border-rose-500 text-rose-500' : 'border-blue-500 text-blue-500'}>{log.action}</Badge></td>
+                    <td className="px-6 py-3">{log.resource}</td>
+                    <td className="px-6 py-3 font-mono text-xs">{log.ip_address}</td>
+                    <td className="px-6 py-3">{JSON.stringify(log.details)}</td>
+                  </tr>
+                ))}
+                {logs.length === 0 && <tr><td colSpan={5} className="text-center p-4">No audit logs available</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

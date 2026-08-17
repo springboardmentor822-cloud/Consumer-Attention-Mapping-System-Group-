@@ -94,8 +94,8 @@ export function ShelvesPage(): JSX.Element {
     setLoading(true);
     try {
       const storeData = await listStores();
-      if (user?.role === 'Store Manager') {
-        const assigned = storeData.filter((s) => s.id === user.store_id);
+      if (['Store Manager', 'Retail Analyst', 'Marketing Manager'].includes(user?.role || '')) {
+        const assigned = storeData.filter((s) => s.id === user?.store_id);
         setStores(assigned);
         setSelectedStoreId(user.store_id || '');
         if (user.store_id) {
@@ -336,10 +336,12 @@ export function ShelvesPage(): JSX.Element {
                   } catch (e) {}
                   
                   // Normalize coordinates to percentage layout bounding boxes
-                  const posX = Math.min(Math.max(coords.x || 10, 0), 90);
-                  const posY = Math.min(Math.max(coords.y || 10, 0), 80);
-                  const width = Math.min(Math.max(coords.width || 80, 20), 80);
-                  const height = Math.min(Math.max(coords.height || 60, 20), 80);
+                  const posX = Math.min(Math.max(coords.x_min ?? coords.x ?? 10, 0), 90);
+                  const posY = Math.min(Math.max(coords.y_min ?? coords.y ?? 10, 0), 80);
+                  const derivedWidth = (coords.x_max && coords.x_min) ? (coords.x_max - coords.x_min) : coords.width;
+                  const derivedHeight = (coords.y_max && coords.y_min) ? (coords.y_max - coords.y_min) : coords.height;
+                  const width = Math.min(Math.max(derivedWidth || 20, 10), 80);
+                  const height = Math.min(Math.max(derivedHeight || 20, 10), 80);
                   
                   return (
                     <div

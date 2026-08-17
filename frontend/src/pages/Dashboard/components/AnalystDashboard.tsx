@@ -100,7 +100,7 @@ export function AnalystDashboard(): JSX.Element {
             ].map((item) => (
               <div key={item.rank} className="flex items-center justify-between border-b border-border pb-3 text-sm">
                 <span className="font-semibold text-muted-foreground text-rose-500">#{item.rank} {item.zone}</span>
-                <Badge variant="destructive" className="font-bold">{item.index} score</Badge>
+                <Badge variant="default" className="font-bold">{item.index} score</Badge>
               </div>
             ))}
           </CardContent>

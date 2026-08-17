@@ -35,6 +35,12 @@ from backend.app.api.stream import router as stream_router
 from backend.app.api.analytics import router as analytics_router
 from backend.app.api.websockets import router as websockets_router
 from backend.app.api.websockets import listen_to_redis_stream
+from backend.app.api.alerts import router as alerts_router
+from backend.app.api.recommendations import router as recommendations_router
+from backend.app.api.marketing import router as marketing_router
+from backend.app.api.reports_api import router as reports_router
+from backend.app.api.audit_logs import router as audit_logs_router
+from backend.app.api.system import router as system_router
 from backend.app.workers.db_worker import db_worker_task
 import asyncio
 
@@ -127,4 +133,16 @@ app.include_router(products_router, prefix=settings.api_v1_prefix)
 app.include_router(tracking_router, prefix=settings.api_v1_prefix)
 app.include_router(stream_router, prefix=settings.api_v1_prefix)
 app.include_router(analytics_router, prefix=settings.api_v1_prefix)
+app.include_router(alerts_router, prefix=settings.api_v1_prefix)
+app.include_router(recommendations_router, prefix=settings.api_v1_prefix)
+app.include_router(marketing_router, prefix=settings.api_v1_prefix)
+app.include_router(reports_router, prefix=settings.api_v1_prefix)
+app.include_router(audit_logs_router, prefix=settings.api_v1_prefix)
+app.include_router(system_router, prefix=settings.api_v1_prefix)
 app.include_router(websockets_router)
+
+from fastapi.staticfiles import StaticFiles
+import os
+demo_assets_path = _project_root / "demo_assets"
+if demo_assets_path.exists():
+    app.mount("/demo_assets", StaticFiles(directory=str(demo_assets_path)), name="demo_assets")

@@ -48,7 +48,7 @@ export function AuditLogsPage(): JSX.Element {
                   <TableCell className="font-mono text-xs">{log.ip}</TableCell>
                   <TableCell>{log.timestamp}</TableCell>
                   <TableCell className="text-right">
-                    <Badge variant={log.status === 'Success' ? 'default' : 'destructive'}>
+                    <Badge variant={log.status === 'Success' ? 'default' : log.status === 'Failed' ? 'default' : 'default'}>
                       {log.status}
                     </Badge>
                   </TableCell>

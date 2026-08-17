@@ -86,10 +86,14 @@ export default function App(): JSX.Element {
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
+          {/* Administrator, Store Manager & Retail Analyst Shared Pages */}
+          <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Store Manager', 'Retail Analyst']} />}>
+            <Route path="/heatmaps" element={<HeatmapsPage />} />
+          </Route>
+
           {/* Store Manager & Retail Analyst Shared Pages */}
           <Route element={<ProtectedRoute allowedRoles={['Store Manager', 'Retail Analyst']} />}>
             <Route path="/shelves" element={<ShelvesPage />} />
-            <Route path="/heatmaps" element={<HeatmapsPage />} />
           </Route>
 
           {/* Retail Analyst & Marketing Manager Shared Pages */}

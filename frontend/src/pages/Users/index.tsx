@@ -158,7 +158,7 @@ export function UsersPage(): JSX.Element {
                         {isStoreLinked ? (
                           <select
                             className="h-9 w-52 rounded-xl border border-border bg-background px-3 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            value={userItem.store_id || ''}
+                            value={(userItem as any).store_id || ''}
                             onChange={(e) => updateMutation.mutate({ id: userItem.id, payload: { store_id: e.target.value || null } })}
                             disabled={updateMutation.isPending}
                           >

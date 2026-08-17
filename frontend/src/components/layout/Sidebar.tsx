@@ -46,6 +46,7 @@ export function Sidebar({ open, onClose }: SidebarProps): JSX.Element {
       { to: '/users?tab=roles', label: 'Role & Permission Management', icon: Shield },
       { to: '/stores', label: 'Store Management', icon: Store },
       { to: '/cameras', label: 'Camera Management', icon: Camera },
+      { to: '/heatmaps', label: 'Store Heatmaps', icon: Map },
       { to: '/reports', label: 'System Reports', icon: FileText },
       { to: '/audit-logs', label: 'Security & Audit Logs', icon: ClipboardList },
       { to: '/settings?tab=notifications', label: 'Alert Management', icon: Bell },

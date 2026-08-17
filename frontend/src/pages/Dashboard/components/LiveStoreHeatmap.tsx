@@ -1,57 +1,96 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { useAuth } from '../../../contexts/AuthContext';
+import axios from 'axios';
 
-// Example fallback store ID
-const STORE_ID = "00000000-0000-0000-0000-000000000000";
-const WS_URL = `ws://localhost:8000/ws/tracking/${STORE_ID}`;
+interface Zone {
+  id: string;
+  zone_name: string;
+  coordinates: {
+    x_min: number;
+    y_min: number;
+    x_max: number;
+    y_max: number;
+  };
+}
 
 export function LiveStoreHeatmap(): JSX.Element {
+  const { user } = useAuth();
+  const storeId = user?.store_id || '00000000-0000-0000-0000-000000000000';
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<string>("Connecting...");
   const [activeShoppers, setActiveShoppers] = useState<number>(0);
+  const [zones, setZones] = useState<Zone[]>([]);
 
   // We keep track of the latest coordinates for each shopper to draw them and fade old ones
   const shoppersRef = useRef<Map<string, {x: number, y: number, lastSeen: number}>>(new Map());
 
+  // Fetch zones from backend
+  useEffect(() => {
+    const fetchZones = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8000/api/stream/zones/${storeId}`);
+        setZones(response.data);
+      } catch (error) {
+        console.error("Failed to fetch zones for heatmap", error);
+      }
+    };
+    fetchZones();
+  }, [storeId]);
+
   useEffect(() => {
     let ws: WebSocket;
-    try {
-      ws = new WebSocket(WS_URL);
-
-      ws.onopen = () => {
-        setStatus("Connected - Live Stream Active");
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          // Data format expected: { store_id, camera_id, shopper_id, x, y, timestamp }
-          
-          if (data.shopper_id && data.x !== undefined && data.y !== undefined) {
-            shoppersRef.current.set(data.shopper_id, {
-              x: data.x,
-              y: data.y,
-              lastSeen: Date.now()
-            });
-            setActiveShoppers(shoppersRef.current.size);
-          }
-        } catch (e) {
-          console.error("Error parsing websocket message", e);
-        }
-      };
-
-      ws.onclose = () => {
-        setStatus("Disconnected");
-      };
+    let isActive = true;
+    
+    const connect = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const WS_URL = `${protocol}//localhost:8000/ws/tracking/${storeId}`;
       
-    } catch (e) {
-      setStatus("Connection Error");
-    }
+      try {
+        ws = new WebSocket(WS_URL);
+
+        ws.onopen = () => {
+          if (isActive) setStatus("Connected - Live Stream Active");
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            // Data format expected: { store_id, camera_id, shopper_id, x, y, timestamp }
+            
+            if (data.shopper_id && data.x !== undefined && data.y !== undefined) {
+              shoppersRef.current.set(data.shopper_id, {
+                x: data.x, // Assuming 0-100 percentage from our updated live_tracker
+                y: data.y,
+                lastSeen: Date.now()
+              });
+              if (isActive) setActiveShoppers(shoppersRef.current.size);
+            }
+          } catch (e) {
+            console.error("Error parsing websocket message", e);
+          }
+        };
+
+        ws.onclose = () => {
+          if (isActive) {
+            setStatus("Disconnected");
+            setTimeout(connect, 3000);
+          }
+        };
+        
+      } catch (e) {
+        if (isActive) setStatus("Connection Error");
+      }
+    };
+    
+    connect();
 
     return () => {
+      isActive = false;
       if (ws) ws.close();
     };
-  }, []);
+  }, [storeId]);
 
   // Animation Loop for Canvas
   useEffect(() => {
@@ -69,39 +108,25 @@ export function LiveStoreHeatmap(): JSX.Element {
 
       const now = Date.now();
       
-      // Draw enhanced blueprint store layout
+      // Draw store zones
       ctx.strokeStyle = 'rgba(14, 165, 233, 0.5)'; // sky-500
       ctx.fillStyle = 'rgba(14, 165, 233, 0.1)'; 
       ctx.lineWidth = 1.5;
       
-      const drawZone = (x: number, y: number, w: number, h: number, label: string) => {
+      zones.forEach(zone => {
+        const x = (zone.coordinates.x_min / 100) * canvas.width;
+        const y = (zone.coordinates.y_min / 100) * canvas.height;
+        const w = ((zone.coordinates.x_max - zone.coordinates.x_min) / 100) * canvas.width;
+        const h = ((zone.coordinates.y_max - zone.coordinates.y_min) / 100) * canvas.height;
+        
         ctx.fillRect(x, y, w, h);
         ctx.strokeRect(x, y, w, h);
-        // Draw diagonal hatch or just simple label
+        
         ctx.fillStyle = 'rgba(14, 165, 233, 0.8)';
         ctx.font = '11px sans-serif';
-        ctx.fillText(label, x + 8, y + 20);
+        ctx.fillText(zone.zone_name, x + 8, y + 20);
         ctx.fillStyle = 'rgba(14, 165, 233, 0.1)'; // reset fill
-      };
-
-      // Main Grocery Aisles
-      drawZone(100, 40, 70, 220, "Aisle 1 (Dry)");
-      drawZone(210, 40, 70, 220, "Aisle 2 (Cans)");
-      drawZone(320, 40, 70, 220, "Aisle 3 (Snacks)");
-      
-      // Perimeter Departments
-      drawZone(430, 40, 220, 90, "Produce / Fresh");
-      drawZone(430, 170, 220, 90, "Dairy & Deli");
-      
-      // Checkout Zone
-      drawZone(100, 330, 300, 60, "Checkout Lanes (POS)");
-      
-      // Entry / Exit
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.6)'; // emerald
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText("▼ STORE ENTRANCE", 650, 400);
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.6)'; // red
-      ctx.fillText("▲ EXIT", 50, 400);
+      });
 
       // Iterate through active shoppers
       for (const [id, shopper] of shoppersRef.current.entries()) {
@@ -112,20 +137,9 @@ export function LiveStoreHeatmap(): JSX.Element {
           continue;
         }
 
-        // Map YOLO normalized coordinates (0-1) to Canvas dimensions, 
-        // or handle absolute pixels if the tracker sends raw pixels
-        // Assuming YOLO normalized coordinates for safety, fallback to modulo if absolute
-        let renderX = shopper.x;
-        let renderY = shopper.y;
-        
-        if (renderX <= 1 && renderY <= 1) {
-            renderX *= canvas.width;
-            renderY *= canvas.height;
-        } else {
-            // If absolute, scale down to fit canvas roughly
-            renderX = (renderX / 1920) * canvas.width;
-            renderY = (renderY / 1080) * canvas.height;
-        }
+        // Map percentage (0-100) coordinates to Canvas dimensions
+        let renderX = (shopper.x / 100) * canvas.width;
+        let renderY = (shopper.y / 100) * canvas.height;
 
         const isProduct = id.includes('Product');
 
@@ -155,7 +169,7 @@ export function LiveStoreHeatmap(): JSX.Element {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [zones]); // re-run if zones change
 
   // Calculate separate counts
   const shopperCount = Array.from(shoppersRef.current.keys()).filter(k => k.includes('Shopper')).length;

@@ -1,79 +1,69 @@
 import asyncio
-import json
 import logging
 from datetime import datetime
 from uuid import UUID
-import redis.asyncio as aioredis
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import settings
 from backend.app.core.database import SessionLocal
 from backend.app.models.tracking import CoordinateLog
+from backend.app.services.spatial_engine import spatial_engine
 
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 100
 FLUSH_INTERVAL_SECONDS = 3.0
 
+# In-memory queue to bypass Redis for the demo environment
+coordinate_queue = asyncio.Queue()
+
 async def db_worker_task():
     """
-    Background worker that reads from Redis 'tracking_stream',
-    aggregates coordinates into a batch, and bulk saves them to PostgreSQL (TimescaleDB).
+    Background worker that reads from the coordinate_queue,
+    aggregates coordinates into a batch, bulk saves them to PostgreSQL,
+    and passes them to the SpatialEngine for live tracking.
     """
-    redis_client = aioredis.from_url(settings.redis_url)
-    last_id = "0"  # Read from beginning of unacknowledged, or "$" for new
-    
     batch = []
+    
+    last_cleanup = datetime.now().timestamp()
     
     while True:
         try:
+            timeout_occurred = False
             # Block for up to FLUSH_INTERVAL_SECONDS
-            streams = await redis_client.xread(
-                {"tracking_stream": last_id}, 
-                count=BATCH_SIZE, 
-                block=int(FLUSH_INTERVAL_SECONDS * 1000)
-            )
-            
-            if not streams:
-                # Timeout occurred, flush any existing batch
-                if batch:
-                    await flush_batch(batch)
-                    batch = []
-                continue
+            try:
+                data = await asyncio.wait_for(coordinate_queue.get(), timeout=FLUSH_INTERVAL_SECONDS)
+                
+                try:
+                    timestamp_obj = datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
+                except ValueError:
+                    timestamp_obj = datetime.now()
+                
+                log_entry = CoordinateLog(
+                    store_id=UUID(data["store_id"]),
+                    camera_id=data["camera_id"],
+                    shopper_id=data["shopper_id"],
+                    x=float(data["x"]),
+                    y=float(data["y"]),
+                    timestamp=timestamp_obj
+                )
+                batch.append(log_entry)
+                coordinate_queue.task_done()
+            except asyncio.TimeoutError:
+                timeout_occurred = True # Timeout occurred, proceed to flush
 
-            for stream, messages in streams:
-                for message_id, message_data in messages:
-                    last_id = message_id
-                    raw_data = message_data.get(b"data")
-                    if raw_data:
-                        try:
-                            data = json.loads(raw_data.decode("utf-8"))
-                            
-                            # Parse timestamp string to datetime
-                            try:
-                                timestamp_obj = datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
-                            except ValueError:
-                                timestamp_obj = datetime.now()
-                            
-                            log_entry = CoordinateLog(
-                                store_id=UUID(data["store_id"]),
-                                camera_id=data["camera_id"],
-                                shopper_id=data["shopper_id"],
-                                x=float(data["x"]),
-                                y=float(data["y"]),
-                                timestamp=timestamp_obj
-                            )
-                            batch.append(log_entry)
-                        except Exception as parse_err:
-                            logger.error(f"Error parsing message {message_id}: {parse_err}")
-                    
-                    # Delete message from stream to prevent memory bloat
-                    await redis_client.xdel("tracking_stream", message_id)
-            
-            # If batch size reached, flush
-            if len(batch) >= BATCH_SIZE:
+            # If batch size reached or timeout occurred with items in batch, flush
+            if len(batch) >= BATCH_SIZE or (batch and timeout_occurred):
                 await flush_batch(batch)
+                
+                # After saving, pass batch to spatial engine for zone analytics
+                await spatial_engine.process_batch(batch)
                 batch = []
+                
+            # Periodically cleanup stale shoppers (every ~5 seconds)
+            now_ts = datetime.now().timestamp()
+            if now_ts - last_cleanup > 5.0:
+                await spatial_engine.cleanup_stale_shoppers()
+                last_cleanup = now_ts
                 
         except asyncio.CancelledError:
             # Shutdown signal received

@@ -1,89 +1,121 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { PageHeader } from '../../components/common/PageHeader';
-import { useToast } from '../../components/ui/toast';
-import { Bell, CheckCircle2 } from 'lucide-react';
-
-const initialAlerts = [
-  { id: '1', store: 'Downtown Hypermarket', message: 'Entrance Camera offline', severity: 'Critical', time: '5 mins ago', status: 'Open' },
-  { id: '2', store: 'Downtown Hypermarket', message: 'High congestion detected in Aisle 3', severity: 'Warning', time: '15 mins ago', status: 'Open' },
-  { id: '3', store: 'Downtown Hypermarket', message: 'Shelf 2 layout tracking mismatch', severity: 'Info', time: '1 hour ago', status: 'Open' },
-];
+import { ShieldAlert, Info, AlertTriangle, CheckCircle } from 'lucide-react';
+import { alertsApi, Alert, AlertStats } from '../../api/alerts';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function AlertsPage(): JSX.Element {
-  const { toast } = useToast();
-  const [alerts, setAlerts] = React.useState(initialAlerts);
+  const { user } = useAuth();
+  const storeId = user?.store_id || undefined;
+  
+  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [stats, setStats] = useState<AlertStats | null>(null);
 
-  const handleAcknowledge = (id: string) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'Resolved' } : a)));
-    toast({ title: 'Alert Acknowledged', type: 'success' });
-  };
+  useEffect(() => {
+    fetchAlerts();
+  }, [storeId]);
 
-  const getSeverityBadge = (sev: string) => {
-    switch (sev) {
-      case 'Critical':
-        return 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-200';
-      case 'Warning':
-        return 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200';
-      default:
-        return 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-200';
+  const fetchAlerts = async () => {
+    setLoading(true);
+    try {
+      const data = await alertsApi.getAlerts(storeId);
+      setAlerts(data.alerts);
+      setStats(data.stats);
+    } catch (error) {
+      console.error("Failed to fetch alerts:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div>
-      <PageHeader
-        title="Store Alerts"
-        description="Monitor operational warnings, camera connectivity updates, and consumer traffic patterns."
-      />
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await alertsApi.acknowledgeAlert(id);
+      fetchAlerts(); // Refresh list
+    } catch (error) {
+      console.error("Failed to acknowledge alert:", error);
+    }
+  };
 
-      <Card>
+  const getIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical': return <ShieldAlert className="h-5 w-5 text-rose-500" />;
+      case 'warning': return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+      default: return <Info className="h-5 w-5 text-blue-500" />;
+    }
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center"><div className="animate-pulse">Loading alerts...</div></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b border-border pb-4">
+        <div>
+          <h2 className="text-2xl font-bold">System Alerts & Notifications</h2>
+          <p className="text-sm text-muted-foreground mt-1">Monitor operational issues, camera health, and traffic anomalies.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="bg-card/50">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Active Alerts</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{stats?.open || 0}</div></CardContent>
+        </Card>
+        <Card className="bg-card/50 border-rose-500/20">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-rose-500">Critical Alerts</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold text-rose-500">{stats?.critical || 0}</div></CardContent>
+        </Card>
+        <Card className="bg-card/50 border-amber-500/20">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-amber-500">Warnings</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold text-amber-500">{stats?.warning || 0}</div></CardContent>
+        </Card>
+        <Card className="bg-card/50 border-emerald-500/20">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-emerald-500">Resolved Today</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-bold text-emerald-500">{stats?.resolved || 0}</div></CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-card/50 backdrop-blur border-border/60">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-emerald-500" />
-            Active Notifications
-          </CardTitle>
-          <CardDescription>Review open security and operational notices needing store management attention.</CardDescription>
+          <CardTitle>Active Alerts</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Store</TableHead>
-                <TableHead>Notification Message</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Detected Time</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {alerts.map((alert) => (
-                <TableRow key={alert.id}>
-                  <TableCell className="font-medium">{alert.store}</TableCell>
-                  <TableCell>{alert.message}</TableCell>
-                  <TableCell>
-                    <Badge className={getSeverityBadge(alert.severity)}>
-                      {alert.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{alert.time}</TableCell>
-                  <TableCell className="text-right">
-                    {alert.status === 'Open' ? (
-                      <Button variant="outline" size="sm" onClick={() => handleAcknowledge(alert.id)}>
-                        <CheckCircle2 className="h-4 w-4 mr-1 text-emerald-500" />
-                        Resolve
-                      </Button>
-                    ) : (
-                      <Badge variant="secondary">Resolved</Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-4">
+            {alerts.filter(a => a.status === 'open').map((alert) => (
+              <div key={alert.id} className="flex items-start justify-between p-4 border border-border/50 rounded-lg bg-card/30">
+                <div className="flex gap-4">
+                  <div className="mt-1">{getIcon(alert.severity)}</div>
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      {alert.alert_type.replace('_', ' ').toUpperCase()}
+                      <Badge variant="outline" className={alert.severity === 'critical' ? 'text-rose-500' : 'text-amber-500'}>
+                        {alert.severity}
+                      </Badge>
+                    </h4>
+                    <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
+                    <p className="text-xs text-muted-foreground/50 mt-2">{new Date(alert.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleAcknowledge(alert.id)}
+                  className="px-3 py-1 text-xs font-medium rounded-md bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                >
+                  <CheckCircle className="w-3 h-3" /> Acknowledge
+                </button>
+              </div>
+            ))}
+            {alerts.filter(a => a.status === 'open').length === 0 && (
+              <div className="text-center p-8 text-muted-foreground flex flex-col items-center">
+                <CheckCircle className="w-12 h-12 text-emerald-500/50 mb-4" />
+                <p>No active alerts. All systems nominal.</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

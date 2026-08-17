@@ -5,7 +5,7 @@ echo =========================================
 echo Starting Backend Server...
 echo =========================================
 :: Start backend in a new command prompt window from root directory
-start "Backend Server" cmd /k "cd /d %~dp0 && cd backend && alembic upgrade head && cd .. && python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000"
+start "Backend Server" cmd /k "cd /d %~dp0 && cd backend && alembic upgrade head && cd .. && python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000"
 
 echo =========================================
 echo Starting Frontend Server...
