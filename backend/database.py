@@ -1,43 +1,41 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 import datetime
+import os
+import os
+import urllib.parse
 
-# The SQLite database will be created as a local file named 'cams_retail.db'
-# To upgrade to PostgreSQL later, simply replace this string with:
-# SQLALCHEMY_DATABASE_URL = "postgresql://user:password@localhost/cams_db"
-SQLALCHEMY_DATABASE_URL = "sqlite:///./cams_retail.db"
+# If your password is 'abc@100', encode it so SQLAlchemy doesn't get confused by the '@'
+_raw_password = "Pass@100"  # Put your exact password here (special characters are fine)
+_encoded_password = urllib.parse.quote_plus(_raw_password)
 
-# connect_args is needed only for SQLite to allow multiple threads (FastAPI) to access it
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    f"postgresql://postgres:{_encoded_password}@localhost:5432/cams_db" 
 )
+
+# SQLite's "check_same_thread" is removed because Postgres natively supports multi-threading
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
-
-# --- ADD THIS FUNCTION TO DATABASE.PY ---
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-# ----------------------------------------
+
 # ==========================================
-# DATABASE SCHEMAS (TABLES)
+# DATABASE SCHEMAS
 # ==========================================
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    password = Column(String) # In a true prod environment, this would be hashed
+    password = Column(String) 
     role = Column(String)
 
 class POSTransaction(Base):
@@ -57,4 +55,4 @@ class StoreZone(Base):
     y_coord = Column(Float)
     width = Column(Float)
     height = Column(Float)
-    is_camera_covered = Column(Integer, default=0) # 0 for False, 1 for True
+    is_camera_covered = Column(Integer, default=0)

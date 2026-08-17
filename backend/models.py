@@ -51,3 +51,15 @@ class Recommendation(Base):
     action = Column(String)
     reason = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ShopperProfile(Base):
+    """
+    Persistent Vector Storage: Stores Re-ID embeddings long-term to recognize 
+    returning customers even after the 24-hour RAM cache clears.
+    """
+    __tablename__ = "shopper_profiles"
+
+    global_id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(String, index=True, nullable=True) # Linked POS customer
+    feature_vector_json = Column(String) # JSON serialized numpy array embedding
+    last_seen = Column(DateTime, default=datetime.utcnow)
