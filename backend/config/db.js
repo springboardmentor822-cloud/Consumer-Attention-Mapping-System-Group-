@@ -1,18 +1,19 @@
+const path = require('path');
 const { Sequelize } = require('sequelize');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const isSqlite = process.env.DB_DIALECT === 'sqlite' || process.env.USE_SQLITE === 'true';
 
 const sequelize = isSqlite
   ? new Sequelize({
       dialect: 'sqlite',
-      storage: process.env.DB_STORAGE || './database/dev.sqlite',
+      storage: process.env.DB_STORAGE || path.resolve(__dirname, '../database/dev.sqlite'),
       logging: false
     })
   : new Sequelize(
       process.env.DB_NAME || 'attention_db',
-      process.env.DB_USER || 'attention_user',
-      process.env.DB_PASSWORD || 'attention_pass',
+      process.env.DB_USER || 'postgres',
+      process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : '',
       {
         host: process.env.DB_HOST || 'localhost',
         port: process.env.DB_PORT || 5432,

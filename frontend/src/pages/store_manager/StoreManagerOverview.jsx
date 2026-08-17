@@ -1,7 +1,6 @@
 import React from "react";
-import {
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
-
+import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";

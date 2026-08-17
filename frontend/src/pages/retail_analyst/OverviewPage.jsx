@@ -1,8 +1,7 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
-
+import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, PieChart, Pie, Cell
 } from "recharts";

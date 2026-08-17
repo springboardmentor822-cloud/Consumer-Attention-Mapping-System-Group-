@@ -109,7 +109,7 @@ export default function AttentionInsights() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Synchronized Attention Floorplan Heatmap</h3>
             <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">Centralized heatmap synchronized across all Store Manager and Marketing Manager portals</span>
           </div>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          
         </div>
         <div className="w-full flex justify-center py-2 overflow-hidden">
           <StoreHeatmapModel dateFilter={selectedPeriod} customRangeLabel={customRange?.label} onDateChange={handleDateChange} />

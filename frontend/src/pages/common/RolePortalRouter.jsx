@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getSession, logout } from "../../utils/auth";
 import DynamicSubPageRenderer from "./DynamicSubPageRenderer";
 import PortalDataFilter from "../../components/PortalDataFilter";
@@ -142,16 +142,35 @@ function useLiveClock() {
 
 export default function RolePortalRouter({ role }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = getSession();
   const { globalFilter, setGlobalFilter } = useCams();
   const config = PORTAL_CONFIG[role] || PORTAL_CONFIG["Store Manager"];
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mainRef = useRef(null);
   const now = useLiveClock();
 
+  // Scroll to top immediately whenever active tab, route, or role changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+      if (typeof mainRef.current.scrollTo === "function") {
+        mainRef.current.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      }
+    }
+  }, [activeTab, location.pathname, role]);
+
   const email = session?.email || "user@cams.com";
-  const initials = email.substring(0, 2).toUpperCase();
+  const fullName = (session?.fullName || "User").trim();
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+  const initials = nameParts.length > 1 
+    ? ((nameParts[0]?.[0] || "") + (nameParts[1]?.[0] || "")).toUpperCase() 
+    : (fullName.substring(0, 2) || "U").toUpperCase();
 
   const handleLogout = () => {
     logout();
@@ -191,8 +210,8 @@ export default function RolePortalRouter({ role }) {
         {/* Role badge */}
         {!sidebarCollapsed && (
           <div className={`mx-3 mt-3 px-3 py-2 rounded-xl ${config.accent.bg} border ${config.accent.border}`}>
-            <p className={`text-[10px] font-black uppercase tracking-wider ${config.accent.text}`}>
-              {role}
+            <p className={`text-[10px] font-black uppercase tracking-wider ${config.accent.text} truncate`}>
+              {fullName}
             </p>
             <p className="text-[9px] text-slate-500 font-mono truncate mt-0.5">{email}</p>
           </div>
@@ -304,7 +323,7 @@ export default function RolePortalRouter({ role }) {
                 {initials}
               </div>
               <div className="hidden md:flex flex-col">
-                <span className="text-xs font-bold text-white leading-none">{role}</span>
+                <span className="text-xs font-bold text-white leading-none truncate max-w-[140px]">{fullName}</span>
                 <span className="text-[9px] text-slate-500 font-mono leading-none mt-0.5 max-w-[140px] truncate">{email}</span>
               </div>
             </div>
@@ -320,7 +339,7 @@ export default function RolePortalRouter({ role }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto">
           <div className="max-w-[1800px] mx-auto p-5">
             <DynamicSubPageRenderer
               role={role}

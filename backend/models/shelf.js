@@ -58,11 +58,11 @@ const Shelf = sequelize.define('Shelf', {
     defaultValue: 4
   },
   level_heights: {
-    type: DataTypes.JSONB,
+    type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.JSONB,
     defaultValue: []
   },
   product_categories: {
-    type: DataTypes.ARRAY(DataTypes.STRING),
+    type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.ARRAY(DataTypes.STRING),
     defaultValue: []
   },
   created_at: {

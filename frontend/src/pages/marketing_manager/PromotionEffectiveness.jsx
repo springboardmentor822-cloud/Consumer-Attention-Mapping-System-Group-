@@ -166,7 +166,7 @@ export default function PromotionEffectiveness() {
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Before vs After Promotion Lift</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-52">
             <ComponentErrorBoundary>
@@ -188,7 +188,7 @@ export default function PromotionEffectiveness() {
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Revenue Impact by Promotion</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-44 w-full relative flex items-center justify-center">
             <ComponentErrorBoundary>

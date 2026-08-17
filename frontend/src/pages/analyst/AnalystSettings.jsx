@@ -1,13 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getSession, updateProfileAPI, updateSessionProfile } from "../../../src/utils/auth";
 
 export default function AnalystSettings() {
+  const session = getSession();
+
   const [profile, setProfile] = useState({
-    name: "Retail Analyst",
-    email: "analyst@cams-retail.com",
+    name: session?.fullName || "",
+    email: session?.email || "",
+    phone: session?.phone || "",
     timezone: "UTC-5 (EST)",
     autoRefresh: "60s",
   });
   
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  useEffect(() => {
+    if (session) {
+      setProfile({
+        ...profile,
+        name: session.fullName || "",
+        email: session.email || "",
+        phone: session.phone || ""
+      });
+    }
+  }, [session?.fullName, session?.email, session?.phone]);
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    setProfileError("");
+    setProfileSuccess("");
+    try {
+      const updatedData = await updateProfileAPI({
+        full_name: profile.name,
+        email: profile.email,
+        phone: profile.phone
+      });
+      updateSessionProfile({
+        fullName: updatedData.full_name,
+        email: updatedData.email,
+        phone: updatedData.phone
+      });
+      setProfileSuccess("Profile updated successfully!");
+    } catch (err) {
+      setProfileError(`Update failed: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const [notifications, setNotifications] = useState({
     email: true,
     anomalies: true,
@@ -31,6 +74,13 @@ export default function AnalystSettings() {
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">User Profile Configuration</h3>
           
+          {profileSuccess && (
+            <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl">{profileSuccess}</div>
+          )}
+          {profileError && (
+            <div className="p-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl">{profileError}</div>
+          )}
+
           <div className="space-y-3">
             <div>
               <label className="text-slate-400 block mb-1">User Display Name</label>
@@ -40,6 +90,11 @@ export default function AnalystSettings() {
             <div>
               <label className="text-slate-400 block mb-1">Email Address</label>
               <input type="email" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} className="w-full bg-[#070C18] border border-[#1E293B] text-white rounded-lg p-2.5 focus:outline-none focus:border-cyan-500" />
+            </div>
+
+            <div>
+              <label className="text-slate-400 block mb-1">Phone Number</label>
+              <input type="text" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} className="w-full bg-[#070C18] border border-[#1E293B] text-white rounded-lg p-2.5 focus:outline-none focus:border-cyan-500" />
             </div>
 
             <div>
@@ -112,8 +167,8 @@ export default function AnalystSettings() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <button className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-xs rounded-xl transition uppercase tracking-wider">
-          Save Settings Profile
+        <button onClick={handleProfileSubmit} disabled={isUpdating} className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-xs rounded-xl transition uppercase tracking-wider disabled:opacity-50">
+          {isUpdating ? "Saving..." : "Save Settings Profile"}
         </button>
       </div>
     </div>

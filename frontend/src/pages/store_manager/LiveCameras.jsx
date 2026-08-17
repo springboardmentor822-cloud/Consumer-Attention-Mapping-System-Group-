@@ -77,11 +77,11 @@ function resolveZoneByPosition(centerXPercent, centerYPercent, activeCam) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Per-track state managed in a ref (not React state, to avoid re-render lag)
 // ─────────────────────────────────────────────────────────────────────────────
-const fmtDwell = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
+const fmtDwell = (s) => (s >= 60 ?`${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
 
 // ── EMA smoothing factor for bbox positions ────────────────────────────────────
-// alpha=1.0 → no smoothing. alpha=0.75 → fast responsive smoothing
-const EMA_ALPHA = 0.75;
+// alpha=1.0 → no smoothing. alpha=0.80 → fast responsive smoothing
+const EMA_ALPHA = 0.80;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // High-Performance LiveCameraFeed Component
@@ -208,90 +208,6 @@ const LiveCameraFeed = React.forwardRef(({
     }
   }, [activeCam]);
 
-  // ── Collision-aware label layout ──────────────────────────────────────────
-  // Each label is LABEL_W × LABEL_H pixels. We try placing it:
-  //   1. Above the box   (preferred)
-  //   2. Below the box
-  //   3. Nudge left/right to avoid already-placed labels
-  // All placed labels are clamped to [0, containerW] × [0, containerH].
-  const LABEL_W = 130; // px — max label width
-  const LABEL_H = 34;  // px — two-line label height
-
-  const labelsLayout = useMemo(() => {
-    if (!tracks.length || containerSize.w === 0 || containerSize.h === 0) return {};
-
-    const nativeW = sourceDims.width  || 1280;
-    const nativeH = sourceDims.height || 720;
-    const cW = containerSize.w;
-    const cH = containerSize.h;
-
-    // Convert all bboxes first
-    const boxRects = tracks
-      .filter(t => t.bbox)
-      .map(t => {
-        const css = pixelBboxToCSS(t.bbox, nativeW, nativeH, cW, cH);
-        return { id: t.id, ...css };
-      });
-
-    // Helper: does rect A overlap rect B (with margin px)?
-    const overlaps = (ax, ay, bx, by, margin = 2) =>
-      ax < bx + LABEL_W + margin &&
-      ax + LABEL_W + margin > bx &&
-      ay < by + LABEL_H + margin &&
-      ay + LABEL_H + margin > by;
-
-    // Clamp to container
-    const clampX = (x) => Math.max(0, Math.min(cW - LABEL_W, x));
-    const clampY = (y) => Math.max(0, Math.min(cH - LABEL_H, y));
-
-    const placed = {}; // id → {x, y}
-
-    // Sort by top-to-bottom, left-to-right so earlier placements are predictable
-    const sorted = [...boxRects].sort((a, b) => a.top - b.top || a.left - b.left);
-
-    for (const box of sorted) {
-      const idealX = clampX(box.left);
-
-      // Candidate placements in preference order
-      const candidates = [
-        // 1. Above box
-        { x: idealX, y: clampY(box.top - LABEL_H - 2) },
-        // 2. Below box
-        { x: idealX, y: clampY(box.top + box.height + 2) },
-        // 3. Above, shifted right
-        { x: clampX(box.left + box.width * 0.5), y: clampY(box.top - LABEL_H - 2) },
-        // 4. Below, shifted right
-        { x: clampX(box.left + box.width * 0.5), y: clampY(box.top + box.height + 2) },
-        // 5. Inside top of box (last resort — still attached)
-        { x: idealX, y: clampY(box.top + 2) },
-      ];
-
-      // For each candidate, try nudging up to 4 times in 18px steps to escape collisions
-      let chosen = candidates[candidates.length - 1]; // fallback = inside box
-      outer: for (const c of candidates) {
-        for (let nudge = 0; nudge <= 3; nudge++) {
-          const nx = c.x;
-          const ny = clampY(c.y + nudge * (LABEL_H + 4));
-          let collision = false;
-          for (const pid of Object.keys(placed)) {
-            if (overlaps(nx, ny, placed[pid].x, placed[pid].y)) {
-              collision = true;
-              break;
-            }
-          }
-          if (!collision) {
-            chosen = { x: nx, y: ny };
-            break outer;
-          }
-        }
-      }
-
-      placed[box.id] = chosen;
-    }
-
-    return placed;
-  }, [tracks, containerSize, sourceDims]);
-
   return (
     <div
       ref={containerRef}
@@ -377,7 +293,7 @@ const LiveCameraFeed = React.forwardRef(({
         </div>
       )}
 
-      {/* ── Layer 1: Bounding Boxes (z-index 11-25) ── */}
+      {/* ── Layer: Bounding Boxes + Attached Labels (z-index 11-25) ── */}
       {showAiBoxes && !showHeatmap && wsStatus === "online" && containerSize.w > 0 && containerSize.h > 0 && (
         <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 11 }}>
           {tracks.map((t) => {
@@ -404,75 +320,19 @@ const LiveCameraFeed = React.forwardRef(({
                   zIndex: isSelected ? 25 : 12,
                 }}
               >
-                {/* Corner accent marks */}
-                <div className="absolute -top-px -left-px  w-2.5 h-2.5 border-t-2 border-l-2 border-white/80" />
-                <div className="absolute -top-px -right-px w-2.5 h-2.5 border-t-2 border-r-2 border-white/80" />
-                <div className="absolute -bottom-px -left-px  w-2.5 h-2.5 border-b-2 border-l-2 border-white/80" />
-                <div className="absolute -bottom-px -right-px w-2.5 h-2.5 border-b-2 border-r-2 border-white/80" />
-                {/* Head dot */}
+                {/* Clean top-left TRK ID badge directly inside the box */}
                 <div
-                  className="absolute w-1.5 h-1.5 rounded-full"
-                  style={{ left: "50%", top: "10%", transform: "translateX(-50%)", backgroundColor: t.color }}
-                />
-                {/* Body line */}
-                <div className="absolute left-1/2 top-[20%] bottom-[25%] w-px bg-white/40 -translate-x-1/2" />
-                {/* Selected ring */}
-                {isSelected && <div className="absolute inset-0 rounded ring-2 ring-cyan-400" />}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Layer 2: Track Labels (collision-resolved, clamped, one per track, z-index 20) ── */}
-      {showAiBoxes && !showHeatmap && wsStatus === "online" && containerSize.w > 0 && containerSize.h > 0 && (
-        <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 20 }}>
-          {tracks.map((t) => {
-            if (!t.bbox) return null;
-            const pos = labelsLayout[t.id];
-            if (!pos) return null;
-            const zone = t.zone && t.zone.length > 13 ? `${t.zone.substring(0, 10)}…` : (t.zone || "");
-            const activity = t.activity || "Walking";
-            const dwell = fmtDwell(t.dwellSeconds || 0);
-            return (
-              <div
-                key={t.id}
-                id={`track-label-${t.id}`}
-                className="absolute flex flex-col pointer-events-none"
-                style={{ left: `${pos.x}px`, top: `${pos.y}px`, width: "130px", zIndex: 20 }}
-              >
-                {/* Primary row: TRK ID | Zone */}
-                <div
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-t text-[8.5px] font-black font-mono overflow-hidden"
+                  className="absolute top-0 left-0 px-1.5 py-0.5 text-[9px] font-black font-mono text-black leading-none select-none"
                   style={{
                     backgroundColor: t.color,
-                    color: "#000",
-                    borderBottom: "1px solid rgba(0,0,0,0.3)",
-                    maxWidth: 130,
+                    borderBottomRightRadius: "3px",
                   }}
                 >
-                  <span className="shrink-0 whitespace-nowrap">{t.id}</span>
-                  {zone && (
-                    <>
-                      <span className="opacity-50 shrink-0">|</span>
-                      <span className="truncate opacity-90">{zone}</span>
-                    </>
-                  )}
+                  {t.id}
                 </div>
-                {/* Secondary row: Activity • Dwell */}
-                <div
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-b text-[8px] font-bold font-mono overflow-hidden"
-                  style={{
-                    backgroundColor: "rgba(5,10,24,0.92)",
-                    border: `1px solid ${t.color}55`,
-                    borderTop: "none",
-                    maxWidth: 130,
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: t.color }} />
-                  <span className="text-white truncate whitespace-nowrap">{activity}</span>
-                  <span className="text-amber-400 font-extrabold shrink-0 whitespace-nowrap">• {dwell}</span>
-                </div>
+
+                {/* Selected ring */}
+                {isSelected && <div className="absolute inset-0 rounded ring-2 ring-cyan-400 pointer-events-none" />}
               </div>
             );
           })}
@@ -503,7 +363,7 @@ export default function LiveCameras() {
             fps: c.fps || 30,
             ip: c.camera_url || "127.0.0.1",
             path: c.stream_url || `/videos/store1.mp4`,
-            zones: c.zones || ["Main Central Aisle", "Dairy Coolers", "Bakery Shelf"]
+            zones: c.zones && c.zones.length > 0 ? c.zones : ["Main Central Aisle", "Dairy Coolers", "Bakery Shelf"]
           }));
           mapped.sort((a, b) => a.id.localeCompare(b.id));
           setCameras(mapped);
@@ -606,15 +466,54 @@ export default function LiveCameras() {
       }
     }
 
-    // Clean up tracking state for tracks that are no longer sent in the payload
+    const activeAndLostTracks = [];
+
+    // 1. Add all active raw tracks
+    for (const track of uniqueRawTracks) {
+      activeAndLostTracks.push({
+        trackId: track.trackId,
+        bbox: track.bbox,
+        confidence: track.confidence,
+        isLost: false,
+      });
+    }
+
+    // 2. Identify and keep lost tracks that are within the 400ms grace period
     for (const id of Object.keys(trackStateRef.current)) {
       if (!seenIds.has(id)) {
-        delete trackStateRef.current[id];
-        delete smoothedBboxRef.current[id];
+        const tstate = trackStateRef.current[id];
+        if (!tstate._lostAt) {
+          tstate._lostAt = now;
+        }
+
+        const timeSinceLost = now - tstate._lostAt;
+        if (timeSinceLost <= 400) { // 400ms tolerance
+          const prev = smoothedBboxRef.current[id] || tstate.lastBbox;
+          const x1 = Math.round(prev.x * nativeW);
+          const y1 = Math.round(prev.y * nativeH);
+          const x2 = Math.round((prev.x + prev.w) * nativeW);
+          const y2 = Math.round((prev.y + prev.h) * nativeH);
+
+          activeAndLostTracks.push({
+            trackId: id,
+            bbox: { x1, y1, x2, y2 },
+            confidence: tstate.lastConfidence,
+            isLost: true,
+          });
+        } else {
+          // Genuinely gone — clean up state immediately
+          delete trackStateRef.current[id];
+          delete smoothedBboxRef.current[id];
+        }
+      } else {
+        // Active — clear the lost timestamp
+        if (trackStateRef.current[id]._lostAt) {
+          delete trackStateRef.current[id]._lostAt;
+        }
       }
     }
 
-    const adapted = uniqueRawTracks.map((track) => {
+    const adapted = activeAndLostTracks.map((track) => {
       const { trackId, bbox, confidence } = track;
 
       // Convert absolute pixel coords {x1, y1, x2, y2} to normalized {x, y, w, h}
@@ -644,15 +543,19 @@ export default function LiveCameras() {
       tstate.lastConfidence = confidence;
       tstate.lastUpdateTime = now;
 
-      // Apply EMA smoothing to coordinates (EMA_ALPHA = 0.75)
-      const prev = smoothedBboxRef.current[trackId] || normBbox;
-      const smoothedNormBbox = {
-        x: prev.x + EMA_ALPHA * (normBbox.x - prev.x),
-        y: prev.y + EMA_ALPHA * (normBbox.y - prev.y),
-        w: prev.w + EMA_ALPHA * (normBbox.w - prev.w),
-        h: prev.h + EMA_ALPHA * (normBbox.h - prev.h),
-      };
-      smoothedBboxRef.current[trackId] = smoothedNormBbox;
+      // Apply EMA smoothing to active coordinates (EMA_ALPHA = 0.80)
+      if (!track.isLost) {
+        const prev = smoothedBboxRef.current[trackId] || normBbox;
+        const smoothedNormBbox = {
+          x: prev.x + EMA_ALPHA * (normBbox.x - prev.x),
+          y: prev.y + EMA_ALPHA * (normBbox.y - prev.y),
+          w: prev.w + EMA_ALPHA * (normBbox.w - prev.w),
+          h: prev.h + EMA_ALPHA * (normBbox.h - prev.h),
+        };
+        smoothedBboxRef.current[trackId] = smoothedNormBbox;
+      }
+
+      const smoothedNormBbox = smoothedBboxRef.current[trackId] || normBbox;
 
       // Convert smoothed normalized bbox back to absolute pixel coordinates for rendering
       const smoothedBboxPixels = {
@@ -693,6 +596,7 @@ export default function LiveCameras() {
         centerY: centerYPercent,
         journey: tstate.journey,
         productsPicked: tstate.productsPicked,
+        isLost: track.isLost,
       };
     });
 
@@ -820,11 +724,11 @@ export default function LiveCameras() {
           lastLocalUpdateRef.current = now;
           setConfirmedPersonTracks(adapted);
 
-          // Update detection log for the last 5 new tracks
+          // Update detection log for recent tracks
           if (adapted.length > 0) {
             const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
             setDetectionLog((prev) => {
-              const newEntries = adapted.slice(0, 2).map((t) => ({
+              const newEntries = adapted.slice(0, 5).map((t) => ({
                 time: ts,
                 id: t.id,
                 event: "Tracked",
@@ -945,7 +849,7 @@ export default function LiveCameras() {
           {
             label: "Detection Status",
             val: detectionStatus === "online" ? "● Online" : detectionStatus === "connecting" ? "◌ Connecting" : "✕ Offline",
-            sub: activeCam?.ip || "Initializing...",
+            sub: activeCam?.location || "Initializing...",
             icon: "⚡",
             accent: detectionStatus === "online" ? "emerald" : detectionStatus === "connecting" ? "amber" : "rose",
           },
@@ -975,9 +879,9 @@ export default function LiveCameras() {
               key={cam.id}
               onClick={() => setSelectedCamera(cam.id)}
               className={`p-3 rounded-xl border text-left transition ${selectedCamera === cam.id
-                ? "bg-blue-600/10 border-blue-500 ring-2 ring-blue-500/20"
-                : "bg-[#070C18] border-[#1E293B] hover:border-slate-500"
-                }`}
+    ? "bg-blue-600/10 border-blue-500 ring-2 ring-blue-500/20"
+    : "bg-[#070C18] border-[#1E293B] hover:border-slate-500"
+  }`}
             >
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-black text-cyan-400">{cam.id}</span>
@@ -1004,18 +908,18 @@ export default function LiveCameras() {
               <button
                 onClick={() => setShowVideo((v) => !v)}
                 className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showVideo && !videoError
-                  ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-400"
-                  : "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
-                  }`}
+    ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-400"
+    : "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
+  }`}
               >
                 {showVideo && !videoError ? "📹 Live Stream Feed" : "📸 Store AI Map"}
               </button>
               <button
                 onClick={() => setShowAiBoxes((v) => !v)}
                 className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold transition ${showAiBoxes
-                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                  : "bg-[#070C18] border-[#1E293B] text-slate-400"
-                  }`}
+    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+    : "bg-[#070C18] border-[#1E293B] text-slate-400"
+  }`}
               >
                 Person Overlays
               </button>
@@ -1053,11 +957,11 @@ export default function LiveCameras() {
             {[
               ["Resolution", activeCam.res],
               ["Frame Rate", `${activeCam.fps} FPS`],
-              ["Inference IP", activeCam.ip],
+              ["Location", activeCam.location],
             ].map(([k, v]) => (
               <div key={k} className="bg-[#070C18] border border-[#1E293B] rounded-lg p-2 font-mono">
                 <span className="text-slate-500 block">{k}</span>
-                <span className="text-white font-bold">{v}</span>
+                <span className="text-white font-bold truncate">{v}</span>
               </div>
             ))}
           </div>
@@ -1082,7 +986,6 @@ export default function LiveCameras() {
               { label: "Products Picked", val: totalProductsPicked, icon: "🛍️", color: "purple", desc: "Items Picked Up" },
               { label: "Avg Dwell Time", val: fmtDwell(avgDwellSeconds), icon: "⏱️", color: "amber", desc: "Mean Dwell Duration" },
               { label: "Total Session Count", val: cumulativeSessionCountRef.current.size, icon: "📊", color: "teal", desc: "Session Total" },
-
             ].map(({ label, val, icon, color, desc }) => (
               <div key={label} className="bg-[#070C18] border border-[#1E293B] p-2.5 rounded-xl flex items-center justify-between">
                 <div>
@@ -1128,7 +1031,7 @@ export default function LiveCameras() {
           </div>
 
           {/* CUSTOMER PROFILE INSPECTOR */}
-          {selectedTrackerData ? (
+          {selectedTrackerData && (
             <div className="bg-[#070C18] border border-cyan-500/50 p-3.5 rounded-xl space-y-2.5">
               <div className="flex justify-between items-center border-b border-[#1E293B] pb-1.5">
                 <span className="font-black text-cyan-400 text-xs flex items-center gap-1.5">
@@ -1168,10 +1071,6 @@ export default function LiveCameras() {
                   ))}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-[#070C18] border border-[#1E293B] p-3 rounded-xl text-center text-slate-500 text-[10px]">
-              💡 Click on any tracked person overlay to inspect their movement trajectory & profile metrics.
             </div>
           )}
         </div>

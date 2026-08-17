@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getSession } from "../../../src/utils/auth";
 
 export default function ReportsExport() {
   const [activeTab, setActiveTab] = useState("center"); // 'center' | 'scheduled' | 'templates' | 'history'
@@ -19,9 +20,9 @@ export default function ReportsExport() {
   const [reportsList, setReportsList] = useState([
     { id: "REP-901", title: "Weekly Consumer Attention & Footfall Analysis", category: "Consumer Analytics", store: "Store 1 - Koramangala", owner: "Arjun Sharma", format: "PDF", status: "Ready", size: "4.2 MB", created: "Today, 08:00 AM", downloads: 14 },
     { id: "REP-902", title: "Monthly Retail Store Operational Performance", category: "Store Performance", store: "All Stores Scope", owner: "Priya Mehta", format: "Excel (.xlsx)", status: "Ready", size: "12.8 MB", created: "Yesterday, 05:30 PM", downloads: 28 },
-    { id: "REP-903", title: "AI Model Detection Precision & FPS Benchmark", category: "AI Insights", store: "System Engine", owner: "Kiran Reddy", format: "JSON", status: "Ready", size: "1.4 MB", created: "Aug 2, 2026", downloads: 8 },
+    { id: "REP-903", title: "AI Model Detection Precision & FPS Benchmark", category: "AI Insights", store: "System Engine", owner: getSession()?.fullName || "Admin User", format: "JSON", status: "Ready", size: "1.4 MB", created: "Aug 2, 2026", downloads: 8 },
     { id: "REP-904", title: "RTSP Camera & Device Diagnostics Summary", category: "Operational Metrics", store: "Store 3 - Hyderabad", owner: "Sneha Patel", format: "CSV", status: "Processing", size: "Generating...", created: "Just now", downloads: 0 },
-    { id: "REP-905", title: "Platform Security & Authentication Audit Log", category: "Security Audits", store: "Enterprise Scope", owner: "Kiran Reddy", format: "PDF", status: "Ready", size: "6.5 MB", created: "Aug 1, 2026", downloads: 42 },
+    { id: "REP-905", title: "Platform Security & Authentication Audit Log", category: "Security Audits", store: "Enterprise Scope", owner: getSession()?.fullName || "Admin User", format: "PDF", status: "Ready", size: "6.5 MB", created: "Aug 1, 2026", downloads: 42 },
   ]);
 
   // Scheduled Reports

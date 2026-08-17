@@ -65,6 +65,7 @@ export default function AnalystOverview() {
   const scaledDwellDistribution = central?.dwellDistribution || dwellDistribution;
   const scaledZones = central?.zones || zones;
   const scaledStoreHeatmap = central?.storeHeatmap || storeHeatmap;
+  const scaledAttentionTrend = central?.attentionTrend || attentionTrend;
 
   const handleDateChange = (newPeriod, customData = null) => {
     if (customData) {
@@ -181,7 +182,7 @@ export default function AnalystOverview() {
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
 <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={attentionTrend}>
+              <ComposedChart data={scaledAttentionTrend}>
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
                 <YAxis yAxisId="left" stroke="#64748B" fontSize={9} />

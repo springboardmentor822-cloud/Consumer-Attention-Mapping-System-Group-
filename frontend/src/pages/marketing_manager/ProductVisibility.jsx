@@ -114,7 +114,7 @@ export default function ProductVisibility() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Synchronized Product Visibility Floorplan Heatmap</h3>
             <span className="text-[10px] text-slate-400 block mt-0.5">Centralized heatmap synchronized across Store Manager and Marketing Manager portals</span>
           </div>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          
         </div>
         <div className="w-full flex justify-center py-2 overflow-hidden">
           <StoreHeatmapModel dateFilter={selectedPeriod} customRangeLabel={customRange?.label} onDateChange={handleDateChange} />
@@ -126,7 +126,7 @@ export default function ProductVisibility() {
         <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Visibility Score Trend</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-52">
             <ComponentErrorBoundary>
@@ -151,7 +151,7 @@ export default function ProductVisibility() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Visibility Score by Category</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-40 w-full relative flex items-center justify-center">
             <ComponentErrorBoundary>

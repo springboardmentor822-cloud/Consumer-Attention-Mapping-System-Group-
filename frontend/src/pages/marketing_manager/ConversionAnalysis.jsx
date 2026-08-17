@@ -124,7 +124,7 @@ export default function ConversionAnalysis() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Conversion Rate Over Time</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-48">
             <ComponentErrorBoundary>
@@ -146,7 +146,7 @@ export default function ConversionAnalysis() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Conversion Rate by Channel</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-48">
             <ComponentErrorBoundary>
@@ -167,7 +167,7 @@ export default function ConversionAnalysis() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Conversion Rate by Category</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-36 relative flex items-center justify-center">
             <ComponentErrorBoundary>
@@ -206,7 +206,7 @@ export default function ConversionAnalysis() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Marketing Conversion Funnel</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="space-y-2 pt-1">
             {funnelStages.map((f, idx) => (

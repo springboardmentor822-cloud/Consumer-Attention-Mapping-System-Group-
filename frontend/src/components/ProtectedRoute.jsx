@@ -4,14 +4,14 @@ import { getSession, hasRole, getHomeRoute } from "../utils/auth";
 
 const ROLE_INFO = {
   admin: { label: "Administrator Portal", icon: "🛡️", color: "from-indigo-600 to-blue-600", border: "border-indigo-500/40", badge: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30" },
-  store: { label: "Store Manager Portal", icon: "🏪", color: "from-emerald-600 to-teal-600", border: "border-emerald-500/40", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
-  analyst: { label: "Retail Analyst Portal", icon: "📈", color: "from-cyan-600 to-blue-600", border: "border-cyan-500/40", badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" },
-  marketing: { label: "Marketing Manager Portal", icon: "📢", color: "from-amber-600 to-orange-600", border: "border-amber-500/40", badge: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+  store_manager: { label: "Store Manager Portal", icon: "🏪", color: "from-emerald-600 to-teal-600", border: "border-emerald-500/40", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  retail_analyst: { label: "Retail Analyst Portal", icon: "📈", color: "from-cyan-600 to-blue-600", border: "border-cyan-500/40", badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" },
+  marketing_manager: { label: "Marketing Manager Portal", icon: "📢", color: "from-amber-600 to-orange-600", border: "border-amber-500/40", badge: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
 };
 
 /**
  * ProtectedRoute - Guards a portal route
- * @param {string} requiredRoleKey - "admin" | "store" | "analyst" | "marketing"
+ * @param {string} requiredRoleKey - "admin" | "store_manager" | "retail_analyst" | "marketing_manager"
  */
 export default function ProtectedRoute({ children, requiredRoleKey }) {
   const session = getSession();
@@ -23,8 +23,8 @@ export default function ProtectedRoute({ children, requiredRoleKey }) {
 
   // Logged in but wrong role → show Access Denied
   if (!hasRole(requiredRoleKey)) {
-    const required = ROLE_INFO[requiredRoleKey] || ROLE_INFO.store;
-    const current = ROLE_INFO[session.roleKey] || ROLE_INFO.store;
+    const required = ROLE_INFO[requiredRoleKey] || ROLE_INFO.store_manager;
+    const current = ROLE_INFO[session.roleKey] || ROLE_INFO.store_manager;
     const myHomeRoute = getHomeRoute(session.role);
 
     return (

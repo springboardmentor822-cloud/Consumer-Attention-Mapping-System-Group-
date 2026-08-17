@@ -5,10 +5,22 @@ import {
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, ComposedChart, ScatterChart, Scatter
 } from "recharts";
 import {
-  journeyFunnel, zoneTransitions, dropoffPoints, commonPaths,
-  attentionOverview, attentionTrend, attentionByZone, gazeDirectionData,
-  customerSegments, rfmDistribution as rfmDistributionFallback, products, sparklines, heatColor,
-  formatNumber, formatCurrency, getCentralScaledData
+  journeyFunnel as staticJourneyFunnel,
+  zoneTransitions as staticZoneTransitions,
+  dropoffPoints as staticDropoffPoints,
+  commonPaths as staticCommonPaths,
+  attentionOverview as staticAttentionOverview,
+  attentionTrend as staticAttentionTrend,
+  attentionByZone as staticAttentionByZone,
+  gazeDirectionData as staticGazeDirectionData,
+  customerSegments as staticCustomerSegments,
+  rfmDistribution as rfmDistributionFallback,
+  products as staticProducts,
+  sparklines,
+  heatColor,
+  formatNumber,
+  formatCurrency,
+  getCentralScaledData
 } from "../../services/centralData";
 import { useCams } from "../../services/CamsContext";
 import CustomDateSelector from "../../components/CustomDateSelector";
@@ -49,7 +61,7 @@ const retentionTrend = [
   { month: "May", loyal: 91, potential: 78, atRisk: 46, newCust: 60 },
   { month: "Jun", loyal: 92, potential: 78, atRisk: 45, newCust: 61 },
   { month: "Jul", loyal: 92, potential: 79, atRisk: 44, newCust: 62 },
-  { month: "Aug", loyal: 92, pct: 78, atRisk: 45, newCust: 62 },
+  { month: "Aug", loyal: 92, potential: 78, atRisk: 45, newCust: 62 },
 ];
 
 const segRadar = [
@@ -84,7 +96,27 @@ export default function AnalystConsumerBehaviorIntelligence() {
   const gazeDirectionData = centralData?.gazeDirectionData || staticGazeDirectionData;
   const products = centralData?.products || staticProducts;
   const customerSegments = centralData?.customerSegments || staticCustomerSegments;
-  const rfmDistribution = centralData?.rfmDistribution || rfmDistributionFallback;
+  const rfmDistribution = (centralData?.rfmDistribution || rfmDistributionFallback).map((e, i) => ({
+    ...e,
+    color: e.color || ["#10B981","#3B82F6","#F59E0B","#8B5CF6","#EF4444","#F97316"][i % 6]
+  }));
+
+  // Build retention trend from actual segment retention values
+  const buildRetentionTrend = (segs) => {
+    const loyal = segs.find(s => s.name === "Loyal Champions" || s.name === "Brand Loyal Customer" || s.name === "Explorer")?.retention || 92;
+    const potential = segs.find(s => s.name === "Potential Loyalists" || s.name === "Impulse Buyer")?.retention || 78;
+    const atRisk = segs.find(s => s.name === "At-Risk Customers" || s.name === "Comparison Shopper")?.retention || 45;
+    const newCust = segs.find(s => s.name === "New Customers" || s.name === "Quick Buyer")?.retention || 62;
+    const months = ["Mar","Apr","May","Jun","Jul","Aug"];
+    return months.map((month, i) => ({
+      month,
+      loyal: Math.max(0, Math.min(100, loyal - (months.length - 1 - i) * 0.3)),
+      potential: Math.max(0, Math.min(100, potential - (months.length - 1 - i) * 0.5)),
+      atRisk: Math.max(0, Math.min(100, atRisk + (months.length - 1 - i) * 0.8)),
+      newCust: Math.max(0, Math.min(100, newCust - (months.length - 1 - i) * 0.2))
+    }));
+  };
+  const dynamicRetentionTrend = customerSegments.length > 0 ? buildRetentionTrend(customerSegments) : retentionTrend;
 
   const dateLabel = typeof activeFilter === "object" ? activeFilter.label || activeFilter.dateRange : activeFilter;
 
@@ -351,11 +383,11 @@ export default function AnalystConsumerBehaviorIntelligence() {
 <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={attentionTrend}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" stroke="#64748B" fontSize={9} />
+                  <XAxis dataKey="day" stroke="#64748B" fontSize={9} />
                   <YAxis stroke="#64748B" fontSize={9} />
                   <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
-                  <Area type="monotone" dataKey="totalAttn" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.15} name="Attention Time (min)" />
-                  <Area type="monotone" dataKey="avgFixation" stroke="#06B6D4" fill="#06B6D4" fillOpacity={0.1} name="Avg Fixation (s)" />
+                  <Area type="monotone" dataKey="attention" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.15} name="Avg Attention (s)" />
+                  <Area type="monotone" dataKey="dwell" stroke="#06B6D4" fill="#06B6D4" fillOpacity={0.1} name="Avg Dwell (min)" />
                 </AreaChart>
               </ResponsiveContainer>
 </ComponentErrorBoundary>
@@ -367,12 +399,12 @@ export default function AnalystConsumerBehaviorIntelligence() {
             <div className="h-64 w-full">
               <ComponentErrorBoundary>
 <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attentionByZone} layout="vertical">
+                <BarChart data={attentionByZone.map(e => ({ ...e, displayScore: e.share ?? e.score }))} layout="vertical">
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
-                  <XAxis type="number" stroke="#64748B" fontSize={9} unit="%" />
+                  <XAxis type="number" stroke="#64748B" fontSize={9} unit="%" domain={[0, 100]} />
                   <YAxis dataKey="zone" type="category" stroke="#94A3B8" fontSize={9} width={90} />
                   <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
-                  <Bar dataKey="share" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="displayScore" radius={[0, 4, 4, 0]}>
                     {attentionByZone.map((entry, index) => (
                       <Cell key={index} fill={entry.score > 85 ? "#8B5CF6" : entry.score > 70 ? "#06B6D4" : "#10B981"} />
                     ))}
@@ -396,7 +428,7 @@ export default function AnalystConsumerBehaviorIntelligence() {
               <ComponentErrorBoundary>
 <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={gazeDirectionData} dataKey="pct" nameKey="dir" innerRadius={35} outerRadius={60} paddingAngle={3} label={({ pct }) => `${pct}%`} labelLine={false} fontSize={9}>
+                  <Pie data={gazeDirectionData} dataKey="pct" nameKey="dir" innerRadius={35} outerRadius={60} paddingAngle={3} label={({ percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''} labelLine={false} fontSize={9}>
                     {gazeDirectionData.map((entry, index) => (
                       <Cell key={index} fill={entry.color} />
                     ))}
@@ -476,14 +508,18 @@ export default function AnalystConsumerBehaviorIntelligence() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Customer Distribution</h3>
             <div className="h-44 w-full">
               <ComponentErrorBoundary>
+{customerSegments.length === 0 || customerSegments.every(s => !s.pct && !s.count) ? (
+  <div className="h-full flex items-center justify-center text-slate-500 text-xs font-mono">No data available for the selected period</div>
+) : (
 <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={customerSegments} dataKey="pct" nameKey="name" innerRadius={35} outerRadius={58} paddingAngle={3} label={({ pct }) => `${pct}%`} labelLine={false} fontSize={9}>
+                  <Pie data={customerSegments} dataKey="pct" nameKey="name" innerRadius={35} outerRadius={58} paddingAngle={3} label={({ percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''} labelLine={false} fontSize={9}>
                     {customerSegments.map((s, i) => <Cell key={i} fill={s.color} />)}
                   </Pie>
                   <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
                 </PieChart>
               </ResponsiveContainer>
+)}
 </ComponentErrorBoundary>
             </div>
             <div className="space-y-1">
@@ -500,17 +536,21 @@ export default function AnalystConsumerBehaviorIntelligence() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">RFM Analysis (Recency vs Frequency)</h3>
             <div className="h-52 w-full">
               <ComponentErrorBoundary>
+{rfmDistribution.length < 2 ? (
+  <div className="h-full flex items-center justify-center text-slate-500 text-xs font-mono">No RFM data available for the selected period</div>
+) : (
 <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
-                  <XAxis type="number" dataKey="recency" name="Recency" stroke="#64748B" fontSize={9} unit=" days" />
-                  <YAxis type="number" dataKey="frequency" name="Frequency" stroke="#64748B" fontSize={9} unit="/mo" />
+                  <XAxis type="number" dataKey="recency" name="Recency" stroke="#64748B" fontSize={9} unit=" days" label={{ value: 'Recency (days)', position: 'insideBottom', offset: -2, fontSize: 8, fill: '#64748B' }} />
+                  <YAxis type="number" dataKey="frequency" name="Frequency" stroke="#64748B" fontSize={9} unit="/mo" label={{ value: 'Frequency', angle: -90, position: 'insideLeft', fontSize: 8, fill: '#64748B' }} />
                   <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
                   <Scatter data={rfmDistribution} fill="#8B5CF6">
-                    {rfmDistribution.map((e, i) => <Cell key={i} fill={customerSegments[i]?.color || "#8B5CF6"} />)}
+                    {rfmDistribution.map((e, i) => <Cell key={i} fill={e.color || "#8B5CF6"} />)}
                   </Scatter>
                 </ScatterChart>
               </ResponsiveContainer>
+)}
 </ComponentErrorBoundary>
             </div>
           </div>
@@ -541,6 +581,9 @@ export default function AnalystConsumerBehaviorIntelligence() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Revenue Contribution by Segment</h3>
             <div className="h-48 w-full">
               <ComponentErrorBoundary>
+{customerSegments.length === 0 || customerSegments.every(s => !s.revenue) ? (
+  <div className="h-full flex items-center justify-center text-slate-500 text-xs font-mono">No revenue data available for the selected period</div>
+) : (
 <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={customerSegments}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
@@ -552,6 +595,7 @@ export default function AnalystConsumerBehaviorIntelligence() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+)}
 </ComponentErrorBoundary>
             </div>
           </div>
@@ -561,15 +605,15 @@ export default function AnalystConsumerBehaviorIntelligence() {
             <div className="h-48 w-full">
               <ComponentErrorBoundary>
 <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={retentionTrend}>
+                <LineChart data={dynamicRetentionTrend}>
                   <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                   <XAxis dataKey="month" stroke="#64748B" fontSize={10} />
-                  <YAxis stroke="#64748B" fontSize={9} unit="%" />
-                  <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
-                  <Line type="monotone" dataKey="loyal" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="potential" stroke="#3B82F6" strokeWidth={2} />
-                  <Line type="monotone" dataKey="atRisk" stroke="#F59E0B" strokeWidth={2} strokeDasharray="5 5" />
-                  <Line type="monotone" dataKey="newCust" stroke="#8B5CF6" strokeWidth={2} />
+                  <YAxis stroke="#64748B" fontSize={9} unit="%" domain={[0, 100]} />
+                  <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} formatter={(v) => `${parseFloat(v).toFixed(1)}%`} />
+                  <Line type="monotone" dataKey="loyal" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} name="Loyal" />
+                  <Line type="monotone" dataKey="potential" stroke="#3B82F6" strokeWidth={2} name="Potential" />
+                  <Line type="monotone" dataKey="atRisk" stroke="#F59E0B" strokeWidth={2} strokeDasharray="5 5" name="At-Risk" />
+                  <Line type="monotone" dataKey="newCust" stroke="#8B5CF6" strokeWidth={2} name="New" />
                 </LineChart>
               </ResponsiveContainer>
 </ComponentErrorBoundary>

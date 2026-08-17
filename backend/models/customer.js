@@ -43,11 +43,11 @@ const Customer = sequelize.define('Customer', {
     type: DataTypes.STRING(100)
   },
   products_viewed: {
-    type: DataTypes.JSONB,
+    type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.JSONB,
     defaultValue: []
   },
   products_purchased: {
-    type: DataTypes.JSONB,
+    type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.JSONB,
     defaultValue: []
   },
   is_active: {

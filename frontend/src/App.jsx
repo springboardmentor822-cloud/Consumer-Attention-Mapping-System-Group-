@@ -4,10 +4,13 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RolePortalRouter from "./pages/common/RolePortalRouter";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ScrollToTop from "./components/ScrollToTop";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       {/* ─── Authentication ──────────────────────────────────────────── */}
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
@@ -34,7 +37,7 @@ export default function App() {
       <Route
         path="/store-manager"
         element={
-          <ProtectedRoute requiredRoleKey="store">
+          <ProtectedRoute requiredRoleKey="store_manager">
             <RolePortalRouter role="Store Manager" />
           </ProtectedRoute>
         }
@@ -42,7 +45,7 @@ export default function App() {
       <Route
         path="/store-manager/*"
         element={
-          <ProtectedRoute requiredRoleKey="store">
+          <ProtectedRoute requiredRoleKey="store_manager">
             <RolePortalRouter role="Store Manager" />
           </ProtectedRoute>
         }
@@ -52,7 +55,7 @@ export default function App() {
       <Route
         path="/retail-analyst"
         element={
-          <ProtectedRoute requiredRoleKey="analyst">
+          <ProtectedRoute requiredRoleKey="retail_analyst">
             <RolePortalRouter role="Retail Analyst" />
           </ProtectedRoute>
         }
@@ -60,7 +63,7 @@ export default function App() {
       <Route
         path="/retail-analyst/*"
         element={
-          <ProtectedRoute requiredRoleKey="analyst">
+          <ProtectedRoute requiredRoleKey="retail_analyst">
             <RolePortalRouter role="Retail Analyst" />
           </ProtectedRoute>
         }
@@ -70,7 +73,7 @@ export default function App() {
       <Route
         path="/marketing-manager"
         element={
-          <ProtectedRoute requiredRoleKey="marketing">
+          <ProtectedRoute requiredRoleKey="marketing_manager">
             <RolePortalRouter role="Marketing Manager" />
           </ProtectedRoute>
         }
@@ -78,7 +81,7 @@ export default function App() {
       <Route
         path="/marketing-manager/*"
         element={
-          <ProtectedRoute requiredRoleKey="marketing">
+          <ProtectedRoute requiredRoleKey="marketing_manager">
             <RolePortalRouter role="Marketing Manager" />
           </ProtectedRoute>
         }
@@ -87,5 +90,6 @@ export default function App() {
       {/* ─── Catch-all → Login ───────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </>
   );
 }

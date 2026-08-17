@@ -193,7 +193,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Engagement Over Time</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
@@ -214,7 +214,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Engagement by Shelf Zone</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
@@ -239,7 +239,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 flex flex-col justify-between font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Engagement Heatmap</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="w-full h-56 overflow-hidden rounded-xl border border-[#1E293B] relative bg-[#040814]">
             <div className="scale-[0.45] sm:scale-[0.52] origin-top-left w-[220%] sm:w-[192%] h-[220%] sm:h-[192%]">
@@ -259,7 +259,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Performance Overview</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[11px]">
@@ -293,7 +293,7 @@ export default function ShelfPerformance() {
         <div className="lg:col-span-3 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Top Performing Shelves</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="space-y-2.5">
             {topPerformingShelvesList.map((item) => (

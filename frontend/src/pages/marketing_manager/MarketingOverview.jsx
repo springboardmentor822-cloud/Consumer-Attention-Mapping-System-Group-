@@ -257,7 +257,7 @@ export default function MarketingOverview() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance Overview</h3>
-            <CustomDateSelector value={w1Period || globalPeriod} onChange={(p) => setW1Period(p)} />
+            
           </div>
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
@@ -279,7 +279,7 @@ export default function MarketingOverview() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Promotion Effectiveness Lift</h3>
-            <CustomDateSelector value={w2Period || globalPeriod} onChange={(p) => setW2Period(p)} />
+            
           </div>
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
@@ -304,7 +304,7 @@ export default function MarketingOverview() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Marketing Conversion Funnel</h3>
-            <CustomDateSelector value={w3Period || globalPeriod} onChange={(p) => setW3Period(p)} />
+            
           </div>
 
           <div className="space-y-2 pt-1">
@@ -331,7 +331,7 @@ export default function MarketingOverview() {
         <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Product Visibility Score by Shelf</h3>
-            <CustomDateSelector value={w4Period || globalPeriod} onChange={(p) => setW4Period(p)} />
+            
           </div>
           <div className="h-56 w-full">
             <ComponentErrorBoundary>

@@ -82,7 +82,7 @@ const Product = sequelize.define('Product', {
     type: DataTypes.STRING(500)
   },
   product_image_embedding: {
-    type: DataTypes.JSONB,
+    type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.JSONB,
     defaultValue: {}
   },
   status: {

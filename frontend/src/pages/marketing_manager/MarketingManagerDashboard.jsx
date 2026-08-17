@@ -1,10 +1,9 @@
-﻿import React, { useState } from "react";
-import {
+import React, { useState } from "react";
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
-
+import {
   ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ScatterChart, Scatter, ZAxis, LineChart
+  ScatterChart, Scatter, ZAxis, LineChart, Cell
 } from "recharts";
 
 export default function MarketingDashboard() {
@@ -324,7 +323,7 @@ export default function MarketingDashboard() {
                 <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px", color: "#FFF" }} />
                 <Bar dataKey="score" radius={[0, 4, 4, 0]}>
                   {visibilityByShelfData.map((e, idx) => (
-                    <Bar key={`cell-${idx}`} fill={e.fill} />
+                    <Cell key={`cell-${idx}`} fill={e.fill} />
                   ))}
                 </Bar>
               </BarChart>

@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import AiVisionCamera from "../../../components/vision/AiVisionCamera";
-import {
 import ComponentErrorBoundary from "../../../components/ComponentErrorBoundary";
-
+import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
   ComposedChart, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter, ZAxis
 } from "recharts";

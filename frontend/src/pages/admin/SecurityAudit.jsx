@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getSession } from "../../../src/utils/auth";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
@@ -17,7 +18,7 @@ export default function SecurityAudit() {
   // Searchable Audit Logs
   const auditLogs = [
     { id: "LOG-8801", timestamp: "Today, 10:32 AM", user: "Arjun Sharma (Marketing)", event: "USER_AUTHENTICATION", action: "Successful OAuth2 Login", ip: "192.168.1.42", category: "Auth", status: "Success" },
-    { id: "LOG-8802", timestamp: "Today, 10:15 AM", user: "Kiran Reddy (Admin)", event: "PERMISSION_CHANGE", action: "Updated Retail Analyst Export privileges", ip: "192.168.1.10", category: "Permissions", status: "Success" },
+    { id: "LOG-8802", timestamp: "Today, 10:15 AM", user: `${getSession()?.fullName || "Admin User"} (Admin)`, event: "PERMISSION_CHANGE", action: "Updated Retail Analyst Export privileges", ip: "192.168.1.10", category: "Permissions", status: "Success" },
     { id: "LOG-8803", timestamp: "Today, 09:40 AM", user: "Priya Mehta (Store Mgr)", event: "DATA_ACCESS", action: "Accessed Store 1 Live Stream CAM-001", ip: "192.168.1.31", category: "Data Access", status: "Success" },
     { id: "LOG-8804", timestamp: "Yesterday, 11:22 PM", user: "Rohan Verma", event: "AUTH_FAILURE", action: "Failed password attempt (3 tries)", ip: "203.45.12.88", category: "Security", status: "Warning" },
     { id: "LOG-8805", timestamp: "Yesterday, 03:14 AM", user: "System Firewall", event: "SUSPICIOUS_ACTIVITY", action: "Blocked brute force IP attempt", ip: "45.142.120.9", category: "Incident", status: "Blocked" },
@@ -35,7 +36,7 @@ export default function SecurityAudit() {
   // Active Security Incidents
   const securityIncidents = [
     { id: "INC-401", title: "Unrecognized IP Authentication Attempt", source: "IP 45.142.120.9", severity: "High", status: "Mitigated (Blocked)", time: "Yesterday, 03:14 AM" },
-    { id: "INC-402", title: "Elevated Privilege Usage Flag", source: "Kiran Reddy", severity: "Info", status: "Audit Approved", time: "Today, 10:15 AM" }
+    { id: "INC-402", title: "Elevated Privilege Usage Flag", source: getSession()?.fullName || "Admin User", severity: "Info", status: "Audit Approved", time: "Today, 10:15 AM" }
   ];
 
   // Compliance Status

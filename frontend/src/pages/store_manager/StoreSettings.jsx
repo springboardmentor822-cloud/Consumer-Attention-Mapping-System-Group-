@@ -1,7 +1,54 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useCams } from "../../services/CamsContext";
+import { getSession, updateProfileAPI, updateSessionProfile } from "../../utils/auth";
 
 export default function StoreSettings() {
+  const session = getSession();
+
+  const [profileForm, setProfileForm] = useState({
+    name: session?.fullName || "",
+    email: session?.email || "",
+    phone: session?.phone || ""
+  });
+
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  useEffect(() => {
+    if (session) {
+      setProfileForm({
+        name: session.fullName || "",
+        email: session.email || "",
+        phone: session.phone || ""
+      });
+    }
+  }, [session?.fullName, session?.email, session?.phone]);
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    setProfileError("");
+    setProfileSuccess("");
+    try {
+      const updatedData = await updateProfileAPI({
+        full_name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone
+      });
+      updateSessionProfile({
+        fullName: updatedData.full_name,
+        email: updatedData.email,
+        phone: updatedData.phone
+      });
+      setProfileSuccess("Profile updated successfully!");
+    } catch (err) {
+      setProfileError(`Update failed: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const { users, rolePermissions } = useCams();
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
@@ -66,19 +113,23 @@ export default function StoreSettings() {
         <div className="lg:col-span-6 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Profile Information</h3>
           
-          <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
+          {profileSuccess && (
+            <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl">{profileSuccess}</div>
+          )}
+          {profileError && (
+            <div className="p-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl">{profileError}</div>
+          )}
+
+          <form onSubmit={handleProfileSubmit} className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-slate-700 border-2 border-blue-500 overflow-hidden flex items-center justify-center text-3xl text-white font-bold">
-                👨‍💼
+              <div className="w-20 h-20 rounded-full bg-slate-700 border-2 border-blue-500 flex items-center justify-center text-3xl text-white font-bold bg-gradient-to-br from-emerald-600 to-teal-600">
+                {profileForm.name ? profileForm.name.substring(0, 2).toUpperCase() : "SM"}
               </div>
-              <button className="absolute bottom-0 right-0 w-6 h-6 bg-blue-600 border border-[#0F172A] rounded-full flex items-center justify-center text-white text-[10px]">
-                📷
-              </button>
               <div className="mt-2 text-center">
-                <span className="font-bold text-white block text-xs">Arjun Singh</span>
-                <span className="text-[10px] text-slate-400 block">Store Manager</span>
+                <span className="font-bold text-white block text-xs">{profileForm.name}</span>
+                <span className="text-[10px] text-slate-400 block">{session?.role || "Store Manager"}</span>
                 <span className="mt-1 inline-block px-2 py-0.5 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded text-[9px] font-bold">
-                  Administrator
+                  {session?.role || "Store Manager"}
                 </span>
               </div>
             </div>
@@ -89,7 +140,8 @@ export default function StoreSettings() {
                   <label className="text-slate-400 text-[10px] block mb-1">Full Name</label>
                   <input
                     type="text"
-                    defaultValue="Arjun Singh"
+                    value={profileForm.name}
+                    onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 text-white outline-none focus:border-blue-500 text-xs font-sans"
                   />
                 </div>
@@ -97,7 +149,8 @@ export default function StoreSettings() {
                   <label className="text-slate-400 text-[10px] block mb-1">Email Address</label>
                   <input
                     type="email"
-                    defaultValue="arjun.singh@cams-retail.com"
+                    value={profileForm.email}
+                    onChange={e => setProfileForm({ ...profileForm, email: e.target.value })}
                     className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 text-white outline-none focus:border-blue-500 text-xs font-sans"
                   />
                 </div>
@@ -107,7 +160,8 @@ export default function StoreSettings() {
                 <label className="text-slate-400 text-[10px] block mb-1">Phone Number</label>
                 <input
                   type="text"
-                  defaultValue="+91 98765 43210"
+                  value={profileForm.phone}
+                  onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
                   className="w-full bg-[#070C18] border border-[#1E293B] rounded-xl px-3 py-1.5 text-white outline-none focus:border-blue-500 text-xs font-sans"
                 />
               </div>
@@ -126,14 +180,14 @@ export default function StoreSettings() {
                   </select>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="text-right pt-2">
-            <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs">
-              Save Changes
-            </button>
-          </div>
+              <div className="text-right pt-2">
+                <button type="submit" disabled={isUpdating} className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition text-xs disabled:opacity-50">
+                  {isUpdating ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
 
         {/* CHANGE PASSWORD SECTION */}

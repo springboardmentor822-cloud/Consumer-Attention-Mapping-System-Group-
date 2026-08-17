@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getSession, updateProfileAPI, updateSessionProfile } from "../../../src/utils/auth";
 
 export default function ProfileSupport() {
   const [activeTab, setActiveTab] = useState("profile"); // 'profile' | 'security' | 'tickets' | 'help' | 'activity'
@@ -9,15 +10,55 @@ export default function ProfileSupport() {
     setTimeout(() => setToastMessage(""), 3500);
   };
 
+  const session = getSession();
+
   const [profileForm, setProfileForm] = useState({
-    name: "Kiran Reddy",
-    designation: "Chief System Administrator",
-    email: "kiran@cams-retail.com",
-    phone: "+91 98765 43210",
+    name: session?.fullName || "Admin User",
+    designation: session?.role || "Administrator",
+    email: session?.email || "",
+    phone: session?.phone || "",
     theme: "Dark Mode (Midnight Blue)",
     language: "English (US)",
     dashboardView: "Central Monitoring Dashboard"
   });
+
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Update local state if session changes
+  useEffect(() => {
+    if (session) {
+      setProfileForm(prev => ({
+        ...prev,
+        name: session.fullName || prev.name,
+        email: session.email || prev.email,
+        phone: session.phone || prev.phone,
+        designation: session.role || prev.designation
+      }));
+    }
+  }, [session?.fullName, session?.email, session?.phone, session?.role]);
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    try {
+      const updatedData = await updateProfileAPI({
+        full_name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone
+      });
+      // Sync local session
+      updateSessionProfile({
+        fullName: updatedData.full_name,
+        email: updatedData.email,
+        phone: updatedData.phone
+      });
+      showToast("Profile details updated successfully!");
+    } catch (err) {
+      showToast(`Update failed: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -70,7 +111,7 @@ export default function ProfileSupport() {
       <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-5 flex flex-wrap justify-between items-center gap-4 shadow-xl">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-xl font-black text-white shadow-lg">
-            KR
+            {profileForm.name.substring(0, 2).toUpperCase()}
           </div>
           <div>
             <h1 className="text-xl font-black text-white tracking-wide">{profileForm.name}</h1>
@@ -115,10 +156,7 @@ export default function ProfileSupport() {
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 space-y-4 max-w-2xl">
           <h3 className="text-sm font-extrabold text-white">Administrator Personal Profile Details</h3>
 
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            showToast("Profile details updated successfully!");
-          }} className="space-y-3 text-xs">
+          <form onSubmit={handleProfileSubmit} className="space-y-3 text-xs">
             <div>
               <label className="block text-slate-400 font-bold mb-1">Full Name</label>
               <input
@@ -159,8 +197,8 @@ export default function ProfileSupport() {
             </div>
 
             <div className="pt-2">
-              <button type="submit" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition shadow-md">
-                Update Profile Info
+              <button type="submit" disabled={isUpdating} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition shadow-md disabled:opacity-50">
+                {isUpdating ? "Updating..." : "Update Profile Info"}
               </button>
             </div>
           </form>

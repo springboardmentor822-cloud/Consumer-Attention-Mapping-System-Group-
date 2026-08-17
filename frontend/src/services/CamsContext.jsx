@@ -33,6 +33,13 @@ export function CamsProvider({ children }) {
   const [selectedCamera, setSelectedCamera] = useState("CAM-01");
   const [selectedStore, setSelectedStore] = useState("STR-101");
 
+  // Database-backed states
+  const [stores, setStores] = useState([]);
+  const [shelves, setShelves] = useState([]);
+  const [cameras, setCameras] = useState([]);
+  const [zones, setZones] = useState([]);
+  const [products, setProducts] = useState([]);
+
   // User Access Management State
   const [users, setUsers] = useState([
     { id: 1, name: "Priya Mehta", email: "priya@cams-retail.com", role: "Retail Analyst", status: "Active" },
@@ -53,26 +60,26 @@ export function CamsProvider({ children }) {
   const [telemetry, setTelemetry] = useState(() => cd.getCentralScaledData(DEFAULT_FILTER).kpis);
   const [dbLoaded, setDbLoaded] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const loadDb = async () => {
-      console.log("Loading PostgreSQL database records into central data store...");
-      const success = await cd.fetchAllFromDatabase();
-      if (success && active) {
-        setDbLoaded(true);
-        // Force refresh telemetry
-        const centralData = cd.getCentralScaledData(globalFilter);
-        setTelemetry(centralData.kpis);
-      }
-    };
-    loadDb();
-    // Set an interval to poll for updates occasionally
-    const interval = setInterval(loadDb, 10000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
+  const refreshDb = useCallback(async () => {
+    console.log("Loading PostgreSQL database records into central data store...");
+    const success = await cd.fetchAllFromDatabase();
+    if (success) {
+      setStores([...cd.stores]);
+      setShelves([...cd.shelves]);
+      setCameras([...cd.cameras]);
+      setZones([...cd.zones]);
+      setProducts([...cd.products]);
+      const centralData = cd.getCentralScaledData(globalFilter);
+      setTelemetry(centralData.kpis);
+      setDbLoaded(true);
+    }
   }, [globalFilter]);
+
+  useEffect(() => {
+    refreshDb();
+    const interval = setInterval(refreshDb, 10000);
+    return () => clearInterval(interval);
+  }, [refreshDb]);
 
   // User Management Actions
   const addUser = (newUser) => {
@@ -187,6 +194,12 @@ export function CamsProvider({ children }) {
         rolePermissions,
         saveRolePermissions,
         telemetry,
+        stores,
+        shelves,
+        cameras,
+        zones,
+        products,
+        refreshDb,
         liveTrackedPersons,
         liveHeatmapPoints,
         liveSessionHistory: Object.values(liveSessionRef.current),

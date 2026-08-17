@@ -99,7 +99,7 @@ export default function TrafficInsights() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic Volume & Visitor Count Analysis</h3>
             <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">Line chart analysis comparing total traffic volume trend vs visitor count trend over time</span>
           </div>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          
         </div>
         <div className="h-56">
           <ComponentErrorBoundary>
@@ -124,7 +124,7 @@ export default function TrafficInsights() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Traffic By Zone Heatmap & Analysis</h3>
             <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">Zone-wise breakdown categorizing High, Medium, and Low traffic zones</span>
           </div>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          
         </div>
 
         {/* ZONE TRAFFIC GRID HEATMAP CARDS */}

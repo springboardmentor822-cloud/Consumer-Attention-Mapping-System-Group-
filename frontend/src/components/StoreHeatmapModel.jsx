@@ -198,16 +198,10 @@ export default function StoreHeatmapModel({ customRangeLabel }) {
           </div>
         </div>
 
-        {/* Date Filter Box Override & Date Range Label */}
         <div className="flex flex-wrap items-center gap-3 font-mono">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Override:</span>
-            <BoxFilter value={localFilter} onChange={handleFilterChange} />
-          </div>
-
           <div className="px-3 py-1.5 bg-[#0B132B] border border-[#1E293B] rounded-xl text-xs text-slate-300 flex items-center gap-2">
-            <span>{activePreset.dateLabel}</span>
-            <span>📅</span>
+             <span>{activePreset.dateLabel}</span>
+             <span>📅</span>
           </div>
         </div>
       </div>

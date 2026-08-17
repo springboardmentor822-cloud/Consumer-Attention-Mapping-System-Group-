@@ -292,11 +292,11 @@ export const attentionByZone = [
 ];
 
 export const gazeDirectionData = [
-  { direction: "Eye Level (120-160cm)", pct: 42, score: 96 },
-  { direction: "Above Eye Level", pct: 18, score: 72 },
-  { direction: "Below Eye Level", pct: 14, score: 64 },
-  { direction: "Left Peripheral", pct: 12, score: 58 },
-  { direction: "Right Peripheral", pct: 14, score: 62 },
+  { direction: "Eye Level (120-160cm)", dir: "Eye Level", pct: 42, score: 96, color: "#8B5CF6" },
+  { direction: "Above Eye Level", dir: "Above Eye", pct: 18, score: 72, color: "#3B82F6" },
+  { direction: "Below Eye Level", dir: "Below Eye", pct: 14, score: 64, color: "#10B981" },
+  { direction: "Left Peripheral", dir: "Left Peripheral", pct: 12, score: 58, color: "#F59E0B" },
+  { direction: "Right Peripheral", dir: "Right Peripheral", pct: 14, score: 62, color: "#EC4899" },
 ];
 
 // Attention heatmap (same grid as store heatmap but attention-focused)
@@ -320,12 +320,12 @@ export const customerSegments = [
 ];
 
 export const rfmDistribution = [
-  { recency: 2, frequency: 4.2, monetary: 68.4, segment: "Loyal Champions", size: 4820 },
-  { recency: 5, frequency: 2.8, monetary: 52.1, segment: "Potential Loyalists", size: 5640 },
-  { recency: 18, frequency: 1.4, monetary: 42.8, segment: "At-Risk", size: 3200 },
-  { recency: 3, frequency: 1.2, monetary: 38.2, segment: "New Customers", size: 4100 },
-  { recency: 42, frequency: 0.6, monetary: 28.6, segment: "Hibernating", size: 2480 },
-  { recency: 4, frequency: 3.1, monetary: 24.2, segment: "Price Sensitive", size: 1560 },
+  { recency: 2, frequency: 4.2, monetary: 68.4, segment: "Loyal Champions", size: 4820, color: "#10B981" },
+  { recency: 5, frequency: 2.8, monetary: 52.1, segment: "Potential Loyalists", size: 5640, color: "#3B82F6" },
+  { recency: 18, frequency: 1.4, monetary: 42.8, segment: "At-Risk", size: 3200, color: "#F59E0B" },
+  { recency: 3, frequency: 1.2, monetary: 38.2, segment: "New Customers", size: 4100, color: "#8B5CF6" },
+  { recency: 42, frequency: 0.6, monetary: 28.6, segment: "Hibernating", size: 2480, color: "#EF4444" },
+  { recency: 4, frequency: 3.1, monetary: 24.2, segment: "Price Sensitive", size: 1560, color: "#F97316" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -611,18 +611,36 @@ export function generateCustomerTransactionHistory(period, customRange) {
       let purchaseAmount = 0;
       let transactionId = null;
 
-      // Deterministically assign zone
-      let zoneObj = zones[Math.floor(seededRandom(vSeed + 30) * zones.length)] || { name: "Bakery" };
+      // Deterministically assign zone — match against actual zone names in the zones array
+      // so that even if zone names are customized in localStorage the data stays consistent.
+      const zoneKeywords = [
+        { keywords: ["bread", "bakery", "pastry"], cats: ["Bread", "Bakery"] },
+        { keywords: ["dairy", "milk", "egg"],      cats: ["Dairy"] },
+        { keywords: ["produce", "fresh", "fruit", "veg", "salmon", "fish"], cats: ["Produce"] },
+        { keywords: ["beauty", "cosmetic", "personal care", "skincare"], cats: ["Beauty", "Cosmetics"] },
+        { keywords: ["electronic", "tech", "audio", "earbu"],            cats: ["Electronics"] },
+        { keywords: ["household", "clean", "home"],                       cats: ["Household"] },
+        { keywords: ["frozen", "ice"],                                    cats: ["Frozen"] },
+        { keywords: ["snack", "beverage", "drink", "granola", "cereal"],  cats: ["Snack", "Beverage"] },
+      ];
+      let zoneObj = zones[Math.floor(seededRandom(vSeed + 30) * zones.length)] || { name: zones[0]?.name || "Bakery" };
       let zone = zoneObj.name;
-      if (productsViewed.length > 0) {
-        const prodCat = productsViewed[0].category;
-        if (prodCat.includes("Bread") || prodCat.includes("Bakery")) zone = "Bakery";
-        else if (prodCat.includes("Dairy")) zone = "Dairy";
-        else if (prodCat.includes("Produce")) zone = "Produce";
-        else if (prodCat.includes("Beauty") || prodCat.includes("Cosmetics")) zone = "Cosmetics";
-        else if (prodCat.includes("Electronics")) zone = "Electronics";
-        else if (prodCat.includes("Household")) zone = "Household";
-        else if (prodCat.includes("Frozen")) zone = "Frozen Foods";
+      if (productsViewed.length > 0 && zones.length > 0) {
+        const prodName = (productsViewed[0].name || "").toLowerCase();
+        const prodCat  = (productsViewed[0].category || "").toLowerCase();
+        const combined = prodName + " " + prodCat;
+        // Find matching keyword group
+        const matchedGroup = zoneKeywords.find(g =>
+          g.keywords.some(kw => combined.includes(kw))
+        );
+        if (matchedGroup) {
+          // Try to find a zone in the actual zones array whose name contains one of those keywords
+          const matchedZone = zones.find(z =>
+            matchedGroup.keywords.some(kw => z.name.toLowerCase().includes(kw)) ||
+            matchedGroup.cats.some(cat => z.name.toLowerCase().includes(cat.toLowerCase()))
+          );
+          if (matchedZone) zone = matchedZone.name;
+        }
       }
 
       if (isPurchased && productsViewed.length > 0) {
@@ -786,6 +804,17 @@ export function getDynamicAiInsights(kpis) {
     }
   ];
 }
+
+// Database cached variables
+let dbJourneyFunnel = null;
+let dbCommonPaths = null;
+let dbZoneTransitions = null;
+let dbCustomerSegments = null;
+let dbAiInsights = null;
+let dbHourlyActivityHeatmap = null;
+let dbRfmDistribution = null;
+let dbShoppingBehavior = null;
+let dbBottlenecks = null;
 
 export function getCentralScaledData(periodOrFilter, customRange = null) {
   let period = "Last 7 Days";
@@ -1025,6 +1054,7 @@ export function getCentralScaledData(periodOrFilter, customRange = null) {
     mult,
     customerList,
     transactionList,
+    shelves,
     kpis: {
       totalVisitors: totalCustomers,
       totalVisitorsChange,
@@ -1080,47 +1110,52 @@ export function getCentralScaledData(periodOrFilter, customRange = null) {
       { name: "Compared", value: Math.round(totalCustomers * 0.22), color: "#8B5CF6" }
     ],
     topPickedProducts,
-    entryExitPoints: [
+    entryExitPoints: !!window.db_customers ? entryExitPoints : [
       { name: "Main Entrance", entries: Math.round(8420 * mult), exits: Math.round(7980 * mult), pct: 58.2, scaledEntries: Math.round(8420 * mult) },
       { name: "Side Entrance (Parking)", entries: Math.round(3640 * mult), exits: Math.round(3890 * mult), pct: 25.4, scaledEntries: Math.round(3640 * mult) },
       { name: "Mall Connector", entries: Math.round(2360 * mult), exits: Math.round(2410 * mult), pct: 16.4, scaledEntries: Math.round(2360 * mult) }
     ],
-    dailyTrafficTrend: dailyTrafficTrend.map(d => ({
+    dailyTrafficTrend: !!window.db_customers ? dailyTrafficTrend : dailyTrafficTrend.map(d => ({
       ...d,
       visitors: Math.round(d.visitors * (mult > 1 ? mult * 0.15 : mult)),
       newVisitors: Math.round(d.newVisitors * (mult > 1 ? mult * 0.15 : mult)),
       returning: Math.round(d.returning * (mult > 1 ? mult * 0.15 : mult)),
       scaledVisitors: Math.round(d.visitors * (mult > 1 ? mult * 0.15 : mult))
     })),
-    hourlyTraffic: hourlyTraffic.map(h => ({
+    hourlyTraffic: !!window.db_customers ? hourlyTraffic : hourlyTraffic.map(h => ({
       ...h,
       traffic: Math.round(h.traffic * (mult > 1 ? mult * 0.15 : mult))
     })),
-    journeyFunnel: journeyFunnel.map(j => ({
-      ...j,
-      count: Math.round(j.count * (mult > 1 ? mult * 0.15 : mult))
-    })),
-    commonPaths: commonPaths.map(p => ({
-      ...p,
-      freq: Math.round(p.freq * (mult > 1 ? mult * 0.15 : mult))
-    })),
-    zoneTransitions: zoneTransitions.map(t => ({
-      ...t,
-      count: Math.round(t.count * (mult > 1 ? mult * 0.15 : mult))
-    })),
-    dropoffPoints: dropoffPoints.map(d => ({
+    journeyFunnel: (!!window.db_customers && dbJourneyFunnel) ? dbJourneyFunnel : journeyFunnel,
+    commonPaths: (!!window.db_customers && dbCommonPaths) ? dbCommonPaths : commonPaths,
+    zoneTransitions: (!!window.db_customers && dbZoneTransitions) ? dbZoneTransitions : zoneTransitions,
+    dropoffPoints: !!window.db_customers ? dropoffPoints : dropoffPoints.map(d => ({
       ...d,
       count: Math.round(d.count * (mult > 1 ? mult * 0.15 : mult))
     })),
-    zones: zones.map(z => {
-      const zCusts = customerList.filter(c => c.zone === z.name);
+    zones: zones.map((z, zIdx) => {
+      // Use partial case-insensitive matching so zone names customized in localStorage
+      // still match customer records that were assigned via keyword lookup above.
+      const zNameLower = z.name.toLowerCase();
+      const zCusts = customerList.filter(c => {
+        const cZone = (c.zone || "").toLowerCase();
+        return cZone === zNameLower ||
+               cZone.includes(zNameLower) ||
+               zNameLower.includes(cZone);
+      });
       const zTxns = transactionList.filter(t => {
         const cust = customerList.find(c => c.customerId === t.customerId);
-        return cust && cust.zone === z.name;
+        if (!cust) return false;
+        const cZone = (cust.zone || "").toLowerCase();
+        return cZone === zNameLower ||
+               cZone.includes(zNameLower) ||
+               zNameLower.includes(cZone);
       });
       const zRev = zTxns.reduce((sum, t) => sum + t.amount, 0);
       const zPurchased = zCusts.filter(c => c.purchaseStatus === "Purchased").length;
       const zConv = zCusts.length > 0 ? parseFloat(((zPurchased / zCusts.length) * 100).toFixed(1)) : 0;
+      // Deterministic color palette so each zone always has a distinct color
+      const zoneColors = ["#2563EB", "#10B981", "#8B5CF6", "#F59E0B", "#06B6D4", "#F97316", "#14B8A6", "#EF4444"];
       return {
         ...z,
         visitors: zCusts.length,
@@ -1131,62 +1166,63 @@ export function getCentralScaledData(periodOrFilter, customRange = null) {
           ? parseFloat((zCusts.reduce((sum, c) => sum + c.dwellTime, 0) / zCusts.length).toFixed(1)) 
           : 15.0,
         attentionScore: Math.round(75 + seededRandom(z.name.charCodeAt(0)) * 20),
-        color: z.color || "#10B981"
+        color: z.color || zoneColors[zIdx % zoneColors.length]
       };
     }),
-    dwellDistribution: dwellDistribution.map(d => ({
+    dwellDistribution: !!window.db_customers ? dwellDistribution : dwellDistribution.map(d => ({
       ...d,
       visitors: Math.round(d.visitors * (mult > 1 ? mult * 0.15 : mult))
     })),
-    dwellTrend: dwellTrend.map(dt => ({
+    dwellTrend: !!window.db_customers ? dwellTrend : dwellTrend.map(dt => ({
       ...dt,
       avgDwell: parseFloat((dt.avgDwell * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1))
     })),
-    storeHeatmap: storeHeatmap.map(h => ({
+    storeHeatmap: !!window.db_customers ? storeHeatmap : storeHeatmap.map(h => ({
       ...h,
       heat: Math.min(100, Math.max(10, Math.round(h.heat * (mult > 5 ? 1.05 : mult < 1 ? 0.6 : 0.9))))
     })),
-    bottlenecks: bottlenecks.map(b => ({
-      ...b,
-      density: Math.min(99, Math.round(b.density * (mult > 1 ? 1.02 : 0.88)))
-    })),
+    bottlenecks: (!!window.db_customers && dbBottlenecks) ? dbBottlenecks : bottlenecks,
     products: products.map(p => {
-      const pViews = customerList.filter(c => c.productsViewed.some(pv => pv.id === p.id)).length;
-      const pPurchased = customerList.filter(c => c.productsPurchased.some(pp => pp.id === p.id)).length;
+      const pViews = customerList.filter(c => c.productsViewed.some(pv => (pv.id === p.id || pv.product_id === p.id))).length;
+      const pPurchased = customerList.filter(c => c.productsPurchased.some(pp => (pp.id === p.id || pp.product_id === p.id))).length;
       const pRev = transactionList.reduce((sum, t) => {
         const cust = customerList.find(c => c.customerId === t.customerId);
-        if (cust && cust.productsPurchased.some(pp => pp.id === p.id)) {
-          return sum + p.price;
+        if (cust && cust.productsPurchased.some(pp => (pp.id === p.id || pp.product_id === p.id))) {
+          return sum + (p.price || p.sellingPrice || 10.0);
         }
         return sum;
       }, 0);
+      const isDb = !!window.db_customers;
       return {
         ...p,
-        views: pViews || Math.round(15 * mult),
-        pickups: pViews ? Math.round(pViews * 0.6) : Math.round(9 * mult),
-        purchases: pPurchased || Math.round(5 * mult),
+        views: isDb ? pViews : (pViews || Math.round(15 * mult)),
+        pickups: isDb ? Math.round(pViews * 0.6) : (pViews ? Math.round(pViews * 0.6) : Math.round(9 * mult)),
+        purchases: isDb ? pPurchased : (pPurchased || Math.round(5 * mult)),
         convRate: pViews > 0 ? parseFloat(((pPurchased / pViews) * 100).toFixed(1)) : 0,
-        revenue: pRev || Math.round(pPurchased * p.price),
+        revenue: isDb ? pRev : (pRev || Math.round((pPurchased || Math.round(5 * mult)) * p.price)),
         attentionScore: Math.round(80 + seededRandom(p.id.charCodeAt(2)) * 18),
         avgDwell: parseFloat((2.5 + seededRandom(p.id.charCodeAt(2)) * 3.5).toFixed(1))
       };
     }),
-    customerSegments: customerSegments.map(s => ({
-      ...s,
-      count: Math.round(s.count * (mult > 1 ? mult * 0.15 : mult)),
-      revenue: Math.round(s.revenue * (mult > 1 ? mult * 0.15 : mult))
-    })),
+    customerSegments: (!!window.db_customers && dbCustomerSegments) ? dbCustomerSegments : customerSegments,
+    rfmDistribution: (!!window.db_customers && dbRfmDistribution) ? dbRfmDistribution : rfmDistribution,
+    shoppingBehavior: (!!window.db_customers && dbShoppingBehavior) ? dbShoppingBehavior : shoppingBehavior,
+    hourlyActivityHeatmap: (!!window.db_customers && dbHourlyActivityHeatmap) ? dbHourlyActivityHeatmap : hourlyActivityHeatmap,
     attentionTrend: attentionTrend.map(a => ({
       ...a,
-      totalAttn: Math.round(a.totalAttn * (mult > 1 ? mult * 0.15 : mult)),
-      highAttnVisitors: Math.round(a.highAttnVisitors * (mult > 1 ? mult * 0.15 : mult))
+      attention: parseFloat((a.attention * (mult > 5 ? 1.08 : mult < 1 ? 0.92 : 1.0)).toFixed(1)),
+      dwell: parseFloat((a.dwell * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)).toFixed(1)),
+      conversion: parseFloat((a.conversion * (mult > 5 ? 1.03 : mult < 1 ? 0.97 : 1.0)).toFixed(1)),
+      totalAttn: Math.round(a.attention * 2700 * (mult > 1 ? mult * 0.15 : mult)),
+      avgFixation: parseFloat((a.attention * (mult > 5 ? 1.08 : mult < 1 ? 0.92 : 1.0)).toFixed(1))
     })),
     attentionByZone: attentionByZone.map(az => ({
       ...az,
-      share: Math.round(az.share)
+      share: az.score,
+      shareLabel: az.score + '%'
     })),
     gazeDirectionData: gazeDirectionData,
-    aiInsights: dynInsights
+    aiInsights: (!!window.db_customers && dbAiInsights) ? dbAiInsights : dynInsights
   };
 }
 
@@ -1203,8 +1239,8 @@ export async function fetchAllFromDatabase() {
       fetchWithFallback("http://localhost:5001/api/stores"),
       fetchWithFallback("http://localhost:5001/api/cameras"),
       fetchWithFallback("http://localhost:5001/api/shelves"),
-      fetchWithFallback("http://localhost:5001/api/products"),
       fetchWithFallback("http://localhost:5001/api/zones"),
+      fetchWithFallback("http://localhost:5001/api/products"),
       fetchWithFallback("http://localhost:5001/api/promotions"),
       fetchWithFallback("http://localhost:5001/api/customers"),
       fetchWithFallback("http://localhost:5001/api/transactions")
@@ -1369,6 +1405,108 @@ export async function fetchAllFromDatabase() {
         profit: t.profit,
         paymentStatus: t.payment_status
       }));
+    }
+
+    try {
+      const dbHeatmap = await fetchWithFallback("http://localhost:5001/api/analytics/heatmap");
+      const MAP_HOTSPOT_TO_STOREHEATMAP = {
+        "entrance": "Entry",
+        "promo": "Promo",
+        "bakery": "Bakery",
+        "frozen": "Frozen",
+        "produce": "Produce",
+        "personal": "Cosmetics",
+        "electronics": "Electronics",
+        "household": "Household",
+        "checkout": "Checkout",
+        "exit": "Exit",
+        "beverages": "Aisle 1",
+        "snacks": "Aisle 2",
+        "dairy": "Dairy"
+      };
+      if (dbHeatmap && dbHeatmap.hotspots) {
+        const keys = Object.keys(dbHeatmap.hotspots);
+        keys.forEach(k => {
+          const mappedName = MAP_HOTSPOT_TO_STOREHEATMAP[k];
+          if (mappedName) {
+            const idx = storeHeatmap.findIndex(h => h.name === mappedName);
+            if (idx !== -1) {
+              storeHeatmap[idx].heat = dbHeatmap.hotspots[k].heat;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to fetch database heatmap:", e);
+    }
+
+    try {
+      const dbAttractiveness = await fetchWithFallback("http://localhost:5001/api/analytics/attractiveness");
+      if (dbAttractiveness && dbAttractiveness.length > 0) {
+        dbAttractiveness.forEach(item => {
+          const prod = products.find(p => p.sku === item.sku || p.id === item.sku);
+          if (prod) {
+            prod.attentionScore = Math.round(item.score);
+            prod.views = item.interactions;
+            prod.pickups = item.pickups;
+            prod.purchases = item.purchases;
+            prod.convRate = item.pickups > 0 ? parseFloat(((item.purchases / item.pickups) * 100).toFixed(1)) : 0.0;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to fetch database product attractiveness:", e);
+    }
+
+    try {
+      const recs = await fetchWithFallback("http://localhost:5001/api/analytics/recommendations");
+      if (recs) {
+        dbAiInsights = recs.map(r => ({
+          id: parseInt(r.id.replace('REC-', '')) || 101,
+          title: r.rule,
+          desc: r.recommendation,
+          confidence: parseFloat(r.expected_conversion_improvement.replace('%', '')) || 90,
+          impact: 4200,
+          category: r.rule.includes("Traffic") ? "Traffic" : "Attractiveness",
+          priority: r.priority,
+          status: "Active"
+        }));
+      }
+    } catch (e) {
+      console.warn("Failed to fetch database recommendations:", e);
+    }
+
+    try {
+      const journey = await fetchWithFallback("http://localhost:5001/api/analytics/journey");
+      if (journey) {
+        dbCommonPaths = journey.common_paths;
+        dbZoneTransitions = journey.zone_transitions;
+        const SEG_COLORS = ["#10B981", "#3B82F6", "#F59E0B", "#8B5CF6", "#EF4444", "#F97316", "#06B6D4", "#EC4899"];
+        const totalSegCount = journey.segmentation.reduce((s, x) => s + (x.count || 0), 0);
+        dbCustomerSegments = journey.segmentation.map((s, idx) => {
+          const count = s.count || 0;
+          const computedPct = totalSegCount > 0 ? parseFloat(((count / totalSegCount) * 100).toFixed(1)) : (s.share || 0);
+          return {
+            name: s.segment,
+            count,
+            pct: computedPct,
+            share: s.share || computedPct,
+            revenue: Math.round(count * 45),
+            color: SEG_COLORS[idx % SEG_COLORS.length],
+            avgSpend: s.avg_spend || 45,
+            frequency: s.frequency || 2.0,
+            recency: s.recency || 7,
+            convRate: s.conv_rate || 20,
+            retention: s.retention || 60
+          };
+        });
+        if (journey.hourly_activity_heatmap) dbHourlyActivityHeatmap = journey.hourly_activity_heatmap;
+        if (journey.rfm_distribution) dbRfmDistribution = journey.rfm_distribution;
+        if (journey.shopping_behavior) dbShoppingBehavior = journey.shopping_behavior;
+        if (journey.bottlenecks) dbBottlenecks = journey.bottlenecks;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch database customer journeys:", e);
     }
 
     console.log("✅ Successfully populated centralData arrays from PostgreSQL");

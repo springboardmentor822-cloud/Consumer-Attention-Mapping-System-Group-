@@ -117,7 +117,7 @@ export default function CampaignPerformance() {
         <div className="lg:col-span-7 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Impressions, Engagement & Conversion Over Time</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-52">
             <ComponentErrorBoundary>
@@ -141,7 +141,7 @@ export default function CampaignPerformance() {
         <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance by Status</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-40 w-full relative flex items-center justify-center">
             <ComponentErrorBoundary>
@@ -177,7 +177,7 @@ export default function CampaignPerformance() {
       <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
         <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Campaign Performance by Channel</h3>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          
         </div>
         <div className="h-48">
           <ComponentErrorBoundary>

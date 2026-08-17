@@ -1,15 +1,20 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-// Tracking Model (Aggregated/Batch tracking sessions)
+// Tracking Model (Aggregated/Batch tracking sessions and positional frames)
 const Tracking = sequelize.define('Tracking', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   track_id: { type: DataTypes.STRING(50) },
   camera_id: { type: DataTypes.STRING(50) },
+  store_id: { type: DataTypes.INTEGER, allowNull: true },
   zone_id: { type: DataTypes.STRING(50) },
-  start_time: { type: DataTypes.DATE },
-  end_time: { type: DataTypes.DATE },
+  timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  x: { type: DataTypes.FLOAT, allowNull: true },
+  y: { type: DataTypes.FLOAT, allowNull: true },
+  bbox: { type: sequelize.getDialect() === 'sqlite' ? DataTypes.JSON : DataTypes.JSONB, allowNull: true },
   activity: { type: DataTypes.STRING(50) },
+  start_time: { type: DataTypes.DATE, allowNull: true },
+  end_time: { type: DataTypes.DATE, allowNull: true },
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { tableName: 'tracking', timestamps: false });
 

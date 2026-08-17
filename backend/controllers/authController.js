@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const { generateToken } = require('../config/jwt');
 const { sequelize } = require('../config/db');
+const { Op } = require('sequelize');
 
 // Register new user
 const register = async (req, res) => {
@@ -10,7 +11,7 @@ const register = async (req, res) => {
     // Check if user exists
     const existingUser = await User.findOne({
       where: {
-        [sequelize.Op.or]: [{ username }, { email }]
+        [Op.or]: [{ username }, { email }]
       }
     });
 
@@ -59,10 +60,15 @@ const register = async (req, res) => {
 // Login user
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
+    const loginIdentifier = email || username;
 
     // Find user
-    const user = await User.findOne({ where: { username } });
+    const user = await User.findOne({ 
+      where: { 
+        [Op.or]: [{ username: loginIdentifier }, { email: loginIdentifier }]
+      } 
+    });
     
     if (!user) {
       return res.status(401).json({
@@ -102,6 +108,7 @@ const login = async (req, res) => {
           username: user.username,
           email: user.email,
           full_name: user.full_name,
+          phone: user.phone,
           role: user.role
         },
         token
@@ -120,7 +127,7 @@ const login = async (req, res) => {
 const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'last_login', 'created_at']
+      attributes: ['id', 'username', 'email', 'full_name', 'phone', 'role', 'is_active', 'last_login', 'created_at']
     });
 
     if (!user) {
@@ -143,4 +150,58 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getCurrentUser };
+// Update current user profile
+const updateProfile = async (req, res) => {
+  try {
+    const { full_name, email, phone } = req.body;
+    const user = await User.findByPk(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Optional: check if new email is already taken by another user
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ where: { email } });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already in use by another account'
+        });
+      }
+    }
+
+    // Update fields
+    if (full_name) user.full_name = full_name;
+    if (email) user.email = email;
+    if (phone !== undefined) user.phone = phone; // Allow clearing phone
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          full_name: user.full_name,
+          phone: user.phone,
+          role: user.role
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update profile'
+    });
+  }
+};
+
+module.exports = { register, login, getCurrentUser, updateProfile };

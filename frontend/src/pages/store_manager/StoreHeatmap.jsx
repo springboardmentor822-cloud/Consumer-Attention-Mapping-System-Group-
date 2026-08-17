@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useCams } from "../../services/CamsContext";
-import { zones, getCentralScaledData } from "../../services/centralData";
+import { getCentralScaledData } from "../../services/centralData";
 import StoreHeatmapModel from "../../components/StoreHeatmapModel";
 import CustomDateSelector from "../../components/CustomDateSelector";
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
@@ -26,7 +26,9 @@ export default function StoreHeatmap() {
     }
   };
 
-  // Synchronized Central Dataset
+  // Synchronized Central Dataset — use the zones computed by getCentralScaledData
+  // which includes real dwellTime, attentionScore, and visitor counts derived
+  // from actual customer session records (not the raw zones[] which lacks these fields).
   const centralData = getCentralScaledData(selectedPeriod, customRange);
   const mult = centralData.mult;
 
@@ -38,12 +40,25 @@ export default function StoreHeatmap() {
     { label: "Zone Engagement", value: `${Math.min(99, Math.round(84 * (mult > 5 ? 1.05 : mult < 1 ? 0.95 : 1.0)))}%`, change: "Optimal", icon: "🎯" }
   ];
 
-  // Dynamic Zone Metrics based on central mult
-  const scaledZones = zones.map(z => ({
+  // --- FIX: Use enriched zones from getCentralScaledData ---
+  // centralData.zones has real dwellTime (avg of customer sessions in that zone),
+  // attentionScore (seeded from zone name so stable), and visitors (real count).
+  // We derive all four metrics from these real fields:
+  //   density   → visitors (how many customers entered this zone)
+  //   movement  → visitors scaled as traffic flow index (capped 0-99)
+  //   dwell     → avg dwell time in minutes (from actual session records)
+  //   attention → attention score 0-100
+  const scaledZones = (centralData.zones || []).filter(z => z.name).map(z => ({
     ...z,
-    trafficDensity: Math.min(99, Math.round(z.trafficDensity * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))),
-    dwellTime: Math.min(99, Math.round(z.dwellTime * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0))),
-    attentionScore: Math.min(99, Math.round(z.attentionScore * (mult > 5 ? 1.05 : mult < 1 ? 0.92 : 1.0)))
+    // density: number of customers that visited this zone (real data)
+    trafficDensity: Math.min(99, z.visitors || 0),
+    // movement: proportional traffic flow index (normalize visitors to 0-99)
+    movement: Math.min(99, z.visitors || 0),
+    // dwell: avg dwell time from real session records (already in minutes)
+    dwellTime: Math.min(99, Math.round((z.dwellTime || 0) * 10) / 10),
+    // attention: score derived from zone analytics (seeded stable value)
+    attentionScore: Math.min(99, z.attentionScore || 0),
+    color: z.color || "#10B981"
   }));
 
   return (
@@ -115,18 +130,45 @@ export default function StoreHeatmap() {
 
         <div className="h-56 w-full">
           <ComponentErrorBoundary>
-<ResponsiveContainer width="100%" height="100%">
-            <BarChart data={scaledZones.slice(0, 6)}>
-              <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
-              <XAxis dataKey="name" stroke="#64748B" fontSize={9} />
-              <YAxis stroke="#64748B" fontSize={9} />
-              <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
-              <Bar dataKey={heatmapType === "dwell" ? "dwellTime" : heatmapType === "attention" ? "attentionScore" : "trafficDensity"} radius={[4, 4, 0, 0]}>
-                {scaledZones.map((entry, index) => <Cell key={index} fill={entry.color} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-</ComponentErrorBoundary>
+            {scaledZones.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <span className="text-slate-500 text-xs font-mono">
+                  No zone metric data available for the selected date range.
+                </span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={scaledZones.slice(0, 6)}>
+                  <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
+                  <XAxis dataKey="name" stroke="#64748B" fontSize={9} />
+                  <YAxis stroke="#64748B" fontSize={9} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }}
+                    formatter={(value, name) => [
+                      heatmapType === "dwell" ? `${value} min` : value,
+                      heatmapType === "density" ? "Density (visitors)"
+                        : heatmapType === "movement" ? "Movement (visitors)"
+                        : heatmapType === "dwell" ? "Avg Dwell (min)"
+                        : "Attention Score"
+                    ]}
+                  />
+                  <Bar
+                    dataKey={
+                      heatmapType === "dwell" ? "dwellTime"
+                        : heatmapType === "attention" ? "attentionScore"
+                        : heatmapType === "movement" ? "movement"
+                        : "trafficDensity"
+                    }
+                    radius={[4, 4, 0, 0]}
+                  >
+                    {scaledZones.slice(0, 6).map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </ComponentErrorBoundary>
         </div>
       </div>
     </div>

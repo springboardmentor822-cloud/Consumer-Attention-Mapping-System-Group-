@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell, LineChart, Line, BarChart, Bar
+  PieChart, Pie, Cell, LineChart, Line, BarChart, Bar, ComposedChart
 } from "recharts";
 import { formatNumber } from "../../services/centralData";
 import { useCams } from "../../services/CamsContext";
@@ -164,7 +164,7 @@ export default function AdminDashboardOverviewPage() {
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
 <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={systemPerformanceData}>
+              <ComposedChart data={systemPerformanceData}>
                 <defs>
                   <linearGradient id="gpuGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.4} />
@@ -178,7 +178,7 @@ export default function AdminDashboardOverviewPage() {
                 <Area type="monotone" dataKey="gpu" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#gpuGrad)" name="GPU Load %" />
                 <Line type="monotone" dataKey="cpu" stroke="#3B82F6" strokeWidth={2} dot={false} name="CPU Load %" />
                 <Line type="monotone" dataKey="memory" stroke="#10B981" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="RAM Usage %" />
-              </AreaChart>
+              </ComposedChart>
             </ResponsiveContainer>
 </ComponentErrorBoundary>
           </div>

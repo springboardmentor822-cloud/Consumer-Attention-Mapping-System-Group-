@@ -119,12 +119,79 @@ function getZoneStyles(zoneName, isSelected) {
   return colors[Math.abs(hash) % colors.length];
 }
 
+// ---------------------------------------------------------------------------
+// Normalize a raw DB shelf row into the frontend shape expected by this component
+// ---------------------------------------------------------------------------
+function normalizeDbShelf(s, dbStores) {
+  const matchingStore = dbStores ? dbStores.find(st => st.id === s.store_id || st.store_id === s.store_id) : null;
+  const storeName = matchingStore ? matchingStore.name : (s.store || "Downtown Flagship");
+  const storeIdStr = matchingStore ? (matchingStore.store_id || `STR-${matchingStore.id}`) : "STR-101";
+  return {
+    id: s.shelf_id || `SH-${s.id}`,
+    _dbPk: s.id, // keep the numeric PK for PUT/DELETE
+    name: s.name || `Shelf ${s.shelf_number || s.id} - ${s.zone || "General"}`,
+    store: storeName,
+    storeId: storeIdStr,
+    zone: s.zone || "Bakery",
+    category: s.zone || "Bakery",
+    coordsX: parseFloat(s.position_x) || 10.0,
+    coordsY: parseFloat(s.position_y) || 10.0,
+    width: parseFloat(s.width) || 2.0,
+    height: parseFloat(s.height) || 1.6,
+    capacity: parseInt(s.capacity) || 100,
+    attachedCamera: s.attached_camera || s.attachedCamera || "CAM-01",
+    status: s.status ? (s.status.charAt(0).toUpperCase() + s.status.slice(1)) : "Active",
+    dims: `${parseFloat(s.width) || 2.0}m x ${parseFloat(s.height) || 1.6}m x 0.6m`,
+    attentionScore: s.attention_score || s.attentionScore || 80,
+    occupancyRate: s.occupancy_rate || s.occupancyRate || 80,
+    shelfType: s.shelf_type || "Rack",
+    aisle: s.aisle || "",
+    section: s.section || "",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Normalize a raw DB product row into the frontend shape
+// ---------------------------------------------------------------------------
+function normalizeDbProduct(p, dbStores) {
+  const matchingStore = dbStores ? dbStores.find(st => st.name === p.store || st.store_id === p.store) : null;
+  const storeName = matchingStore ? matchingStore.name : (p.store || "Downtown Flagship");
+  const sp = parseFloat(p.selling_price || p.price) || 10.0;
+  const cp = parseFloat(p.cost_price) || (sp * 0.7);
+  return {
+    id: p.product_id || `P-${p.id}`,
+    _dbPk: p.id,
+    name: p.name,
+    sku: p.sku,
+    category: p.category || "General",
+    subcategory: p.subcategory || "",
+    brand: p.brand || "",
+    sellingPrice: sp,
+    price: sp,
+    costPrice: cp,
+    cost: cp,
+    profit: parseFloat(p.profit) || parseFloat((sp - cp).toFixed(2)),
+    stockQty: parseInt(p.stock_qty) || 50,
+    shelf: p.shelf || (p.shelf_id ? `SH-${p.shelf_id}` : ""),
+    store: storeName,
+    promo: p.promo || "None",
+    status: p.status === 'active' ? 'Active' : p.status === 'Active' ? 'Active' : (p.status || 'Active'),
+  };
+}
+
+const API_BASE = "http://localhost:5001/api";
+
 export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala", isStoreManager = false }) {
   const { globalFilter } = useCams();
-  const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'layout' | 'zones'
+  const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'layout' | 'zones' | 'products'
   const [filter, setFilter] = useState(null);
   const activeFilter = filter || globalFilter || DEFAULT_FILTER;
   const selectedPeriod = activeFilter?.dateRange ?? "Last 7 Days";
+
+  // DB loading state
+  const [dbLoading, setDbLoading] = useState(true);
+  const [dbStoreNames, setDbStoreNames] = useState([]);
+  const [storesList, setStoresList] = useState([]);
 
   // Filters & Search State
   const [searchTerm, setSearchTerm] = useState("");
@@ -156,7 +223,7 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
   const [hoveredMapShelf, setHoveredMapShelf] = useState(null);
   const [selectedShelfId, setSelectedShelfId] = useState(null);
 
-  // Relational datasets
+  // Relational datasets — seeded from localStorage / INITIAL_*, then overwritten by DB
   const [shelvesList, setShelvesList] = useState(() => loadShelves() || INITIAL_SHELVES);
   const [camerasList, setCamerasList] = useState(() => loadCameras() || INITIAL_CAMERAS);
   const [zonesList, setZonesList] = useState(() => loadZones() || INITIAL_ZONES);
@@ -225,7 +292,62 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
   const [zoneFormErrors, setZoneFormErrors] = useState({});
   const [productFormErrors, setProductFormErrors] = useState({});
 
-  // Persist datasets to localStorage whenever they change
+  // ---------------------------------------------------------------------------
+  // Fetch real data from the database on mount
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFromDb() {
+      setDbLoading(true);
+      try {
+        const fetchOrThrow = async (url) => {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const j = await r.json();
+          return Array.isArray(j.data) ? j.data : Array.isArray(j) ? j : [];
+        };
+
+        const [dbStores, dbShelves, dbProducts, dbZones] = await Promise.all([
+          fetchOrThrow(`${API_BASE}/stores`),
+          fetchOrThrow(`${API_BASE}/shelves`),
+          fetchOrThrow(`${API_BASE}/products`),
+          fetchOrThrow(`${API_BASE}/zones`),
+        ]);
+
+        if (cancelled) return;
+
+        if (dbStores.length > 0) {
+          setDbStoreNames(dbStores.map(s => s.name).filter(Boolean));
+          setStoresList(dbStores);
+        }
+
+        const normalizedShelves = dbShelves.map(s => normalizeDbShelf(s, dbStores));
+        setShelvesList(normalizedShelves);
+        try { localStorage.setItem(STORAGE_KEY_SHELVES, JSON.stringify(normalizedShelves)); } catch {}
+
+        const normalizedProducts = dbProducts.map(p => normalizeDbProduct(p, dbStores));
+        setProductsList(normalizedProducts);
+        try { localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(normalizedProducts)); } catch {}
+
+        const normalizedZones = dbZones.map(z => ({
+          id: z.zone_id || `ZN-${z.id}`,
+          name: z.name,
+          store: z.store || "",
+          status: z.status ? (z.status.charAt(0).toUpperCase() + z.status.slice(1)) : "Active",
+        }));
+        setZonesList(normalizedZones);
+        try { localStorage.setItem(STORAGE_KEY_ZONES, JSON.stringify(normalizedZones)); } catch {}
+      } catch (err) {
+        console.warn("ShelfManagement: DB fetch error, using cached/initial data:", err);
+      } finally {
+        if (!cancelled) setDbLoading(false);
+      }
+    }
+    loadFromDb();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist datasets to localStorage whenever they change (for offline fallback)
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY_SHELVES, JSON.stringify(shelvesList)); } catch {}
   }, [shelvesList]);
@@ -282,10 +404,14 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
     currentPage * itemsPerPage
   );
 
-  // Dynamic Metrics
+  // Dynamic Metrics — computed from actual fetched shelvesList
   const activeShelvesCount = shelvesList.filter((s) => s.status === "Active").length;
-  const activePct = Math.round((activeShelvesCount / shelvesList.length) * 100);
-  const avgOccupancy = Math.min(99.4, Math.round(84.5 * occupancyMult));
+  const activePct = shelvesList.length > 0 ? Math.round((activeShelvesCount / shelvesList.length) * 100) : 0;
+  const uniqueZoneCount = [...new Set(shelvesList.map(s => s.zone).filter(Boolean))].length;
+  const rawAvgOccupancy = shelvesList.length > 0
+    ? shelvesList.reduce((sum, s) => sum + (parseFloat(s.occupancyRate) || 80), 0) / shelvesList.length
+    : 84.5;
+  const avgOccupancy = Math.min(99, Math.round(rawAvgOccupancy * occupancyMult));
 
   // Products Filtering & Pagination Logic
   const filteredProducts = productsList.filter((p) => {
@@ -374,8 +500,8 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
     return errors;
   };
 
-  // Form Submit Handler
-  const handleFormSubmit = (e) => {
+  // Form Submit Handler — optimistic update + API persist
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
@@ -385,7 +511,7 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
     setFormErrors({});
     const resolvedZone = formState.useNewZone ? formState.newZone.trim() : formState.zone;
 
-    // Check if new zone needs to be created
+    // Ensure new zone is tracked in local zonesList
     if (formState.useNewZone && resolvedZone) {
       const zoneExists = zonesList.some(z => z.name.toLowerCase() === resolvedZone.toLowerCase());
       if (!zoneExists) {
@@ -399,60 +525,103 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
       }
     }
 
+    // Build the normalized shelf object for optimistic state update
+    const sharedFields = {
+      zone: resolvedZone,
+      category: formState.category,
+      store: formState.store,
+      coordsX: parseFloat(formState.coordsX),
+      coordsY: parseFloat(formState.coordsY),
+      status: formState.status,
+      shelfType: formState.shelfType,
+      width: parseFloat(formState.width),
+      height: parseFloat(formState.height),
+      capacity: parseInt(formState.capacity),
+      attachedCamera: formState.attachedCamera,
+      dims: `${formState.width}m x ${formState.height}m x 0.6m`,
+    };
+
+    // Build the API payload (uses DB column names)
+    const apiPayload = {
+      name: formState.name.trim(),
+      zone: resolvedZone,
+      position_x: parseFloat(formState.coordsX),
+      position_y: parseFloat(formState.coordsY),
+      width: parseFloat(formState.width),
+      height: parseFloat(formState.height),
+      capacity: parseInt(formState.capacity),
+      shelf_type: (formState.shelfType || "gondola").toLowerCase(),
+      status: (formState.status || "Active").toLowerCase(),
+    };
+
     if (editingShelf) {
-      // Edit existing shelf
+      // Optimistically update state immediately
       setShelvesList((prev) =>
         prev.map((s) =>
           s.id === editingShelf.id
-            ? { 
-                ...s, 
-                ...formState, 
-                zone: resolvedZone, 
-                coordsX: parseFloat(formState.coordsX), 
-                coordsY: parseFloat(formState.coordsY),
-                width: parseFloat(formState.width),
-                height: parseFloat(formState.height),
-                capacity: parseInt(formState.capacity),
-                dims: `${formState.width}m x ${formState.height}m x 0.6m`
-              }
+            ? { ...s, ...sharedFields, name: formState.name.trim() }
             : s
         )
       );
       showToast(`✅ Updated shelf ${editingShelf.id}`);
+      // Persist to API asynchronously
+      try {
+        const pkId = editingShelf._dbPk || editingShelf.id;
+        await fetch(`${API_BASE}/shelves/${pkId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(apiPayload),
+        });
+      } catch (err) {
+        console.warn("ShelfManagement: PUT shelf failed:", err);
+      }
     } else {
-      // Add new shelf
-      const newId = `SH-${Math.floor(100 + Math.random() * 899)}`;
+      // Generate a temporary local ID until the server responds
+      const tempId = `SH-${Math.floor(100 + Math.random() * 899)}`;
       const newShelf = {
-        id: newId,
+        id: tempId,
         name: formState.name.trim(),
-        store: formState.store,
-        zone: resolvedZone,
-        category: formState.category,
-        coordsX: parseFloat(formState.coordsX),
-        coordsY: parseFloat(formState.coordsY),
-        status: formState.status,
-        shelfType: formState.shelfType,
-        width: parseFloat(formState.width),
-        height: parseFloat(formState.height),
-        capacity: parseInt(formState.capacity),
-        attachedCamera: formState.attachedCamera,
-        dims: `${formState.width}m x ${formState.height}m x 0.6m`,
         attentionScore: Math.floor(70 + Math.random() * 25),
         occupancyRate: Math.floor(75 + Math.random() * 20),
+        ...sharedFields,
       };
       setShelvesList((prev) => [newShelf, ...prev]);
-      showToast(`✅ Added new shelf ${newId}`);
+      showToast(`✅ Added new shelf`);
+      // Persist to API and update the local ID with the real shelf_id
+      try {
+        const resp = await fetch(`${API_BASE}/shelves`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...apiPayload, shelf_id: tempId }),
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          const created = json.data;
+          if (created) {
+            const realId = created.shelf_id || tempId;
+            setShelvesList(prev => prev.map(s => s.id === tempId ? { ...s, id: realId, _dbPk: created.id } : s));
+          }
+        }
+      } catch (err) {
+        console.warn("ShelfManagement: POST shelf failed:", err);
+      }
     }
     setIsFormOpen(false);
   };
 
-  // Delete Shelf Handler
-  const handleDeleteShelf = (id, name) => {
+  // Delete Shelf Handler — optimistic + API
+  const handleDeleteShelf = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete ${name} (${id})?`)) {
+      const shelf = shelvesList.find(s => s.id === id);
       setShelvesList((prev) => prev.filter((s) => s.id !== id));
-      // Clean up product shelf mappings
       setProductsList((prev) => prev.map(p => p.shelf === id ? { ...p, shelf: "" } : p));
       showToast(`Deleted shelf ${id}`);
+      try {
+        const pkId = shelf?._dbPk || id;
+        await fetch(`${API_BASE}/shelves/${pkId}`, { method: "DELETE" });
+      } catch (err) {
+        console.warn("ShelfManagement: DELETE shelf failed:", err);
+      }
     }
   };
 
@@ -735,8 +904,10 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-1">
           <span className="text-[10px] font-black text-slate-400 uppercase font-sans">Total Zones</span>
-          <h2 className="text-lg font-black text-purple-400 font-mono">4 Major Zones</h2>
-          <span className="text-[10px] text-purple-300 font-bold block font-sans">Beverages, Snacks, Dairy, Personal Care</span>
+          <h2 className="text-lg font-black text-purple-400 font-mono">{uniqueZoneCount} Zones</h2>
+          <span className="text-[10px] text-purple-300 font-bold block font-sans">
+            {[...new Set(shelvesList.map(s => s.zone).filter(Boolean))].slice(0, 3).join(", ") || "No zones found"}
+          </span>
         </div>
 
         <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl space-y-1">
@@ -748,13 +919,13 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
         </div>
       </div>
 
-      {/* TABS SWITCHER */}
-      <div className="flex border-b border-[#1E293B] gap-2 overflow-x-auto pb-1">
+      {/* TABS SWITCHER — flex-wrap so all 4 tabs are always visible */}
+      <div className="flex flex-wrap border-b border-[#1E293B] gap-2 pb-1">
         {[
-          { id: "overview", label: "📊 Shelf Directory Table", count: filteredShelves.length },
-          { id: "layout", label: "🗺️ Visual Floorplan Layout", count: "Interactive Map" },
-          { id: "zones", label: "📍 Zone Attention Analytics", count: `${zonesList.length} Zones` },
-          { id: "products", label: "🛒 Product Inventory Management", count: `${filteredProducts.length} Products` },
+          { id: "overview", label: "📊 Shelf Directory", count: filteredShelves.length },
+          { id: "layout", label: "🗺️ Visual Floorplan", count: "Map" },
+          { id: "zones", label: "📍 Zone Analytics", count: `${uniqueZoneCount} Zones` },
+          { id: "products", label: "🛒 Product Inventory", count: `${filteredProducts.length} Items` },
         ].map((t) => (
           <button
             key={t.id}
@@ -771,6 +942,11 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
           </button>
         ))}
       </div>
+      {dbLoading && (
+        <div className="text-center py-2 text-xs text-indigo-400 font-mono animate-pulse">
+          ⟳ Loading shelf data from database…
+        </div>
+      )}
 
       {/* ── TAB 1: SHELF DIRECTORY ENTERPRISE TABLE ─────────────────────────────────── */}
       {activeTab === "overview" && (
@@ -804,11 +980,10 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
                   className="bg-[#070C18] border border-[#1E293B] px-3 py-2 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-indigo-500 font-medium"
                 >
                   <option value="All">Select Store (All)</option>
-                  <option value="Store 1 - Koramangala">Store 1 - Koramangala</option>
-                  <option value="Store 2 - Indiranagar">Store 2 - Indiranagar</option>
-                  <option value="Store 3 - Hyderabad">Store 3 - Hyderabad</option>
-                  <option value="Store 4 - Andheri">Store 4 - Andheri</option>
-                  <option value="Store 5 - Connaught Place">Store 5 - Connaught Place</option>
+                  {/* Dynamically populated from DB stores */}
+                  {(dbStoreNames.length > 0 ? dbStoreNames : [...new Set(shelvesList.map(s => s.store).filter(Boolean))]).map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
                 </select>
               )}
 

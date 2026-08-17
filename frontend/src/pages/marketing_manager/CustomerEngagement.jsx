@@ -125,7 +125,7 @@ export default function CustomerEngagement() {
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Synchronized Store Engagement Heatmap</h3>
             <span className="text-[10px] text-slate-400 block mt-0.5">Centralized telemetry synced with Dashboard floorplan blueprint</span>
           </div>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+          
         </div>
         <div className="w-full flex justify-center py-2 overflow-hidden">
           <StoreHeatmapModel dateFilter={selectedPeriod} customRangeLabel={customRange?.label} onDateChange={handleDateChange} />
@@ -137,7 +137,7 @@ export default function CustomerEngagement() {
         <div className="lg:col-span-8 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3">
           <div className="flex justify-between items-center border-b border-[#1E293B] pb-3">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Engagement Rate Trend</h3>
-            <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
+            
           </div>
           <div className="h-52">
             <ComponentErrorBoundary>

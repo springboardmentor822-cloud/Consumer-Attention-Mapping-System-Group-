@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   AreaChart, Area
 } from "recharts";
 import {
-  attentionOverview, attentionTrend, attentionByZone, attentionHeatmap,
-  gazeDirectionData, products, heatColor, formatNumber
+  attentionOverview, attentionTrend as staticAttentionTrend,
+  attentionByZone as staticAttentionByZone, attentionHeatmap,
+  gazeDirectionData, products as staticProducts, heatColor, formatNumber,
+  getCentralScaledData
 } from "../../services/centralData";
 import { useCams } from "../../services/CamsContext";
 import CustomDateSelector from "../../components/CustomDateSelector";
@@ -29,11 +31,17 @@ const gazeRadar = [
   { dir: "Right Peripheral", score: 62 },
 ];
 
-const topAttentionProducts = products.slice().sort((a, b) => b.attentionScore - a.attentionScore).slice(0, 6);
 
 export default function AnalystAttentionAnalytics() {
   const { globalFilter } = useCams();
   const [localPeriod, setLocalPeriod] = useState(null);
+
+  const activeFilter = localPeriod || globalFilter;
+  const centralData = getCentralScaledData(activeFilter);
+  const attentionTrend = centralData?.attentionTrend || staticAttentionTrend;
+  const attentionByZone = centralData?.attentionByZone || staticAttentionByZone;
+  const products = centralData?.products || staticProducts;
+  const topAttentionProducts = products.slice().sort((a, b) => b.attentionScore - a.attentionScore).slice(0, 6);
 
   return (
     <div className="space-y-6">

@@ -169,36 +169,6 @@ async function seed() {
         is_active: false,
         position_x: 40.0,
         position_y: 30.0
-      },
-      {
-        camera_id: 'CAM-05',
-        store_id: store1.id,
-        name: 'Camera 5 - Dairy Section Camera',
-        camera_type: 'fixed',
-        camera_url: '192.168.1.105',
-        stream_url: '/videos/store1.mp4',
-        location: 'Dairy Section',
-        fps: 30,
-        resolution: '4K',
-        zones: ['Dairy'],
-        is_active: true,
-        position_x: 8.0,
-        position_y: 22.0
-      },
-      {
-        camera_id: 'CAM-06',
-        store_id: store1.id,
-        name: 'Camera 6 - Electronics Corner Camera',
-        camera_type: 'fixed',
-        camera_url: '192.168.1.106',
-        stream_url: '/videos/aisle1.mp4',
-        location: 'Electronics Corner',
-        fps: 25,
-        resolution: '1080p FHD',
-        zones: ['Electronics', 'Household'],
-        is_active: true,
-        position_x: 22.0,
-        position_y: 18.0
       }
     ]);
 
