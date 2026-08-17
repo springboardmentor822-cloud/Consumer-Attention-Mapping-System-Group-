@@ -1,1 +1,0 @@
-# Obsolete script removed.
