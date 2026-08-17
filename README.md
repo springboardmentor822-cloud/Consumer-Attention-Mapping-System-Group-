@@ -185,12 +185,10 @@ Scans database metrics and system states to generate live notifications:
 
 ---
 
-## Implementation Demo Video
+## 🎥 Implementation Demo Video
 
-> 🎥 Implementation demonstration of the Consumer Attention Mapping System.
+> Demonstration of the Consumer Attention Mapping System implementation, including the Milestone 3 analytics features and Milestone 4 administrative, alerting, reporting, and dashboard functionality.
 
-Below is a placeholder link for the screen-recording demo video.
+### ▶️ Watch the Implementation Demo
 
-* [Consumer Attention Mapping System - Implementation Demo](https://github.com/springboardmentor822-cloud/Consumer-Attention-Mapping-System-Group-/assets/demo_placeholder.mp4)
-
-*(Note: To update this link with your uploaded video, drag and drop the local `D:\1000199304.mp4` file directly into a GitHub issue comment box to generate a static asset URL, and paste that URL here.)*
+[🎬 Open the Consumer Attention Mapping System Demo](docs/Final_Implementation_Demo.mp4)
