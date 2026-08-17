@@ -1,3 +1,11 @@
+
+
+https://github.com/user-attachments/assets/f26cef6e-3c00-4a6d-b6a8-05bff0fb6190
+
+
+
+
+
 # Consumer Attention Mapping System
 
 The platform prepares a production-ready FastAPI backend for future retail analytics features without implementing any AI models yet.
