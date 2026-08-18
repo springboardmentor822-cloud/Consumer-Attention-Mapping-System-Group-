@@ -4,6 +4,13 @@ export default function DeviceHealthTab() {
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg animate-in fade-in">
       <h3 className="text-lg font-bold text-slate-200 mb-6 flex items-center"><span className="mr-2">💚</span> Hardware & Edge Node Health</h3>
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-6 text-xs text-amber-300 flex items-start gap-2">
+        <span>ℹ️</span>
+        <span>
+          Sample values — there&apos;s no Jetson Nano or physical camera network wired up in this environment. Real
+          host CPU/memory/uptime is available on the Infrastructure tab.
+        </span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
           <h4 className="font-bold text-slate-300 mb-4">Jetson Nano Edge AI Server</h4>

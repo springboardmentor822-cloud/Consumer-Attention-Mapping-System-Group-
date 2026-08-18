@@ -375,14 +375,24 @@ def background_reid_processor():
                     global_id = GLOBAL_NEXT_ID
                     GLOBAL_PROFILES[global_id] = {"feature": feature, "customer_id": None, "last_seen": time.time()}
                     
-                    # NOTE: The feature vector can be serialized and saved to models.ShopperProfile in Postgres here for long-term memory
+                    # --- NEW: SAVE TO POSTGRESQL FOR LONG-TERM MEMORY ---
+                    try:
+                        db = database.SessionLocal()
+                        # Convert the numpy array to a JSON list so it can be saved in the database string column
+                        vector_json = json.dumps(feature.tolist()) if feature is not None else None
+                        
+                        new_profile = models.ShopperProfile(
+                            global_id=global_id,
+                            feature_vector_json=vector_json
+                        )
+                        db.add(new_profile)
+                        db.commit()
+                        db.close()
+                    except Exception as db_err:
+                        print(f"⚠️ Failed to save shopper profile to DB: {db_err}")
+                    # ----------------------------------------------------
                     
                     GLOBAL_NEXT_ID += 1
-                else:
-                    old_feat = GLOBAL_PROFILES[global_id]["feature"]
-                    if old_feat is not None and feature is not None:
-                        GLOBAL_PROFILES[global_id]["feature"] = (old_feat * 0.7) + (feature * 0.3)
-                    GLOBAL_PROFILES[global_id]["last_seen"] = time.time()
                     
             # Update the local tracker asynchronously 
             if tid in tracker.tracks:
@@ -1522,41 +1532,90 @@ def get_ai_insights(current_user: User = Depends(get_current_user)):
 def export_system_data(format: str = Query("csv", enum=["csv", "json"]), metric: str = Query("all", enum=["all", "products", "telemetry"]), current_user: User = Depends(get_current_user)):
     try:
         export_payload = []
-        if os.path.exists(DATASET_SALES):
-            df = pd.read_csv(DATASET_SALES)
-            category_stats = df.groupby('Product line').agg(units_sold=('Quantity', 'sum'), total_revenue=('Total', 'sum'), avg_unit_price=('Unit price', 'mean')).reset_index()
+        role = current_user.role
+        
+        # 1. Load available data sources
+        df = pd.read_csv(DATASET_SALES) if os.path.exists(DATASET_SALES) else pd.DataFrame()
+        with COMPLETED_SESSIONS_LOCK:
+            sessions = list(COMPLETED_SESSIONS_BUFFER)
 
-            for _, row in category_stats.iterrows():
-                export_payload.append({
-                    "data_type": "product_category",
-                    "category": str(row['Product line']).capitalize(),
-                    "units_sold": int(row['units_sold']),
-                    "total_revenue": round(float(row['total_revenue']), 2),
-                    "avg_unit_price": round(float(row['avg_unit_price']), 2)
-                })
+        # 2. ROLE-BASED DATA FILTERING
+        # ---------------------------------------------------------
+        if role in ["Store Manager", "Administrator"]:
+            # Managers get high-level sales and revenue summaries
+            if not df.empty:
+                cat_stats = df.groupby('Product line').agg(units_sold=('Quantity', 'sum'), total_revenue=('Total', 'sum')).reset_index()
+                for _, row in cat_stats.iterrows():
+                    export_payload.append({
+                        "Report_Type": "Store_Performance",
+                        "Category": row['Product line'],
+                        "Total_Revenue": round(row['total_revenue'], 2),
+                        "Units_Sold": row['units_sold']
+                    })
 
-        if metric in ("all", "telemetry"):
-            with COMPLETED_SESSIONS_LOCK:
-                sessions = list(COMPLETED_SESSIONS_BUFFER)
+        if role in ["Retail Analyst", "Administrator"]:
+            # Analysts get granular tracking, dwell, and interaction telemetry
             for s in sessions:
                 export_payload.append({
-                    "data_type": "shopper_session",
-                    "category": ZONE_NAMES.get(s["camera_id"], f"Camera {s['camera_id']}"),
-                    "units_sold": s["track_id"],       
-                    "total_revenue": s["duration_s"],  
-                    "avg_unit_price": s["velocity_px_s"],  
+                    "Report_Type": "Shopper_Analytics",
+                    "Camera_Zone": ZONE_NAMES.get(s["camera_id"], f"Camera {s['camera_id']}"),
+                    "Track_ID": s["track_id"],
+                    "Dwell_Time_Sec": s["duration_s"],
+                    "Pickups": s.get("pickups", 0),
+                    "Velocity_px_s": s["velocity_px_s"]
                 })
-            total_active_boxes = sum(len(boxes) for boxes in LATEST_BBOXES.values())
-            export_payload.append({"data_type": "system_telemetry", "category": "Live_Active_Detections", "units_sold": total_active_boxes, "total_revenue": 0.0, "avg_unit_price": 0.0})
 
+        if role in ["Marketing Manager", "Administrator"]:
+            # Marketing gets customer satisfaction, ratings, and conversion proxies
+            if not df.empty:
+                rating_stats = df.groupby('Product line').agg(avg_rating=('Rating', 'mean')).reset_index()
+                for _, row in rating_stats.iterrows():
+                    export_payload.append({
+                        "Report_Type": "Marketing_Product_Rating",
+                        "Category": row['Product line'],
+                        "Average_Customer_Rating": round(row['avg_rating'], 2)
+                    })
+
+        if role == "Administrator":
+            # Admins get system health and raw active detection counts
+            total_active = sum(len(boxes) for boxes in LATEST_BBOXES.values())
+            export_payload.append({
+                "Report_Type": "System_Health",
+                "Metric": "Live_Active_Detections",
+                "Value": total_active
+            })
+            export_payload.append({
+                "Report_Type": "System_Health",
+                "Metric": "CPU_Load_Percent",
+                "Value": psutil.cpu_percent()
+            })
+
+        # Fallback if no data matches the role
+        if not export_payload:
+            export_payload.append({"Message": f"No data available for role: {role}"})
+
+        # 3. FORMATTING & RESPONSE
+        # ---------------------------------------------------------
+        # Dynamically name the file based on the user's role
+        file_prefix = role.replace(" ", "_").lower()
+        
         if format == "json":
             json_content = json.dumps(export_payload, indent=2)
-            return Response(content=json_content, media_type="application/json", headers={"Content-Disposition": "attachment; filename=consumer_attention_metrics.json"})
+            return Response(
+                content=json_content, 
+                media_type="application/json", 
+                headers={"Content-Disposition": f"attachment; filename={file_prefix}_report.json"}
+            )
         elif format == "csv":
             export_df = pd.DataFrame(export_payload)
             stream = io.StringIO()
             export_df.to_csv(stream, index=False)
-            return Response(content=stream.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=consumer_attention_metrics.csv"})
+            return Response(
+                content=stream.getvalue(), 
+                media_type="text/csv", 
+                headers={"Content-Disposition": f"attachment; filename={file_prefix}_report.csv"}
+            )
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate export file: {str(e)}")
 
@@ -1850,21 +1909,6 @@ def get_shelf_metrics(current_user: User = Depends(get_current_user)):
 
 @app.get("/api/v1/dashboard/journey")
 def get_journey_analysis(current_user: User = Depends(get_current_user)):
-    """
-    Real per-camera completed-session counts as "zones" — the only part of
-    a shopper journey the current 4-camera center cluster can actually
-    measure. Previously this whole endpoint was a single hardcoded dict
-    (fake "Main Entrance: 8,426" / "Checkout: 8,892" numbers that didn't
-    move no matter what the cameras saw).
-
-    HONESTY LIMITATION: under the current floor plan (storeZones.ts), no
-    camera is mounted at Entrance or Checkout — those are separate,
-    camera-less zones — so there is no real detection count for "entries"
-    or "exits" to report. Rather than fabricate numbers for zones nothing
-    is watching, those arrays are returned empty with has_data flags the
-    frontend can check, consistent with /dashboard/dwell, /behavior, and
-    /shelves.
-    """
     with COMPLETED_SESSIONS_LOCK:
         sessions = list(COMPLETED_SESSIONS_BUFFER)
 
@@ -1883,6 +1927,30 @@ def get_journey_analysis(current_user: User = Depends(get_current_user)):
                 "pct": f"{round((count / total) * 100)}%",
             })
 
+    # --- Real cross-camera journey stitching (deep_reid.py's global_id) ---
+    by_global: Dict[int, list] = {}
+    for s in sessions:
+        gid = s.get("global_id")
+        if gid is not None:
+            by_global.setdefault(gid, []).append(s)
+
+    cross_camera_journeys = []
+    for gid, sess_list in by_global.items():
+        ordered = sorted(sess_list, key=lambda s: s["first_seen"])
+        path = []
+        for s in ordered:
+            label = ZONE_NAMES.get(s["camera_id"], f"Camera {s['camera_id']}")
+            if not path or path[-1] != label:
+                path.append(label)
+        if len(path) >= 2:
+            cross_camera_journeys.append({
+                "global_id": gid,
+                "path": path,
+                "total_duration_s": round(sum(s["duration_s"] for s in ordered), 1),
+                "session_count": len(ordered),
+            })
+    cross_camera_journeys.sort(key=lambda j: j["session_count"], reverse=True)
+
     return {
         "status": "success",
         "data": {
@@ -1892,11 +1960,14 @@ def get_journey_analysis(current_user: User = Depends(get_current_user)):
         },
         "has_camera_data": total > 0,
         "has_entrance_exit_data": False,
+        "unique_shoppers_tracked": len(by_global),
+        "multi_camera_shoppers": len(cross_camera_journeys),
+        "cross_camera_journeys": cross_camera_journeys[:20],
         "message": (
             None if total > 0
             else "No completed shopper sessions yet. Open the Cameras tab to start live tracking."
         ),
-        "note": "Entrance/exit counts aren't shown — no camera is mounted at either zone in the current floor plan.",
+        "note": "Cross-camera journeys are re-identified via deep_reid.py.",
     }
 
 @app.get("/api/v1/dashboard/reports")
@@ -1905,7 +1976,7 @@ def get_reports_summary(current_user: User = Depends(get_current_user)):
     top_sales_category = "N/A"
     if os.path.exists(DATASET_SALES):
         df = pd.read_csv(DATASET_SALES)
-        weekly_visitors = len(df)  # real transaction count from CSV
+        weekly_visitors = len(df)  
         top_sales_category = str(df.groupby('Product line')['Total'].sum().idxmax())
 
     with COMPLETED_SESSIONS_LOCK:
@@ -1914,6 +1985,7 @@ def get_reports_summary(current_user: User = Depends(get_current_user)):
     avg_dwell_time = "N/A — no completed camera sessions yet"
     top_traffic_zone = "N/A — no completed camera sessions yet"
     recommendations = ["Recommendations will populate once camera tracking sessions accumulate."]
+    conversion_rate = "N/A — no camera is configured as CHECKOUT_CAMERA_ID for this floor plan"
 
     if sessions:
         avg_dwell_time = f"{sum(s['duration_s'] for s in sessions) / len(sessions):.1f}s"
@@ -1924,15 +1996,18 @@ def get_reports_summary(current_user: User = Depends(get_current_user)):
         top_traffic_zone = ZONE_NAMES.get(top_cam, f"Camera {top_cam}")
         recommendations = [f"{top_traffic_zone} shows the highest camera-tracked engagement — verify staffing coverage there."]
 
+        # Calculate true conversion rate based on matched POS customer ID
+        if CHECKOUT_CAMERA_ID is not None:
+            matched = [s for s in sessions if s.get("matched_customer_id")]
+            conversion_rate = f"{round((len(matched) / len(sessions)) * 100, 1)}% ({len(matched)}/{len(sessions)} tracked sessions matched to a real POS sale)"
+
     return {
         "status": "success",
         "data": {
             "period": "All Recorded Data",
             "weekly_visitors": weekly_visitors,
             "avg_dwell_time": avg_dwell_time,
-            # Honest placeholder: we don't yet link a POS transaction to a specific
-            # tracked camera session, so a true conversion rate isn't computable.
-            "conversion_rate": "N/A — requires POS/camera session linkage",
+            "conversion_rate": conversion_rate,
             "top_zone": top_traffic_zone,
             "top_sales_category": top_sales_category,
             "critical_alerts": 0,

@@ -14,6 +14,9 @@ interface SystemAlert {
 export default function AlertsTab() {
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  // Real uptime from the same endpoint InfraTab uses — was previously a
+  // hardcoded "99.9%" with no connection to any actual data source.
+  const [uptime, setUptime] = useState<string | null>(null);
 
   const fetchAlerts = () => {
     fetch('/api/backend/v1/dashboard/alerts', { credentials: 'include' })
@@ -30,12 +33,27 @@ export default function AlertsTab() {
       });
   };
 
+  const fetchUptime = () => {
+    fetch('/api/backend/v1/dashboard/system-health', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") setUptime(data.data.uptime);
+      })
+      .catch(err => console.error("Uptime fetch error:", err));
+  };
+
   // Fetch immediately, then poll every 5 seconds for new alerts
   useEffect(() => {
     fetchAlerts();
-    const interval = setInterval(fetchAlerts, 5000);
+    fetchUptime();
+    const interval = setInterval(() => { fetchAlerts(); fetchUptime(); }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Derived from the real alert feed — these used to be hardcoded "1" / "1"
+  // regardless of what the feed actually contained.
+  const criticalCount = alerts.filter(a => a.severity === 'critical' && a.status === 'Active').length;
+  const warningCount = alerts.filter(a => a.severity === 'warning' && a.status === 'Active').length;
 
   const getSeverityStyles = (severity: string) => {
     switch (severity) {
@@ -70,19 +88,19 @@ export default function AlertsTab() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — all three now reflect the real fetched data */}
       <div className="grid grid-cols-3 gap-4 shrink-0">
         <div className="bg-slate-950 border border-rose-500/30 p-4 rounded-xl shadow-inner flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-rose-500">1</span>
+          <span className="text-3xl font-bold text-rose-500">{loading ? "…" : criticalCount}</span>
           <span className="text-[10px] text-slate-400 uppercase font-bold mt-1">Critical Alerts</span>
         </div>
         <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-xl shadow-inner flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-amber-500">1</span>
+          <span className="text-3xl font-bold text-amber-500">{loading ? "…" : warningCount}</span>
           <span className="text-[10px] text-slate-400 uppercase font-bold mt-1">Active Warnings</span>
         </div>
         <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl shadow-inner flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-blue-400">99.9%</span>
-          <span className="text-[10px] text-slate-400 uppercase font-bold mt-1">System Uptime</span>
+          <span className="text-3xl font-bold text-blue-400">{uptime ?? "…"}</span>
+          <span className="text-[10px] text-slate-400 uppercase font-bold mt-1">Server Runtime</span>
         </div>
       </div>
 

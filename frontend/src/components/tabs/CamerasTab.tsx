@@ -19,12 +19,90 @@ const MOTION_SPIKE_PX_PER_S = 90;    // above this = "active motion" (e.g. reach
 // feed shelfEventStore, since Cam 1 (Entrance/Mall footage) isn't a shelf.
 const SHELF_ZONE_CAMERAS = new Set([2, 3, 4]);
 
-// 1. Singleton model loader — tries WebGL first (fast), falls back to CPU if WebGL
-// isn't available on this device instead of crashing the whole tab.
+const CAMERAS: { id: number; label: string; color: string; dataset: string; videoSrc: string }[] = [
+  { id: 1, label: 'Cam 1: /datasets/archive', color: 'text-cyan-400', dataset: 'archive', videoSrc: '/datasets/archive/cam1.mp4' },
+  { id: 2, label: 'Cam 2: /datasets/archive_1', color: 'text-purple-400', dataset: 'archive_1', videoSrc: '/datasets/archive_1/cam1.mp4' },
+  { id: 3, label: 'Cam 3: /datasets/archive_2_products', color: 'text-emerald-400', dataset: 'archive_2_products', videoSrc: '/datasets/archive_2_products/cam1.mp4' },
+  { id: 4, label: 'Cam 4: /datasets/archive_3_shelves', color: 'text-rose-400', dataset: 'archive_3_shelves', videoSrc: '/datasets/archive_3_shelves/cam1.mp4' },
+];
+
+// ===========================================================================
+// MODE: "backend" — the REAL pipeline.
+//
+// Hits the FastAPI backend's authenticated MJPEG endpoint
+// (GET /api/camera/stream/{camera_id}, proxied through Next.js at
+// /api/backend/camera/stream/{camera_id} so the httpOnly auth cookie rides
+// along — see main.py's comment on that route for why a direct cross-origin
+// <img src> would silently drop the cookie instead).
+//
+// This is what actually runs main.py's YOLOv8 + SimpleIOUTracker, the
+// GLOBAL_ID_LOCK-guarded cross-camera Re-ID (deep_reid.py), the TTL eviction
+// job, and pose_engine.py's reach detection — none of which executed before,
+// because nothing in the UI ever requested this endpoint. The backend
+// annotates boxes + Global IDs onto the JPEG frames itself, so this is a
+// plain <img>, no client-side model needed.
+// ===========================================================================
+const BackendStreamNode = ({ id, label, color }: { id: number; label: string; color: string }) => {
+  const [errored, setErrored] = useState(false);
+  // Bump this to force the <img> to reconnect after a transient failure
+  // (browsers don't auto-retry a broken multipart/x-mixed-replace stream).
+  const [retryKey, setRetryKey] = useState(0);
+
+  return (
+    <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-inner flex flex-col h-full">
+      <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center text-xs font-semibold z-20">
+        <span className={color}>{label}</span>
+        <span className="text-emerald-500 flex items-center">
+          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>
+          Server-Tracked
+        </span>
+      </div>
+
+      <div className="relative w-full flex-1 aspect-video bg-black flex items-center justify-center overflow-hidden">
+        {errored ? (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm px-4 text-center gap-3">
+            <span className="font-mono text-sm text-rose-400">
+              Stream unavailable — sign in required, or the backend isn&apos;t running.
+            </span>
+            <button
+              onClick={() => { setErrored(false); setRetryKey(k => k + 1); }}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded border border-slate-700"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          // Same-origin path is required: /api/backend/... goes through the
+          // Next.js rewrite so the httpOnly auth cookie is attached. Pointing
+          // this at the backend's own host/port directly will 401.
+          // eslint-disable-next-line @next/next/no-img-element -- MJPEG multipart stream, not a static image Next/Image can optimize
+          <img
+            key={retryKey}
+            src={`/api/backend/camera/stream/${id}`}
+            alt={label}
+            onError={() => setErrored(true)}
+            className="absolute inset-0 w-full h-full object-contain z-0"
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ===========================================================================
+// MODE: "local" — the original browser-side demo.
+//
+// Runs TensorFlow.js COCO-SSD directly against the local sample .mp4 files,
+// entirely client-side. Kept as an explicit opt-in fallback (not the
+// default) since it's what actually feeds heatmapStore / footfallStore /
+// shelfEventStore for anyone who doesn't have the backend reachable — but it
+// is a separate, simpler, unauthenticated pipeline from the one main.py
+// implements, and doesn't exercise any of the server-side Re-ID/pose/TTL work.
+// ===========================================================================
 let sharedModelPromise: Promise<cocoSsd.ObjectDetection> | null = null;
 let sharedBackendPromise: Promise<string> | null = null;
 
-const initBackend = async (): Promise<string> => {
+const initTfBackend = async (): Promise<string> => {
   try {
     await tf.setBackend('webgl');
     await tf.ready();
@@ -37,33 +115,33 @@ const initBackend = async (): Promise<string> => {
   }
 };
 
-const getSharedBackend = () => {
+const getSharedTfBackend = () => {
   if (!sharedBackendPromise) {
-    sharedBackendPromise = initBackend();
+    sharedBackendPromise = initTfBackend();
   }
   return sharedBackendPromise;
 };
 
 const getSharedModel = () => {
   if (!sharedModelPromise) {
-    sharedModelPromise = getSharedBackend().then(() => cocoSsd.load());
+    sharedModelPromise = getSharedTfBackend().then(() => cocoSsd.load());
   }
   return sharedModelPromise;
 };
 
-// 2. Global Lock: Prevents multiple cameras from running AI in the exact same millisecond
+// Global Lock: Prevents multiple cameras from running AI in the exact same millisecond
 let globalDetectingLock = false;
 
-const CameraNode = ({ 
-  videoSrc, 
-  title, 
-  titleColor, 
+const LocalDemoNode = ({
+  videoSrc,
+  title,
+  titleColor,
   model,
   cameraId,
   loadError
-}: { 
-  videoSrc: string; 
-  title: string; 
+}: {
+  videoSrc: string;
+  title: string;
   titleColor: string;
   model: cocoSsd.ObjectDetection | null;
   cameraId: number;
@@ -72,8 +150,6 @@ const CameraNode = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDetectingRef = useRef(false);
-  // Previous frame's person centroids + the timestamp they were captured at,
-  // used to compute real frame-to-frame displacement for the motion proxy.
   const prevCentroidsRef = useRef<{ points: { x: number; y: number }[]; t: number } | null>(null);
 
   useEffect(() => {
@@ -81,38 +157,32 @@ const CameraNode = ({
 
     let animationFrameId: number;
     let lastDetectionTime = 0;
-    
-    // Throttle to 3 FPS (333ms) - Perfect for dashboard telemetry without UI lag
-    const FPS_LIMIT = 3; 
+
+    const FPS_LIMIT = 3;
     const INTERVAL = 1000 / FPS_LIMIT;
-    
-    // Stagger the initial start times based on camera ID so they don't fire simultaneously
-    const staggerOffset = cameraId * 100; 
+    const staggerOffset = cameraId * 100;
 
     const detectFrame = async (timestamp: number) => {
       if (videoRef.current && canvasRef.current && videoRef.current.readyState === 4) {
-        
+
         const timeSinceLast = timestamp - lastDetectionTime;
-        
-        // Check if it is this camera's turn AND the global thread is free
+
         if (timeSinceLast >= (INTERVAL + staggerOffset) && !isDetectingRef.current && !globalDetectingLock) {
-          
+
           isDetectingRef.current = true;
-          globalDetectingLock = true; // Lock other cameras out
+          globalDetectingLock = true;
           lastDetectionTime = timestamp;
 
           const video = videoRef.current;
           const canvas = canvasRef.current;
           const ctx = canvas.getContext('2d');
 
-          // Match canvas internal resolution to video
           if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
           }
 
           try {
-            // Cap detections at 5 to keep processing blazing fast
             const predictions = await model.detect(video, 5, 0.4);
 
             if (ctx) {
@@ -123,12 +193,10 @@ const CameraNode = ({
                 const isPerson = prediction.class === 'person';
                 const color = isPerson ? '#10b981' : '#f43f5e';
 
-                // Box
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 4;
                 ctx.strokeRect(x, y, width, height);
 
-                // Label
                 ctx.fillStyle = color;
                 ctx.font = 'bold 16px monospace';
                 const label = `${prediction.class} ${Math.round(prediction.score * 100)}%`;
@@ -139,8 +207,7 @@ const CameraNode = ({
                 ctx.fillText(label, x + 5, y - 6);
               });
             }
-            // Feed the heatmap: translate each detected person's position within
-            // this camera's frame into a point inside its assigned store zone.
+
             const zoneKey = CAMERA_ZONE_MAP[cameraId];
             const zone = zoneKey ? STORE_ZONES[zoneKey] : null;
             if (zone) {
@@ -159,13 +226,11 @@ const CameraNode = ({
               heatmapStore.reportBatch(`camera-${cameraId}`, heatPoints);
             }
 
-            // --- Real footfall count: how many people this camera sees right now ---
             const personCount = predictions.filter(p => p.class === 'person').length;
             footfallStore.reportDetection(personCount);
 
-            // --- Real Tier-1 motion proxy for shelf/product cameras ---
             if (SHELF_ZONE_CAMERAS.has(cameraId)) {
-              const nowT = performance.now() / 1000; // seconds
+              const nowT = performance.now() / 1000;
               const centroids = predictions
                 .filter(p => p.class === 'person')
                 .map(p => {
@@ -177,7 +242,6 @@ const CameraNode = ({
               if (prev && centroids.length > 0 && prev.points.length > 0) {
                 const dt = nowT - prev.t;
                 if (dt > 0) {
-                  // Naive nearest-neighbor match (small N, good enough for a coarse proxy)
                   let totalDisplacement = 0;
                   let matched = 0;
                   centroids.forEach(c => {
@@ -218,9 +282,8 @@ const CameraNode = ({
           } catch (err) {
             console.error(`Camera ${cameraId} detection error:`, err);
           } finally {
-            // Unlock immediately so the next camera in the queue can process
             isDetectingRef.current = false;
-            globalDetectingLock = false; 
+            globalDetectingLock = false;
           }
         }
       }
@@ -240,11 +303,11 @@ const CameraNode = ({
     <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-inner flex flex-col h-full">
       <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center text-xs font-semibold z-20">
         <span className={titleColor}>{title}</span>
-        <span className="text-emerald-500 flex items-center">
-          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>Live
+        <span className="text-amber-400 flex items-center">
+          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mr-1 animate-pulse"></span>Browser Demo
         </span>
       </div>
-      
+
       <div className="relative w-full flex-1 aspect-video bg-black flex items-center justify-center overflow-hidden">
         {!model && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4 text-center">
@@ -253,15 +316,15 @@ const CameraNode = ({
             </span>
           </div>
         )}
-        
-        <video 
+
+        <video
           ref={videoRef}
           src={videoSrc}
           autoPlay loop muted playsInline crossOrigin="anonymous"
-          className="absolute inset-0 w-full h-full object-contain z-0" 
+          className="absolute inset-0 w-full h-full object-contain z-0"
         />
-        
-        <canvas 
+
+        <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
         />
@@ -271,15 +334,24 @@ const CameraNode = ({
 };
 
 export default function CamerasTab() {
+  // Backend stream is the default: it's the pipeline main.py actually
+  // implements (locks, TTL eviction, pose-based reach, deep Re-ID). Local
+  // mode is an explicit opt-in fallback, not the primary experience.
+  const [mode, setMode] = useState<'backend' | 'local'>('backend');
+
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [backend, setBackend] = useState<string | null>(null);
+  const [tfBackend, setTfBackend] = useState<string | null>(null);
 
+  // Only load the ~6MB client-side model if the person actually switches to
+  // local mode — no point paying that cost when the backend stream is doing
+  // the real work by default.
   useEffect(() => {
+    if (mode !== 'local' || model) return;
     let cancelled = false;
 
-    getSharedBackend().then((activeBackend) => {
-      if (!cancelled) setBackend(activeBackend);
+    getSharedTfBackend().then((active) => {
+      if (!cancelled) setTfBackend(active);
     });
 
     getSharedModel()
@@ -292,77 +364,102 @@ export default function CamerasTab() {
       });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [mode, model]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-slate-800 pb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-slate-800 pb-4 gap-4">
           <div>
             <h3 className="text-lg font-bold text-slate-200">Live Camera Feeds & AI Inference</h3>
-            <p className="text-slate-400 text-sm mt-1">Real-time edge processing running TensorFlow.js COCO-SSD (Round-Robin Optimized).</p>
+            <p className="text-slate-400 text-sm mt-1">
+              {mode === 'backend'
+                ? "Server-side YOLOv8 + IOU tracking, Re-ID, and pose-based reach detection (main.py)."
+                : "Browser-side TensorFlow.js COCO-SSD demo — separate from and simpler than the server pipeline."}
+            </p>
           </div>
-          <div className={`px-3 py-2 rounded-lg flex items-center mt-4 md:mt-0 border ${
-            loadError
-              ? 'bg-rose-500/10 border-rose-500/20'
-              : model
-                ? 'bg-emerald-500/10 border-emerald-500/20'
-                : 'bg-slate-800/50 border-slate-700'
-          }`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              loadError ? 'bg-rose-500' : model ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500 animate-pulse'
-            }`}></div>
-            <span className={`text-xs font-bold uppercase tracking-wider ${
-              loadError ? 'text-rose-400' : model ? 'text-emerald-400' : 'text-slate-400'
-            }`}>
-              {loadError
-                ? 'Model Load Failed'
-                : model
-                  ? `Shared Model Active${backend ? ` (${backend.toUpperCase()})` : ''}`
-                  : 'Loading Model...'}
-            </span>
+
+          <div className="flex items-center gap-3">
+            <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-1">
+              <button
+                onClick={() => setMode('backend')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${mode === 'backend' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                Server AI Stream
+              </button>
+              <button
+                onClick={() => setMode('local')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${mode === 'local' ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                Browser Demo
+              </button>
+            </div>
+
+            {mode === 'local' && (
+              <div className={`px-3 py-2 rounded-lg flex items-center border ${
+                loadError
+                  ? 'bg-rose-500/10 border-rose-500/20'
+                  : model
+                    ? 'bg-emerald-500/10 border-emerald-500/20'
+                    : 'bg-slate-800/50 border-slate-700'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  loadError ? 'bg-rose-500' : model ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500 animate-pulse'
+                }`}></div>
+                <span className={`text-xs font-bold uppercase tracking-wider ${
+                  loadError ? 'text-rose-400' : model ? 'text-emerald-400' : 'text-slate-400'
+                }`}>
+                  {loadError
+                    ? 'Model Load Failed'
+                    : model
+                      ? `Shared Model Active${tfBackend ? ` (${tfBackend.toUpperCase()})` : ''}`
+                      : 'Loading Model...'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {loadError && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-6 text-xs text-amber-300 flex items-start gap-2">
+          <span>ℹ️</span>
+          {mode === 'backend' ? (
+            <span>
+              This feed is the real backend pipeline — YOLOv8 detection, a locked cross-camera Re-ID store,
+              TTL-based profile cleanup, and MediaPipe reach detection all run here. It requires you to be signed in
+              (the stream is served through the authenticated <code className="bg-slate-900 px-1 rounded">/api/backend/camera/stream/&#123;id&#125;</code> proxy)
+              and the backend process to be running.
+            </span>
+          ) : (
+            <span>
+              This mode runs a separate, simpler object-detection model entirely in your browser against the same
+              sample videos — useful if the backend isn&apos;t reachable, but it does not exercise the server-side
+              Re-ID, TTL eviction, or pose-based reach detection described elsewhere in this dashboard.
+            </span>
+          )}
+        </div>
+
+        {mode === 'local' && loadError && (
           <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-4 mb-6 text-sm text-rose-300">
             {loadError}
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CameraNode 
-            cameraId={1}
-            videoSrc="/datasets/archive/cam1.mp4" 
-            title="Cam 1: /datasets/archive" 
-            titleColor="text-cyan-400" 
-            model={model}
-            loadError={loadError}
-          />
-          <CameraNode 
-            cameraId={2}
-            videoSrc="/datasets/archive_1/cam1.mp4" 
-            title="Cam 2: /datasets/archive_1" 
-            titleColor="text-purple-400" 
-            model={model}
-            loadError={loadError}
-          />
-          <CameraNode 
-            cameraId={3}
-            videoSrc="/datasets/archive_2_products/cam1.mp4" 
-            title="Cam 3: /datasets/archive_2_products" 
-            titleColor="text-emerald-400" 
-            model={model}
-            loadError={loadError}
-          />
-          <CameraNode 
-            cameraId={4}
-            videoSrc="/datasets/archive_3_shelves/cam1.mp4" 
-            title="Cam 4: /datasets/archive_3_shelves" 
-            titleColor="text-rose-400" 
-            model={model}
-            loadError={loadError}
-          />
+          {mode === 'backend'
+            ? CAMERAS.map(cam => (
+                <BackendStreamNode key={cam.id} id={cam.id} label={cam.label} color={cam.color} />
+              ))
+            : CAMERAS.map(cam => (
+                <LocalDemoNode
+                  key={cam.id}
+                  cameraId={cam.id}
+                  videoSrc={cam.videoSrc}
+                  title={cam.label}
+                  titleColor={cam.color}
+                  model={model}
+                  loadError={loadError}
+                />
+              ))}
         </div>
       </div>
     </div>

@@ -44,9 +44,9 @@ export default function UsersTab() {
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4 text-xs text-amber-300 flex items-start gap-2">
           <span>ℹ️</span>
           <span>
-            The backend stores accounts in an in-memory dict (not a persistent database), so this list resets on
-            server restart, and there&apos;s no real login-history tracking yet — that&apos;s why &quot;Last Login&quot; and session
-            data aren&apos;t shown here. See the Active Sessions tab for the same limitation.
+            Accounts are persisted to the real database table now (not an in-memory dict — this list survives a
+            server restart), but there&apos;s still no real login-history tracking, which is why &quot;Last Login&quot; isn&apos;t
+            shown here.
           </span>
         </div>
 
