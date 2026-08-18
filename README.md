@@ -55,12 +55,4 @@ To build a real-time, AI-driven analytics system that processes CCTV video feeds
     ```
 *(Or run `start.bat` on Windows for an automated setup)*
 
-### 🎬 Project Demonstration
-*   **Live Feeds:** Streams annotated video overlays for `CAM-01` through `CAM-04` using WebSockets.
-*   **Dwell Heatmaps:** Displays consumer foot traffic density maps based on coordinate data.
-*   **AI Metrics:** Attractiveness scoring and layout optimization suggestions.
 
-### 📈 Current Implementation Status
-*   **✅ Complete:** Auth/RBAC, Admin/Manager/Marketing portals, REST API routes, YOLOv8/ByteTrack engine, WebSocket stream, Heatmaps, Database schema & seeding, Docker Compose.
-*   **🔧 In Progress:** Retail Analyst deep-dives, Redis caching, PDF export, responsive design.
-*   **📋 Planned:** RTSP stream integration, automated email notification alerts.
