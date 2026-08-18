@@ -6,6 +6,8 @@ from app.core.deps import require_roles, get_current_user
 from app.models.store import Shelf
 from app.models.camera import Camera
 from app.models.shelf_camera_view import ShelfCameraView
+from app.models.event_log import EventCategory
+from app.services.audit import log_event
 from pydantic import BaseModel
 from typing import Optional
 
@@ -55,15 +57,41 @@ def create_shelf_camera_view(
             detail="Camera does not belong to the same store as this shelf",
         )
 
-    # NOTE: no uniqueness check here yet. The model's docstring flags that
-    # (shelf_id, camera_id) should probably be unique — deliberately not
-    # enforced here since that's a schema-level decision (needs an ALTER
-    # TABLE on the live DB, same drift risk as the shelf.zone_id issue
-    # fixed earlier this session), not something to add silently inside
-    # a route handler. Re-running this POST for the same shelf+camera
-    # pair will currently just create a duplicate row.
+    # Dedup guard: this pair may already exist. No DB-level unique
+    # constraint has been added (that's a schema migration decision,
+    # deliberately deferred — see the DB-drift risk already known on this
+    # project, e.g. the ShopperSegment/PasswordResetToken import gaps).
+    # This is a route-level check instead: cheap, no migration required,
+    # and it's what was actually causing duplicate rows in practice.
+    existing = session.exec(
+        select(ShelfCameraView).where(
+            ShelfCameraView.shelf_id == shelf_id,
+            ShelfCameraView.camera_id == payload.camera_id,
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="This shelf is already linked to this camera",
+        )
+
     view = ShelfCameraView(shelf_id=shelf_id, **payload.model_dump())
     session.add(view)
     session.commit()
     session.refresh(view)
+
+    log_event(
+        session=session,
+        category=EventCategory.audit,
+        event_type="shelf_modified",
+        description=f"Shelf-camera view added for shelf {shelf.shelf_name}",
+        actor_user_id=_.id if _ else None,
+        target_type="shelf",
+        target_id=shelf.id,
+        metadata={
+            "action": "camera_view_added",
+            "camera_id": str(camera.id),
+            "shelf_camera_view_id": str(view.id),
+        },
+    )
     return view

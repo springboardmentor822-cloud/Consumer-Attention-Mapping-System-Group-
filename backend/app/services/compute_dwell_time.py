@@ -28,6 +28,11 @@ video file via OpenCV rather than assumed, for the same reason.
 
 Usage:
     python -m app.services.compute_dwell_time <camera_id>
+
+compute_dwell_time_data() below is the same logic pulled out into a
+reusable function - added so app/api/routes/dwell_time.py can call it
+directly for the dashboard chart instead of re-implementing the run-
+isolation / x-range logic a second time. main()/CLI output unchanged.
 """
 import argparse
 import uuid
@@ -63,69 +68,65 @@ def x_in_range(cx: float, x_range: tuple) -> bool:
     return x_range[0] <= cx <= x_range[1]
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("camera_id", type=str)
-    args = parser.parse_args()
-    camera_id = uuid.UUID(args.camera_id)
+class DwellTimeUnavailable(Exception):
+    """Raised when there's nothing to compute (no camera, no shelf views,
+    or no tracking events yet) - the API route turns this into a 404/200-
+    with-empty-list rather than a 500, since none of these are server
+    errors."""
 
+
+def compute_dwell_time_data(camera_id: uuid.UUID) -> list[dict]:
+    """
+    Returns one dict per shelf:
+      {"shelf_id": str, "shelf_name": str, "total_seconds": float, "distinct_visitors": int}
+    Shelves with a configured ShelfCameraView but zero events inside it
+    are included with total_seconds=0.0 - same "nobody stopped here is a
+    real signal" reasoning as the CLI version, not silently omitted.
+    Raises DwellTimeUnavailable if the camera doesn't exist, has no
+    ShelfCameraView rows, or has no person tracking events at all.
+    """
     with Session(engine) as session:
         camera = session.get(Camera, camera_id)
         if not camera:
-            print(f"No Camera found with id {camera_id}")
-            return
+            raise DwellTimeUnavailable(f"No Camera found with id {camera_id}")
 
         views = session.exec(
             select(ShelfCameraView).where(ShelfCameraView.camera_id == camera_id)
         ).all()
         if not views:
-            print(f"No ShelfCameraView rows for camera {camera.name} — nothing to compute.")
-            return
+            raise DwellTimeUnavailable(f"No ShelfCameraView rows for camera {camera.name}")
 
         shelf_names = {}
         for v in views:
             shelf = session.get(Shelf, v.shelf_id)
             shelf_names[v.shelf_id] = shelf.shelf_name if shelf else str(v.shelf_id)
 
-    fps = get_video_fps(camera.source_path)
+        source_path = camera.source_path
+
+    fps = get_video_fps(source_path)
     seconds_per_frame = 1.0 / fps
-    print(f"Camera: {camera.name} | source: {camera.source_path} | fps: {fps}")
 
     with Session(timescale_engine) as ts_session:
         events = ts_session.exec(
             select(TrackingEvent)
             .where(TrackingEvent.camera_id == str(camera_id))
-            .where(TrackingEvent.class_name.is_(None))  # person events only — class_name is populated for ProductDetector rows, NULL for PersonDetector rows, per timescale_writer.py's parse_stream_entry
+            .where(TrackingEvent.class_name.is_(None))  # person events only, see note in main()
             .order_by(TrackingEvent.frame_index)
         ).all()
 
     if not events:
-        print("No person tracking events found for this camera.")
-        return
+        raise DwellTimeUnavailable("No person tracking events found for this camera")
 
-    print(f"{len(events)} total person tracking events found across ALL runs ever pushed for this camera.")
-
-    # Isolate just the MOST RECENT run. Every fresh tracking_runner.py
-    # invocation restarts frame_index from 0 and restarts ByteTrack's
-    # track_id numbering from 1 - so events from separate runs are not
-    # safely comparable/summable together (same track_id number can mean
-    # different real people across runs, and total dwell time would sum
-    # across multiple separate playbacks of the same clip instead of
-    # reflecting one). Detect run boundaries by walking events in
-    # event_time order and finding the last point frame_index drops back
-    # down (a new run starting) - keep only what's after that point.
+    # Isolate the most recent run only - see main()'s comment for why
+    # separate runs' frame_index/track_id numbering isn't comparable.
     events_by_time = sorted(events, key=lambda e: e.event_time)
     run_start = 0
     for i in range(1, len(events_by_time)):
         if events_by_time[i].frame_index < events_by_time[i - 1].frame_index:
             run_start = i
     events = events_by_time[run_start:]
-    print(f"Using only the most recent run: {len(events)} events.")
 
-    # frames_inside[shelf_id][track_id] = count of frames that track's
-    # box-center was inside that shelf's polygon
     frames_inside: dict = defaultdict(lambda: defaultdict(int))
-
     view_x_ranges = {view.id: shelf_x_range(view.zone_coordinates) for view in views if view.zone_coordinates}
 
     for event in events:
@@ -137,23 +138,69 @@ def main():
             if x_in_range(cx, x_range):
                 frames_inside[view.shelf_id][event.track_id] += 1
 
-    print("\n--- Dwell time by shelf (this recorded run) ---")
+    results = []
+    seen_shelf_ids = set()
     for shelf_id, per_track in frames_inside.items():
         total_frames = sum(per_track.values())
-        total_seconds = total_frames * seconds_per_frame
-        distinct_visitors = len(per_track)
-        print(
-            f"{shelf_names.get(shelf_id, shelf_id)}: "
-            f"{total_seconds:.1f}s total dwell, "
-            f"{distinct_visitors} distinct track_id(s) observed near it"
-        )
+        results.append({
+            "shelf_id": str(shelf_id),
+            "shelf_name": shelf_names.get(shelf_id, str(shelf_id)),
+            "total_seconds": round(total_frames * seconds_per_frame, 1),
+            "distinct_visitors": len(per_track),
+        })
+        seen_shelf_ids.add(shelf_id)
 
-    # Shelves with a marked zone but zero events inside it are worth
-    # surfacing explicitly, not silently omitted — that's a real "nobody
-    # stopped here" signal, not missing data.
     for view in views:
-        if view.shelf_id not in frames_inside:
-            print(f"{shelf_names.get(view.shelf_id, view.shelf_id)}: 0.0s (no events fell inside this zone)")
+        if view.shelf_id not in seen_shelf_ids:
+            results.append({
+                "shelf_id": str(view.shelf_id),
+                "shelf_name": shelf_names.get(view.shelf_id, str(view.shelf_id)),
+                "total_seconds": 0.0,
+                "distinct_visitors": 0,
+            })
+
+    return results
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("camera_id", type=str)
+    args = parser.parse_args()
+    camera_id = uuid.UUID(args.camera_id)
+
+    with Session(engine) as session:
+        camera = session.get(Camera, camera_id)
+        if not camera:
+            print(f"No Camera found with id {camera_id}")
+            return
+        source_path = camera.source_path
+        camera_name = camera.name
+
+    print(f"Camera: {camera_name} | source: {source_path} | fps: {get_video_fps(source_path)}")
+
+    try:
+        results = compute_dwell_time_data(camera_id)
+    except DwellTimeUnavailable as e:
+        print(str(e))
+        return
+
+    with Session(timescale_engine) as ts_session:
+        all_events = ts_session.exec(
+            select(TrackingEvent)
+            .where(TrackingEvent.camera_id == str(camera_id))
+            .where(TrackingEvent.class_name.is_(None))
+        ).all()
+    print(f"{len(all_events)} total person tracking events found across ALL runs ever pushed for this camera.")
+
+    print("\n--- Dwell time by shelf (this recorded run) ---")
+    for r in results:
+        if r["total_seconds"] == 0.0 and r["distinct_visitors"] == 0:
+            print(f"{r['shelf_name']}: 0.0s (no events fell inside this zone)")
+        else:
+            print(
+                f"{r['shelf_name']}: {r['total_seconds']:.1f}s total dwell, "
+                f"{r['distinct_visitors']} distinct track_id(s) observed near it"
+            )
 
 
 if __name__ == "__main__":

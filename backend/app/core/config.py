@@ -20,6 +20,23 @@ class Settings(BaseSettings):
     # later).
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # CORS / frontend
+    # Comma-separated production frontend origins. Keep localhost as the
+    # default for local development; deployment can override this in .env.
+    CORS_ORIGINS: str = "http://localhost:3000"
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Password reset email. When DEV_PASSWORD_RESET is true, the API keeps
+    # returning the token directly for local testing. In production set it
+    # false and provide SMTP_* settings.
+    DEV_PASSWORD_RESET: bool = True
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_USE_TLS: bool = True
+
     # JWT
     JWT_SECRET_KEY: str = "change-this-in-your-env-file"
     JWT_ALGORITHM: str = "HS256"

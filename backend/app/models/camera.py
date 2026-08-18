@@ -27,6 +27,7 @@ in" without touching OpenCV at all.
 """
 
 import uuid
+from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
 from sqlmodel import SQLModel, Field, Relationship
@@ -75,6 +76,7 @@ class Camera(SQLModel, table=True):
     # letting an admin disable a camera without deleting its row
     # (and losing its history/foreign-key references).
     is_active: bool = True
+    last_seen_at: Optional[datetime] = None
 
     store: Optional["Store"] = Relationship()
     zone: Optional["Zone"] = Relationship()

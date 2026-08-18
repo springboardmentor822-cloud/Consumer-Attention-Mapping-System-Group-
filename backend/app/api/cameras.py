@@ -8,6 +8,8 @@ from app.core.deps import require_roles, get_current_user
 from app.models.camera import Camera
 from app.models.store import Store
 from app.models.zone import Zone
+from app.models.event_log import EventCategory
+from app.services.audit import log_event
 from pydantic import BaseModel
 from typing import Optional
 
@@ -19,6 +21,10 @@ class CameraCreate(BaseModel):
     name: str
     source_path: str
     is_active: Optional[bool] = True
+
+
+class CameraActiveUpdate(BaseModel):
+    is_active: bool
 
 
 @router.get("/{store_id}/cameras")
@@ -60,4 +66,52 @@ def create_camera(
     session.add(camera)
     session.commit()
     session.refresh(camera)
+
+    log_event(
+        session=session,
+        category=EventCategory.audit,
+        event_type="camera_added",
+        description=f"Camera added: {camera.name}",
+        actor_user_id=_.id if _ else None,
+        target_type="camera",
+        target_id=camera.id,
+        metadata={"store_id": str(store_id), "zone_id": str(camera.zone_id)},
+    )
+    return camera
+
+
+@router.patch("/{store_id}/cameras/{camera_id}/active")
+def set_camera_active(
+    store_id: uuid.UUID,
+    camera_id: uuid.UUID,
+    payload: CameraActiveUpdate,
+    session: Session = Depends(get_session),
+    _=Depends(require_roles("StoreManager", "SuperAdmin")),
+):
+    # NOTE: this only flips the is_active flag in the DB - it does not
+    # start/stop the actual frame_pipeline.py process reading that
+    # camera's source_path. Whether tracking_runner.py checks is_active
+    # before processing a camera is a separate thing to verify, not
+    # something this endpoint controls. Don't assume toggling this off
+    # here actually stops CPU/GPU usage on that camera's stream.
+    camera = session.get(Camera, camera_id)
+    if not camera or camera.store_id != store_id:
+        raise HTTPException(status_code=404, detail="Camera not found for this store")
+
+    previous_active = camera.is_active
+    camera.is_active = payload.is_active
+    session.add(camera)
+    session.commit()
+    session.refresh(camera)
+
+    log_event(
+        session=session,
+        category=EventCategory.audit,
+        event_type="camera_status_changed",
+        description=f"Camera {camera.name} active status changed: {previous_active} -> {camera.is_active}",
+        actor_user_id=_.id if _ else None,
+        target_type="camera",
+        target_id=camera.id,
+        metadata={"old_is_active": previous_active, "new_is_active": camera.is_active},
+    )
     return camera

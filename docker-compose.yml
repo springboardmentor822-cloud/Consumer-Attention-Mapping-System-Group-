@@ -1,0 +1,74 @@
+﻿services:
+  postgres:
+    image: postgres:16
+    container_name: camsystem-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-camsystem}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-camsystem}
+      POSTGRES_DB: ${POSTGRES_DB:-camsystem}
+    ports:
+      - "5432:5432"
+    volumes:
+      - camsystem_pgdata:/var/lib/postgresql/data
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: camsystem-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-camsystem}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-camsystem}
+      POSTGRES_DB: camsystem_timeseries
+    ports:
+      - "5433:5432"
+    volumes:
+      - camsystem_timescaledata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: camsystem-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - camsystem_redisdata:/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: camsystem-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - timescaledb
+      - redis
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: camsystem-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  camsystem_pgdata:
+    external: true
+    name: backend_camsystem_pgdata
+
+  camsystem_redisdata:
+    external: true
+    name: backend_camsystem_redisdata
+
+  camsystem_timescaledata:
+    external: true
+    name: backend_camsystem_timescaledata

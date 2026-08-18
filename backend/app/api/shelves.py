@@ -7,6 +7,8 @@ from app.core.db import get_session
 from app.core.deps import require_roles, get_current_user
 from app.models.store import Shelf, Store
 from app.models.zone import Zone
+from app.models.event_log import EventCategory
+from app.services.audit import log_event
 from pydantic import BaseModel
 from typing import Optional
 
@@ -62,4 +64,15 @@ def create_shelf(
     session.add(shelf)
     session.commit()
     session.refresh(shelf)
+
+    log_event(
+        session=session,
+        category=EventCategory.audit,
+        event_type="shelf_modified",
+        description=f"Shelf created: {shelf.shelf_name}",
+        actor_user_id=_.id if _ else None,
+        target_type="shelf",
+        target_id=shelf.id,
+        metadata={"action": "create", "store_id": str(store_id), "zone_id": str(shelf.zone_id)},
+    )
     return shelf

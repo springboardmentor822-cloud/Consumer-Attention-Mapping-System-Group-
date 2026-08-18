@@ -14,3 +14,15 @@ torch==2.13.0+cu126
 torchvision==0.28.0+cu126
 ultralytics
 redis
+reportlab
+openpyxl
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+apscheduler
+psutil
+deep-sort-realtime
+pytest
+httpx

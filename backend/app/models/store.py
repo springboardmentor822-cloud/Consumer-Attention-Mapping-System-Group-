@@ -10,6 +10,25 @@ class Store(SQLModel, table=True):
     location: Optional[str] = None
     store_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
+    # NEW: which StoreManager owns this store. Nullable, not because an
+    # unowned store is a valid steady state, but because this column is
+    # being added to a live DB with no migration tool (no Alembic in
+    # this project — confirmed) — a NOT NULL column can't be added to a
+    # table with existing rows without a default, and a fabricated
+    # default owner would be worse than an honest NULL. Backfill Anime
+    # World's owner_id manually right after this migration; see the
+    # accompanying ALTER TABLE + backfill instructions.
+    #
+    # Deliberately scoped to StoreManager only — Analyst/SuperAdmin
+    # remain unrestricted on list_stores, matching their existing
+    # unrestricted access on every other analytics endpoint in this
+    # project. A store with no owner_id set will not appear in any
+    # StoreManager's list_stores result until backfilled — this is
+    # correct behavior (fail closed), not a bug, but it means an
+    # unbackfilled store is invisible to its manager. Don't skip the
+    # backfill step.
+    owner_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id")
+
     shelves: list["Shelf"] = Relationship(back_populates="store")
     zones: list["Zone"] = Relationship(back_populates="store")
 

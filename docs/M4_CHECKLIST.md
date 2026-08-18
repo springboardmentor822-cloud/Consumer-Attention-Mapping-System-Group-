@@ -1,0 +1,23 @@
+# M4 Completion Checklist
+
+- [x] Role dashboards operational
+- [x] Redis-backed alert engine
+- [x] PDF/Excel reporting
+- [x] Frontend/FastAPI integration
+- [x] Docker build definitions added
+- [x] Compose includes application + data services
+- [x] CI workflow added
+- [x] Backend smoke test added
+- [x] Deployment/API/data-quality documentation added
+- [ ] Cloud account deployment
+- [ ] Managed object storage configuration
+- [ ] Production secrets and domain configuration
+- [ ] Formal Postman run with captured results
+- [ ] Security audit/rate-limit benchmark
+- [ ] Performance/load benchmark with representative camera workload
+- [ ] Centralized production log/trace backend
+- [ ] Model/stream/error monitoring service
+- [ ] True hand-level pickup/return model
+- [ ] Cross-camera ReID
+- [ ] Calibrated floorplan homography and true gaze/shelf layers
+- [ ] Real POS population for purchase conversion

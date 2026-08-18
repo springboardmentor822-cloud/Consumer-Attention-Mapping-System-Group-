@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError, Store, Zone, Camera, getApiBaseUrl } from "@/lib/api";
+import { api, ApiError, Store, Zone, Camera, DwellTimeEntry, TrafficPoint, ZoneTraffic, AttractivenessEntry, RecommendationEntry, getApiBaseUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-// simpleheat has no official types — minimal shape for what we use here.
+// simpleheat has no official types â€” minimal shape for what we use here.
 // npm install simpleheat
-declare module "simpleheat";
 type SimpleHeatInstance = {
   data: (points: [number, number, number][]) => SimpleHeatInstance;
   max: (v: number) => SimpleHeatInstance;
@@ -36,13 +35,24 @@ const WINDOW_MS = 60_000; // keep a rolling 60s of activity, matches a "live" he
 
 type PointEvent = { x: number; y: number; t: number };
 
+function priorityBadgeClass(priority: string): string {
+  switch (priority) {
+    case "high":
+      return "bg-red-100 text-red-700";
+    case "medium":
+      return "bg-amber-100 text-amber-700";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heatRef = useRef<SimpleHeatInstance | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const pointsRef = useRef<PointEvent[]>([]);
-  const maxSeenRef = useRef({ x: 1, y: 1 }); // dynamic scale — see note in render
+  const maxSeenRef = useRef({ x: 1, y: 1 }); // dynamic scale â€” see note in render
   const activityBucketsRef = useRef<Map<number, number>>(new Map()); // bucketStartMs -> event count, for the live activity chart
 
   const [store, setStore] = useState<Store | null>(null);
@@ -71,11 +81,11 @@ export default function DashboardPage() {
     try {
       const stores = await api.listStores();
       if (stores.length === 0) {
-        setError("No stores yet — add one from the Stores page before viewing the dashboard.");
+        setError("No stores yet â€” add one from the Stores page before viewing the dashboard.");
         setLoading(false);
         return;
       }
-      // Single global dashboard for now — first store, per current scope.
+      // Single global dashboard for now â€” first store, per current scope.
       // When multi-store views are needed, this becomes a route param
       // (/stores/[storeId]/dashboard) instead of a rewrite.
       const activeStore = stores[0];
@@ -104,7 +114,7 @@ export default function DashboardPage() {
     if (!selectedZoneId) return;
     const zoneCameras = cameras.filter((c) => c.zone_id === selectedZoneId);
     setSelectedCameraId(zoneCameras[0]?.id ?? null);
-    // reset heatmap state on zone/camera switch — old points belong to a different feed
+    // reset heatmap state on zone/camera switch â€” old points belong to a different feed
     pointsRef.current = [];
     maxSeenRef.current = { x: 1, y: 1 };
   }, [selectedZoneId, cameras]);
@@ -125,7 +135,7 @@ export default function DashboardPage() {
       try {
         msg = JSON.parse(event.data);
       } catch {
-        return; // not JSON — ignore rather than crash the socket handler
+        return; // not JSON â€” ignore rather than crash the socket handler
       }
       if (msg.camera_id !== selectedCameraId) return;
 
@@ -160,7 +170,6 @@ export default function DashboardPage() {
     if (!canvas) return;
 
     if (!heatRef.current) {
-      // @ts-expect-error simpleheat has no type declarations
       const simpleheat = require("simpleheat");
       heatRef.current = simpleheat(canvas) as SimpleHeatInstance;
       heatRef.current.radius(18, 25);
@@ -186,6 +195,161 @@ export default function DashboardPage() {
   }, [draw]);
 
   const [activityData, setActivityData] = useState<{ time: string; count: number }[]>([]);
+
+  // ---- recommendations feed (store-wide, not scoped to the selected camera â€”
+  // the rule engine evaluates every shelf/zone in the store at once) ----
+  const [recommendations, setRecommendations] = useState<RecommendationEntry[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!store) {
+      setRecommendations([]);
+      return;
+    }
+    let cancelled = false;
+    setRecommendationsLoading(true);
+    setRecommendationsError(null);
+    api
+      .getRecommendations(store.id)
+      .then((data) => {
+        if (!cancelled) setRecommendations(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setRecommendationsError(err instanceof ApiError ? err.message : "Failed to load recommendations");
+      })
+      .finally(() => {
+        if (!cancelled) setRecommendationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+
+  // ---- dwell time by shelf (this recorded run, per compute_dwell_time.py) ----
+  const [dwellTimeData, setDwellTimeData] = useState<DwellTimeEntry[]>([]);
+  const [dwellTimeLoading, setDwellTimeLoading] = useState(false);
+  const [dwellTimeError, setDwellTimeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!store || !selectedCameraId) {
+      setDwellTimeData([]);
+      return;
+    }
+    let cancelled = false;
+    setDwellTimeLoading(true);
+    setDwellTimeError(null);
+    api
+      .getDwellTime(store.id, selectedCameraId)
+      .then((data) => {
+        if (!cancelled) setDwellTimeData(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Not run through the same 401-redirect handling as loadInitialData -
+        // a dwell-time fetch failing shouldn't kick the user to /login,
+        // it's a much lower-stakes failure than the initial store/zone load.
+        setDwellTimeError(err instanceof ApiError ? err.message : "Failed to load dwell time data");
+      })
+      .finally(() => {
+        if (!cancelled) setDwellTimeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, selectedCameraId]);
+
+  // ---- traffic over time (this recorded run, bucketed by elapsed video time) ----
+  const [trafficData, setTrafficData] = useState<TrafficPoint[]>([]);
+  const [trafficLoading, setTrafficLoading] = useState(false);
+  const [trafficError, setTrafficError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!store || !selectedCameraId) {
+      setTrafficData([]);
+      return;
+    }
+    let cancelled = false;
+    setTrafficLoading(true);
+    setTrafficError(null);
+    api
+      .getTrafficOverTime(store.id, selectedCameraId)
+      .then((data) => {
+        if (!cancelled) setTrafficData(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setTrafficError(err instanceof ApiError ? err.message : "Failed to load traffic data");
+      })
+      .finally(() => {
+        if (!cancelled) setTrafficLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, selectedCameraId]);
+
+  // ---- zone comparison (store-wide, not scoped to the selected camera) ----
+  const [zoneTrafficData, setZoneTrafficData] = useState<ZoneTraffic[]>([]);
+  const [zoneTrafficLoading, setZoneTrafficLoading] = useState(false);
+  const [zoneTrafficError, setZoneTrafficError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!store) {
+      setZoneTrafficData([]);
+      return;
+    }
+    let cancelled = false;
+    setZoneTrafficLoading(true);
+    setZoneTrafficError(null);
+    api
+      .getZoneTraffic(store.id)
+      .then((data) => {
+        if (!cancelled) setZoneTrafficData(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setZoneTrafficError(err instanceof ApiError ? err.message : "Failed to load zone traffic data");
+      })
+      .finally(() => {
+        if (!cancelled) setZoneTrafficLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+
+  // ---- product attractiveness score (per shelf, this camera â€” real attention
+  // + mocked interaction/pickup/purchase/repeat, see attractiveness_score.py) ----
+  const [attractivenessData, setAttractivenessData] = useState<AttractivenessEntry[]>([]);
+  const [attractivenessLoading, setAttractivenessLoading] = useState(false);
+  const [attractivenessError, setAttractivenessError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!store || !selectedCameraId) {
+      setAttractivenessData([]);
+      return;
+    }
+    let cancelled = false;
+    setAttractivenessLoading(true);
+    setAttractivenessError(null);
+    api
+      .getAttractiveness(store.id, selectedCameraId)
+      .then((data) => {
+        if (!cancelled) setAttractivenessData(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setAttractivenessError(err instanceof ApiError ? err.message : "Failed to load attractiveness data");
+      })
+      .finally(() => {
+        if (!cancelled) setAttractivenessLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, selectedCameraId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -241,6 +405,55 @@ export default function DashboardPage() {
           <>
             <Card>
               <CardHeader>
+                <CardTitle className="text-base">Recommendations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recommendationsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading recommendationsâ€¦</p>
+                ) : recommendationsError ? (
+                  <p className="text-sm text-destructive">{recommendationsError}</p>
+                ) : recommendations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No recommendations triggered right now â€” needs attractiveness scores computed for this
+                    store first (run attractiveness_score.py, or wait for the scheduler's next cycle).
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {recommendations.map((rec, i) => (
+                      <div key={i} className="flex flex-col gap-1 rounded-md border border-border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium">{rec.target_description}</span>
+                          <span
+                            className={
+                              "text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap " +
+                              priorityBadgeClass(rec.priority)
+                            }
+                          >
+                            {rec.priority.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{rec.action_item}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>~{rec.expected_conversion_uplift_pct}% est. uplift</span>
+                          {rec.based_on_mock.length > 0 && (
+                            <span className="text-amber-600">
+                              (based on mock: {rec.based_on_mock.join(", ")})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-3">
+                  Rule-based alerts from attractiveness scores + zone traffic. expected_conversion_uplift_pct is
+                  an illustrative estimate, not a fitted prediction â€” see recommendation_engine.py.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="text-base">Zone &amp; camera</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
@@ -264,7 +477,6 @@ export default function DashboardPage() {
                     {zoneCameras.map((cam) => (
                       <Button
                         key={cam.id}
-                        size="sm"
                         variant={selectedCameraId === cam.id ? "default" : "outline"}
                         onClick={() => setSelectedCameraId(cam.id)}
                       >
@@ -292,7 +504,7 @@ export default function DashboardPage() {
                         : "text-muted-foreground"
                     }
                   >
-                    ● {wsStatus}
+                    â— {wsStatus}
                   </span>
                 </div>
               </CardHeader>
@@ -355,7 +567,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 {activityData.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No activity yet — run tracking_runner against a camera to see this fill in.</p>
+                  <p className="text-sm text-muted-foreground">No activity yet â€” run tracking_runner against a camera to see this fill in.</p>
                 ) : (
                   <div style={{ width: "100%", height: 200 }}>
                     <ResponsiveContainer>
@@ -374,9 +586,160 @@ export default function DashboardPage() {
                 </p>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Dwell time by shelf</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dwellTimeLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading dwell timeâ€¦</p>
+                ) : dwellTimeError ? (
+                  <p className="text-sm text-destructive">{dwellTimeError}</p>
+                ) : dwellTimeData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No dwell time data yet â€” needs ShelfCameraView zones configured for this camera and at
+                    least one tracking_runner run against it.
+                  </p>
+                ) : (
+                  <div style={{ width: "100%", height: Math.max(200, dwellTimeData.length * 50) }}>
+                    <ResponsiveContainer>
+                      <BarChart data={dwellTimeData} layout="vertical" margin={{ left: 24 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis type="number" fontSize={12} unit="s" />
+                        <YAxis dataKey="shelf_name" type="category" fontSize={12} width={100} />
+                        <Tooltip
+                          formatter={(value, name) =>
+                            name === "total_seconds" ? [`${value}s`, "Dwell time"] : [value, "Distinct visitors"]
+                          }
+                        />
+                        <Bar dataKey="total_seconds" fill="currentColor" className="text-primary" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Total time tracked people spent in each shelf&apos;s aisle lane, most recent tracking run only â€”
+                  see compute_dwell_time.py for the x-range-proxy method behind this number.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Product attractiveness score</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {attractivenessLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading attractiveness scoresâ€¦</p>
+                ) : attractivenessError ? (
+                  <p className="text-sm text-destructive">{attractivenessError}</p>
+                ) : attractivenessData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No attractiveness data yet â€” needs ShelfCameraView zones configured for this camera and at
+                    least one tracking_runner run against it.
+                  </p>
+                ) : (
+                  <div style={{ width: "100%", height: Math.max(200, attractivenessData.length * 50) }}>
+                    <ResponsiveContainer>
+                      <BarChart data={attractivenessData} layout="vertical" margin={{ left: 24 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis type="number" domain={[0, 1]} fontSize={12} />
+                        <YAxis dataKey="shelf_name" type="category" fontSize={12} width={100} />
+                        <Tooltip
+                          formatter={(value) => [Number(value ?? 0).toFixed(3), "Score"]}
+                        />
+                        <Bar dataKey="final_score" fill="currentColor" className="text-primary" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  0.35Ã—Attention (real, dwell-time) + 0.25Ã—Interaction + 0.20Ã—Pickup + 0.15Ã—Purchase +
+                  0.05Ã—Repeat. Interaction, Pickup, Purchase, and Repeat are placeholder values pending real
+                  detection â€” see attractiveness_score.py.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Traffic over time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {trafficLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading traffic dataâ€¦</p>
+                ) : trafficError ? (
+                  <p className="text-sm text-destructive">{trafficError}</p>
+                ) : trafficData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No traffic data yet â€” run tracking_runner against this camera first.
+                  </p>
+                ) : (
+                  <div style={{ width: "100%", height: 200 }}>
+                    <ResponsiveContainer>
+                      <LineChart data={trafficData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis
+                          dataKey="bucket_start_seconds"
+                          fontSize={12}
+                          tickFormatter={(v: number) => `${v}s`}
+                        />
+                        <YAxis allowDecimals={false} fontSize={12} />
+                        <Tooltip
+                          labelFormatter={(v) => `${String(v ?? "")}s into the run`}
+                          formatter={(value) => [value ?? 0, "Events"]}
+                        />
+                        <Line type="monotone" dataKey="event_count" stroke="currentColor" className="text-primary" dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Tracked-person events per 2s window of the video&apos;s own timeline, most recent run only â€” not
+                  wall-clock/processing time, see traffic_analytics_service.py.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Zone comparison</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {zoneTrafficLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading zone dataâ€¦</p>
+                ) : zoneTrafficError ? (
+                  <p className="text-sm text-destructive">{zoneTrafficError}</p>
+                ) : zoneTrafficData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No zones configured for this store yet.</p>
+                ) : (
+                  <div style={{ width: "100%", height: Math.max(200, zoneTrafficData.length * 50) }}>
+                    <ResponsiveContainer>
+                      <BarChart data={zoneTrafficData} layout="vertical" margin={{ left: 24 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis type="number" fontSize={12} allowDecimals={false} />
+                        <YAxis dataKey="zone_name" type="category" fontSize={12} width={100} />
+                        <Tooltip
+                          formatter={(value, name) =>
+                            name === "event_count" ? [value, "Tracked events"] : [value, "Distinct visitors"]
+                          }
+                        />
+                        <Bar dataKey="event_count" fill="currentColor" className="text-primary" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Store-wide, across all cameras â€” each camera&apos;s most recent run, summed per zone. Not the
+                  selected camera above.
+                </p>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
     </div>
   );
 }
+

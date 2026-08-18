@@ -1,0 +1,12 @@
+.venv/
+data/
+runs/
+sample_frames/
+camera2_check/
+camera3_frames/
+generalization_check_output/
+spotcheck_output/
+__pycache__/
+*.pyc
+.env
+.git/

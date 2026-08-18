@@ -25,7 +25,10 @@ it against (see tune_person_tracker.py) - it caused a severe regression
 on Zone_1/Camera 1 when applied globally, see detection.py's comments.
 """
 import argparse
+import time
 import uuid
+from datetime import datetime
+
 from sqlmodel import Session, select
 from app.core.db import engine
 from app.core.redis_client import push_tracking_event
@@ -34,28 +37,90 @@ from app.services.detection import PersonDetector, ProductDetector
 from app.services.frame_pipeline import get_camera_source
 
 
-def run(camera_id: uuid.UUID, use_product_detector: bool = False, max_age: int = 30, tracker: str | None = None):
+def run(
+    camera_id: uuid.UUID,
+    use_product_detector: bool = False,
+    max_age: int = 30,
+    tracker: str | None = None,
+):
+    # Load camera once before starting the detector.
     with Session(engine) as session:
         camera = session.get(Camera, camera_id)
+
     if not camera:
         print(f"No Camera found with id {camera_id}")
         return
+
     source = get_camera_source(camera)
 
     if use_product_detector:
         detector = ProductDetector(max_age=max_age)
+
         if tracker:
-            print("NOTE: --tracker only applies to PersonDetector (ByteTrack) - ignored for ProductDetector (DeepSORT).")
+            print(
+                "NOTE: --tracker only applies to PersonDetector "
+                "(ByteTrack) - ignored for ProductDetector (DeepSORT)."
+            )
     else:
-        detector = PersonDetector(**({"tracker": tracker} if tracker else {}))
+        detector = PersonDetector(
+            **({"tracker": tracker} if tracker else {})
+        )
 
     pushed = 0
+
+    # Update camera liveness approximately every 15 seconds.
+    # This is intentionally NOT done for every frame/event.
+    heartbeat_interval = 15
+    last_heartbeat = 0.0
+
     for det in detector.detect_source(source):
+
+        # ---------------------------------------------------------
+        # CAMERA HEARTBEAT
+        # ---------------------------------------------------------
+        now_monotonic = time.monotonic()
+
+        if now_monotonic - last_heartbeat >= heartbeat_interval:
+            try:
+                with Session(engine) as session:
+                    camera_row = session.get(Camera, camera_id)
+
+                    if camera_row:
+                        camera_row.last_seen_at = datetime.utcnow()
+                        session.add(camera_row)
+                        session.commit()
+
+                        print(
+                            f"heartbeat updated for camera "
+                            f"{camera_row.name} ({camera_id})"
+                        )
+                    else:
+                        print(
+                            f"Camera {camera_id} no longer exists in database."
+                        )
+
+                last_heartbeat = now_monotonic
+
+            except Exception as exc:
+                # Heartbeat failure must not stop the tracking pipeline.
+                print(f"WARNING: camera heartbeat failed: {exc}")
+
+        # ---------------------------------------------------------
+        # EXISTING REDIS TRACKING EVENT
+        # ---------------------------------------------------------
         entry_id = push_tracking_event(det)
         pushed += 1
+
         if pushed % 25 == 0:
-            print(f"pushed {pushed} events (latest Redis entry id: {entry_id})")
-    print(f"done - pushed {pushed} events total for camera {camera.name} ({camera_id})")
+            print(
+                f"pushed {pushed} events "
+                f"(latest Redis entry id: {entry_id})"
+            )
+
+    print(
+        f"done - pushed {pushed} events total "
+        f"for camera {camera.name} ({camera_id})"
+    )
 
 
 if __name__ == "__main__":
