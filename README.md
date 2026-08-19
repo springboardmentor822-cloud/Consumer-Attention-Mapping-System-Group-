@@ -236,18 +236,11 @@ cams-app/
 
 ---
 
-## 👩‍💻 Team
+## 👩‍💻 Developer
 
-**Springboard Mentorship Program — Group Project**
+**Manaswini** — Springboard Mentorship Program
 
-| Member | Branch |
-|--------|--------|
-| Manaswini | `Manaswini-consumer-attention-mapping-system` |
-| Ritik Mishra | `ritik-mishra-consumer-attention-mapping-system` |
-| Likhith Sai | `likhith-sai-reddy-consumer-attention-mapping` |
-| Arunkumar | `Arunkumar-consumer-attention-mapping-system` |
-| Chandana S | `chandana-s-consumer-attention-mapping-system` |
-| Mansi Singh | `mansi-singh-consumer-attention-mapping-system` |
+> Built end-to-end: Frontend (Next.js 14), Backend (FastAPI), Computer Vision Pipeline (YOLOv8 + ByteTrack), and 4 role-based dashboards.
 
 ---
 
