@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATABASE_PATH = os.path.join(BASE_DIR, "attention.db")
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
-print(f"📁 Using database at: {DATABASE_PATH}")
+print(f"Using database at: {DATABASE_PATH}")
 
 engine = create_engine(
     DATABASE_URL,
