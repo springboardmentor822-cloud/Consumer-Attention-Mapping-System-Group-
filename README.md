@@ -1,3 +1,7 @@
+🚀 Working Demo: The full working demo video is available here. Please open the link below to watch the demo:
+https://github.com/user-attachments/assets/81e6bfad-0f59-4598-8f72-a63066ad8863
+
+
 # 🛒 CAMS — Consumer Attention Mapping System
 
 > **AI-Powered Retail Intelligence Platform** | YOLOv8 · ByteTrack · KDE Heatmaps · Next.js 14 · FastAPI
