@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import { DEMO_USERS } from '@/lib/cams-data';
 
+export async function GET() {
+  return NextResponse.json({
+    message: 'Auth login endpoint ready. Send POST request with email and password.',
+    demo_credentials: [
+      { role: 'Store Manager', email: 'store.manager@cams.ai', password: 'password123' },
+      { role: 'Retail Analyst', email: 'analyst@cams.ai', password: 'password123' },
+      { role: 'Marketing Manager', email: 'marketing@cams.ai', password: 'password123' },
+      { role: 'System Administrator', email: 'admin@cams.ai', password: 'password123' }
+    ]
+  });
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
