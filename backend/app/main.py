@@ -1,15 +1,25 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
 import time
 
+from app.api import auth, stores, shelves, telemetry, analytics
+from app.core.database import engine, Base
+
+# Create SQLite database tables if they don't exist
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Database init notice: {e}")
+
 app = FastAPI(
-    title="Consumer Attention Mapping System (CAMS) - Backend Service",
-    version="2.4.0",
-    description="FastAPI Backend for Retail Intelligence, JWT Auth, Multi-Tenant Stores, and OpenCV Telemetry Ingestion."
+    title="Consumer Attention Mapping System (CAMS) - Backend Microservice",
+    version="3.0.0",
+    description="Full-Stack Retail Intelligence API Engine powering YOLOv8 Person Detection, ByteTrack MOT, 2D KDE Heatmaps, Homography Floor Plans, and Attractiveness Analytics.",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
+# Enable CORS for Next.js frontend on localhost:3000
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,67 +28,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Golden Rule API Contract Models
-class UserManagementObject(BaseModel):
-    id: str
-    email: str
-    role: str
-    is_active: bool
+# Include all modular REST API domain routers
+app.include_router(auth.router)
+app.include_router(stores.router)
+app.include_router(shelves.router)
+app.include_router(telemetry.router)
+app.include_router(analytics.router)
 
-class ZoneCoordinate(BaseModel):
-    zone_id: int
-    name: str
-    coordinates: List[List[int]]
-
-class StoreLayoutObject(BaseModel):
-    layout_id: str
-    name: str
-    zones: List[ZoneCoordinate]
-
-@app.get("/")
+@app.get("/", tags=["System Health"])
 def read_root():
     return {
-        "status": "Online",
+        "status": "ONLINE",
         "service": "CAMS FastAPI Microservice Engine",
-        "version": "2.4.0",
-        "opencv_status": "Ready",
-        "timestamp": time.time()
-    }
-
-@app.get("/api/v1/users/me", response_model=UserManagementObject)
-def get_user_me():
-    return UserManagementObject(
-        id="usr_store_01",
-        email="store.manager@cams.ai",
-        role="Store Manager",
-        is_active=True
-    )
-
-@app.get("/api/v1/stores/layout", response_model=StoreLayoutObject)
-def get_store_layout():
-    return StoreLayoutObject(
-        layout_id="layout_flagship_01",
-        name="Main Floor Plan",
-        zones=[
-            ZoneCoordinate(zone_id=1, name="Entrance Foyer", coordinates=[[50, 50], [250, 150]]),
-            ZoneCoordinate(zone_id=2, name="Aisle 3 (Beverages & Snacks)", coordinates=[[300, 50], [600, 200]]),
-            ZoneCoordinate(zone_id=3, name="Checkout Billing Lanes", coordinates=[[100, 300], [650, 380]])
-        ]
-    )
-
-@app.get("/api/v1/video/verify-stream")
-def verify_opencv_stream():
-    """Milestone 1 Verification Endpoint: Simulates OpenCV OpenCV cv2.VideoCapture processing stream"""
-    return {
-        "stream_status": "Active",
-        "backend_engine": "OpenCV (cv2) Threaded Frame Ingestion",
-        "fps": 30,
-        "processed_frames": 18450,
-        "resolution": "1920x1080",
-        "memory_leak_check": "PASS (Stable 124MB RAM)",
+        "version": "3.0.0",
+        "opencv_status": "READY",
+        "active_routers": ["auth", "stores", "shelves", "telemetry", "analytics"],
         "timestamp": time.time()
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
