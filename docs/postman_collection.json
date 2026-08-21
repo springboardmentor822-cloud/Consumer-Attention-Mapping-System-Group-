@@ -1,0 +1,233 @@
+{
+	"info": {
+		"_postman_id": "c1f8e230-8a12-4d2b-9876-ai-retail-2026",
+		"name": "Consumer Attention Intelligence Platform API - Milestone 4",
+		"description": "Exhaustive Postman API collection for Store Manager, Retail Analyst, Marketing Manager, and Administrator workflows.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health & System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						}
+					}
+				},
+				{
+					"name": "System Telemetry Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/system/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "system", "status"]
+						}
+					}
+				},
+				{
+					"name": "Audit Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/system/audit-logs?limit=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "system", "audit-logs"],
+							"query": [{"key": "limit", "value": "20"}]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Authentication & Users",
+			"item": [
+				{
+					"name": "User Login",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"manager@retail.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "List Employees / Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "users"]
+						}
+					}
+				},
+				{
+					"name": "Purge Unauthorized Accounts",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/users/purge-unauthorized",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "users", "purge-unauthorized"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Executive Role Dashboards",
+			"item": [
+				{
+					"name": "Store Manager Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/dashboard/store?store_id=STORE-812",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "dashboard", "store"],
+							"query": [{"key": "store_id", "value": "STORE-812"}]
+						}
+					}
+				},
+				{
+					"name": "Retail Analyst Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/dashboard/analyst?store_id=STORE-812",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "dashboard", "analyst"],
+							"query": [{"key": "store_id", "value": "STORE-812"}]
+						}
+					}
+				},
+				{
+					"name": "Marketing Manager Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/dashboard/marketing?store_id=STORE-812",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "dashboard", "marketing"],
+							"query": [{"key": "store_id", "value": "STORE-812"}]
+						}
+					}
+				},
+				{
+					"name": "Administrator Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/dashboard/admin?store_id=STORE-812",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "dashboard", "admin"],
+							"query": [{"key": "store_id", "value": "STORE-812"}]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Alert Engine",
+			"item": [
+				{
+					"name": "Get System Alerts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/alerts?store_id=STORE-812",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "alerts"],
+							"query": [{"key": "store_id", "value": "STORE-812"}]
+						}
+					}
+				},
+				{
+					"name": "Trigger Custom Alert",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"store_id\": \"STORE-812\",\n  \"type\": \"SHELF_PERFORMANCE\",\n  \"level\": \"WARNING\",\n  \"title\": \"Low Conversion Warning\",\n  \"description\": \"Shelf B1 engagement dropped below threshold\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/alerts/trigger",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "alerts", "trigger"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Reports & Export Engine",
+			"item": [
+				{
+					"name": "Export CSV Report",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/reports/export?store_id=STORE-812&report_type=daily&format=csv",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "reports", "export"],
+							"query": [
+								{"key": "store_id", "value": "STORE-812"},
+								{"key": "report_type", "value": "daily"},
+								{"key": "format", "value": "csv"}
+							]
+						}
+					}
+				},
+				{
+					"name": "Export PDF Printable Document",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/reports/export?store_id=STORE-812&report_type=weekly&format=pdf",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "reports", "export"],
+							"query": [
+								{"key": "store_id", "value": "STORE-812"},
+								{"key": "report_type", "value": "weekly"},
+								{"key": "format", "value": "pdf"}
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000"
+		}
+	]
+}

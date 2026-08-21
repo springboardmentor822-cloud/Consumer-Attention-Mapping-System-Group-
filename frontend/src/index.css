@@ -1,0 +1,110 @@
+@import "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css";
+
+@layer base {
+  :root {
+    --bg-primary: #090d16;
+    --bg-surface: #0f172a;
+    --bg-card: #111827;
+    --border-color: #1f2937;
+    --accent-indigo: #6366f1;
+    --accent-emerald: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-rose: #ef4444;
+  }
+}
+
+body {
+  background-color: #090d16;
+  color: #f3f4f6;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Force dark bold text on all white/light backgrounds & browser inputs */
+input.bg-white, select.bg-white, textarea.bg-white {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  font-weight: 700 !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Solid High-Contrast Enterprise BI Cards */
+.bi-card {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s ease-in-out;
+}
+
+.bi-card:hover {
+  border-color: #4f46e5;
+}
+
+.bi-card-header {
+  padding: 1rem 1.25rem;
+  background-color: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bi-card-body {
+  padding: 1.25rem;
+  background-color: #0f172a;
+}
+
+/* Status Pill */
+.status-pill-online {
+  background-color: #064e3b;
+  color: #34d399;
+  border: 1px solid #059669;
+}
+
+.status-pill-warning {
+  background-color: #78350f;
+  color: #fbbf24;
+  border: 1px solid #d97706;
+}
+
+.status-pill-alert {
+  background-color: #7f1d1d;
+  color: #f87171;
+  border: 1px solid #dc2626;
+}
+
+/* 2D Planogram Floor Map Grid */
+.floor-map-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
