@@ -24,6 +24,15 @@ export default function LogsTab() {
           </div>
         </div>
 
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4 text-xs text-amber-300 flex items-start gap-2">
+          <span>ℹ️</span>
+          <span>
+            Sample rows — there&apos;s no real audit-log endpoint wired up yet. The Alerts tab does generate real,
+            rule-based events server-side; this table doesn&apos;t aggregate those (or anything else) into a
+            searchable trail yet.
+          </span>
+        </div>
+
         {/* Filters */}
         <div className="flex space-x-2 mb-4">
           <button className="px-3 py-1 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-xs font-semibold hover:bg-slate-700 transition">All Events</button>

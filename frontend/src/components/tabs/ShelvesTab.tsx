@@ -62,10 +62,10 @@ export default function ShelvesTab() {
         </div>
         <div className="flex items-center space-x-3">
           <div className="flex space-x-2 mr-2">
-            <button onClick={() => alert("Added new shelf zone.")} className="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-600/30 transition-colors">
+            <button onClick={() => alert("This button isn't wired to real backend logic. To actually add a shelf zone, use Store Layout Studio's \"+ Add Node\" then \"Publish Planogram\" — that writes to the real StoreZoneDB table this tab reads from.")} className="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-600/30 transition-colors">
               + Add Shelf
             </button>
-            <button onClick={() => alert("Select a shelf to remove.")} className="bg-rose-600/20 text-rose-400 border border-rose-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-600/30 transition-colors">
+            <button onClick={() => alert("This button isn't wired to real backend logic. To actually remove a shelf zone, use Store Layout Studio, select the node, and choose \"Delete Node\" — that writes to the real StoreZoneDB table this tab reads from.")} className="bg-rose-600/20 text-rose-400 border border-rose-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-600/30 transition-colors">
               - Remove Shelf
             </button>
           </div>

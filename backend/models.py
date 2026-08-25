@@ -1,11 +1,8 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from datetime import datetime
 from database import Base
-from pydantic import BaseModel
-from typing import List
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
-from datetime import datetime
-from database import Base
+
+
 class StoreZoneDB(Base):
     __tablename__ = "store_layout_zones"
 
@@ -17,6 +14,7 @@ class StoreZoneDB(Base):
     h = Column(Float)
     category = Column(String)
     camera_assigned = Column(Integer)
+
 class ProductAttractiveness(Base):
     __tablename__ = "product_attractiveness_scores"
 
@@ -53,13 +51,14 @@ class Recommendation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class ShopperProfile(Base):
-    """
-    Persistent Vector Storage: Stores Re-ID embeddings long-term to recognize 
-    returning customers even after the 24-hour RAM cache clears.
-    """
+    """Long-term record of each cross-camera global shopper identity, written
+    by main.py's background_reid_processor() the first time a new global_id
+    is minted. feature_vector_json stores the Re-ID embedding (from
+    deep_reid.py — OSNet/MobileNet/HSV-histogram, whichever tier was active)
+    as a JSON-encoded list, since a raw numpy array isn't a SQL column type."""
     __tablename__ = "shopper_profiles"
 
-    global_id = Column(Integer, primary_key=True, index=True)
-    customer_id = Column(String, index=True, nullable=True) # Linked POS customer
-    feature_vector_json = Column(String) # JSON serialized numpy array embedding
-    last_seen = Column(DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True, index=True)
+    global_id = Column(Integer, unique=True, index=True)
+    feature_vector_json = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

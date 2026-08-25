@@ -9,8 +9,8 @@ export default function SysSettingsTab() {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      alert("Settings saved successfully!");
-    }, 1500);
+      alert("Not wired to real backend logic — there's no settings-persistence endpoint anywhere in this codebase yet. Nothing on this page is actually saved (the Detection Confidence slider and Tracking Algorithm dropdown below already note the same for their own sections).");
+    }, 400);
   };
 
   return (

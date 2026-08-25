@@ -9,9 +9,18 @@ export default function CampaignTab() {
             <h3 className="text-lg font-bold text-slate-200">A/B Campaign Performance</h3>
             <p className="text-slate-400 text-sm mt-1">Measuring physical endcap displays using AI attention and conversion metrics.</p>
           </div>
-          <button className="mt-4 md:mt-0 bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 transition">
+          <button onClick={() => alert("Campaign test creation isn't wired to real display-test infrastructure yet — see the note above.")} className="mt-4 md:mt-0 bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 transition">
             + New Campaign Test
           </button>
+        </div>
+
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-2 text-xs text-amber-300 flex items-start gap-2">
+          <span>ℹ️</span>
+          <span>
+            Sample data — there&apos;s no real physical display-test infrastructure wired up yet (no camera zone is
+            tagged as tracking a specific endcap variant). The numbers below illustrate the reporting format a real
+            A/B test would populate, not an actual completed test.
+          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
@@ -36,7 +45,7 @@ export default function CampaignTab() {
           </div>
 
           <div className="border border-emerald-500/30 bg-emerald-900/10 rounded-xl p-6 relative overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.05)]">
-            <div className="absolute top-0 right-0 bg-emerald-500 text-emerald-950 text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">Test Variant (Winner)</div>
+            <div className="absolute top-0 right-0 bg-emerald-500 text-emerald-950 text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">Sample Variant</div>
             <h4 className="text-emerald-400 font-bold text-lg mb-1">Display B (Interactive Endcap)</h4>
             <p className="text-slate-400 text-xs mb-6">Location: Aisle 1 (High Traffic Zone)</p>
             <div className="space-y-4">

@@ -23,7 +23,7 @@ export default function SessionsTab() {
   }, []);
 
   const handleForceDisconnect = (email: string) => {
-    alert(`Successfully terminated active session for user: ${email}`);
+    alert(`Force-disconnect isn't wired to real backend logic yet — no session-revocation mechanism exists (auth uses stateless httpOnly cookies, not a server-side session registry). ${email}'s cookie would need to expire naturally or be cleared client-side.`);
   };
 
   return (
@@ -33,6 +33,15 @@ export default function SessionsTab() {
           <h3 className="text-lg font-bold text-slate-200">Active User Sessions & Accounts</h3>
           <p className="text-xs text-slate-400 mt-1">Manage authenticated user profiles backed by the relational SQLite database.</p>
         </div>
+      </div>
+
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4 text-xs text-amber-300 flex items-start gap-2">
+        <span>ℹ️</span>
+        <span>
+          The account list below is real. &quot;Active Sessions&quot; in the title is aspirational, though — auth uses
+          stateless httpOnly cookies with no server-side session registry, so there&apos;s no real way to see who&apos;s
+          currently logged in or force-disconnect them yet.
+        </span>
       </div>
 
       <table className="w-full text-left text-sm text-slate-300 border border-slate-800 rounded-lg overflow-hidden">

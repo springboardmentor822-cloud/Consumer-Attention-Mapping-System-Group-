@@ -41,10 +41,10 @@ export default function ProductsTab({ timeFilter = 'all' }: { timeFilter?: strin
       <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
         <div><h2 className="text-xl font-bold">Product Performance & Inventory</h2><p className="text-xs text-slate-400 mt-1">Sales telemetry from the retail sales dataset</p></div>
         <div className="flex space-x-2">
-          <button onClick={() => alert("Added new product to inventory.")} className="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-600/30 transition-colors">
+          <button onClick={() => alert("Adding products isn't wired to real backend logic yet — the product list here is derived directly from the sales CSV, not an editable inventory table.")} className="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-600/30 transition-colors">
             + Add Product
           </button>
-          <button onClick={() => alert("Select a product to remove.")} className="bg-rose-600/20 text-rose-400 border border-rose-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-600/30 transition-colors">
+          <button onClick={() => alert("Removing products isn't wired to real backend logic yet — the product list here is derived directly from the sales CSV, not an editable inventory table.")} className="bg-rose-600/20 text-rose-400 border border-rose-600/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-600/30 transition-colors">
             - Remove Product
           </button>
         </div>

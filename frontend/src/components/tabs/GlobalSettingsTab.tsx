@@ -4,7 +4,7 @@ import SysSettingsTab from './SysSettingsTab';
 import StoreLayoutTab from './StoreLayoutTab';
 import ExportTab from './ExportTab';
 
-export default function GlobalSettingsTab() {
+export default function GlobalSettingsTab({ role = 'Administrator' }: { role?: 'Store Manager' | 'Retail Analyst' | 'Marketing Manager' | 'Administrator' }) {
   const [subTab, setSubTab] = useState<'sys' | 'layout' | 'export'>('sys');
 
   return (
@@ -17,7 +17,7 @@ export default function GlobalSettingsTab() {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {subTab === 'sys' && <SysSettingsTab />}
         {subTab === 'layout' && <StoreLayoutTab />}
-        {subTab === 'export' && <ExportTab />}
+        {subTab === 'export' && <ExportTab role={role} />}
       </div>
     </div>
   );
