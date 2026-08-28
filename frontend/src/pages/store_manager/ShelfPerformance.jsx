@@ -12,20 +12,10 @@ import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
 export default function ShelfPerformance() {
   const { liveTrackedPersons, globalFilter } = useCams(); // Subscribe to context changes
-  const [localPeriod, setLocalPeriod] = useState(null);
-  const [localCustomRange, setLocalCustomRange] = useState(null);
+  const [selectedZone, setSelectedZone] = useState(null);
 
-  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
-  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
-
-  const handleDateChange = (newPeriod, customData = null) => {
-    setLocalPeriod(newPeriod);
-    if (newPeriod === "Custom Date Range" && customData) {
-      setLocalCustomRange(customData);
-    } else if (newPeriod !== "Custom Date Range") {
-      setLocalCustomRange(null);
-    }
-  };
+  const selectedPeriod = globalFilter?.dateRange || "Last 7 Days";
+  const customRange = globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null;
 
   // Synchronized Central Scaled Data
   const centralData = getCentralScaledData(selectedPeriod, customRange);
@@ -113,8 +103,8 @@ export default function ShelfPerformance() {
 
   return (
     <div className="space-y-5 font-sans text-xs pb-6">
-      {/* PAGE HEADER & DATE FILTER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl gap-4 shadow-lg">
+      {/* PAGE HEADER */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black text-white tracking-wide">Shelf Performance Analytics</h1>
           {selectedPeriod === "Custom Date Range" && customRange?.label && (
@@ -122,10 +112,6 @@ export default function ShelfPerformance() {
               📅 {customRange.label}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <span className="text-xs font-bold text-slate-400 font-mono">Date Range:</span>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
         </div>
       </div>
 
@@ -187,13 +173,12 @@ export default function ShelfPerformance() {
         </div>
       </div>
 
-      {/* 2. THREE CHARTS/VISUALIZATIONS ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* 2. TWO-COLUMN CHARTS ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* SHELF ENGAGEMENT OVER TIME */}
-        <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Engagement Over Time</h3>
-            
           </div>
           <div className="h-56 w-full">
             <ComponentErrorBoundary>
@@ -202,7 +187,7 @@ export default function ShelfPerformance() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} domain={[0, 100]} unit="%" />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Line type="monotone" dataKey="engagement" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Engagement %" />
               </LineChart>
             </ResponsiveContainer>
@@ -210,56 +195,138 @@ export default function ShelfPerformance() {
           </div>
         </div>
 
-        {/* ENGAGEMENT BY SHELF ZONE */}
-        <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
+        {/* ENGAGEMENT BY SHELF ZONE — click a bar to identify the zone */}
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Engagement by Shelf Zone</h3>
-            
+            {selectedZone && (
+              <button
+                onClick={() => setSelectedZone(null)}
+                className="text-[9px] text-slate-400 hover:text-white border border-[#1E293B] hover:border-slate-500 px-2 py-0.5 rounded-lg transition"
+              >
+                ✕ Clear
+              </button>
+            )}
           </div>
-          <div className="h-56 w-full">
+          <div className="h-44 w-full">
             <ComponentErrorBoundary>
 <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementByZone}>
+              <BarChart
+                data={engagementByZone}
+                onClick={(data) => {
+                  if (data && data.activePayload && data.activePayload.length > 0) {
+                    const clicked = data.activePayload[0].payload;
+                    setSelectedZone(prev =>
+                      prev && prev.zone === clicked.zone ? null : clicked
+                    );
+                  }
+                }}
+                style={{ cursor: "pointer" }}
+              >
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} domain={[0, 100]} unit="%" />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }}
+                  itemStyle={{ color: "#F8FAFC" }}
+                  labelStyle={{ color: "#94A3B8" }}
+                  formatter={(value, name, props) => [
+                    `${value}%`,
+                    `Engagement — ${props.payload.zone}`
+                  ]}
+                />
                 <Bar dataKey="val" radius={[4, 4, 0, 0]} name="Engagement %">
                   {engagementByZone.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.fill}
+                      opacity={selectedZone && selectedZone.zone !== entry.zone ? 0.35 : 1}
+                      stroke={selectedZone && selectedZone.zone === entry.zone ? "#fff" : "transparent"}
+                      strokeWidth={selectedZone && selectedZone.zone === entry.zone ? 1.5 : 0}
+                    />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
 </ComponentErrorBoundary>
           </div>
+
+          {/* Selected Zone Detail Panel */}
+          {selectedZone ? (
+            <div
+              className="flex items-center justify-between rounded-xl px-3 py-2.5 border"
+              style={{
+                backgroundColor: `${selectedZone.fill}18`,
+                borderColor: `${selectedZone.fill}55`,
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: selectedZone.fill }}
+                />
+                <div>
+                  <span className="text-white font-bold text-[11px] block">{selectedZone.zone}</span>
+                  <span className="text-[9px] text-slate-400">Selected shelf zone</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="font-black text-sm block" style={{ color: selectedZone.fill }}>
+                  {selectedZone.val}%
+                </span>
+                <span className="text-[9px] text-slate-400">Engagement</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-[9px] text-slate-600 py-1">
+              Click any bar to identify the shelf zone
+            </div>
+          )}
         </div>
 
-        {/* SHELF ENGAGEMENT HEATMAP (SYNCHRONIZED HEATMAP MODEL SCALED INSIDE EXISTING CONTAINER BOX) */}
-        <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 flex flex-col justify-between font-mono">
+        {/* SHELF ENGAGEMENT HEATMAP */}
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-3 flex flex-col justify-between font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Engagement Heatmap</h3>
-            
           </div>
           <div className="w-full h-56 overflow-hidden rounded-xl border border-[#1E293B] relative bg-[#040814]">
             <div className="scale-[0.45] sm:scale-[0.52] origin-top-left w-[220%] sm:w-[192%] h-[220%] sm:h-[192%]">
               <StoreHeatmapModel
                 dateFilter={selectedPeriod}
                 customRangeLabel={customRange?.label}
-                onDateChange={handleDateChange}
               />
             </div>
           </div>
         </div>
+
+        {/* SHELF INSIGHTS & ALERTS — moved into 2-col row as 4th cell */}
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono text-[11px]">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Insights &amp; Alerts</h3>
+            <span className="text-emerald-400 text-[10px] font-bold">● Active</span>
+          </div>
+          <div className="space-y-3">
+            {shelfInsights.map((item, idx) => (
+              <div key={idx} className="flex items-start justify-between space-x-3 p-2 bg-[#070C18] border border-[#1E293B] rounded-xl">
+                <div className="flex items-start space-x-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${item.color}`}>
+                    {item.icon}
+                  </span>
+                  <span className="text-slate-300 text-[10px] leading-relaxed">{item.msg}</span>
+                </div>
+                <span className="text-[9px] text-slate-500 whitespace-nowrap">{item.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* 3. OVERVIEW TABLE, TOP SHELVES, & INSIGHTS ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* 3. TWO-COLUMN TABLE ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* SHELF PERFORMANCE OVERVIEW TABLE */}
-        <div className="lg:col-span-5 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Performance Overview</h3>
-            
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[11px]">
@@ -290,10 +357,9 @@ export default function ShelfPerformance() {
         </div>
 
         {/* TOP PERFORMING SHELVES LIST */}
-        <div className="lg:col-span-3 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
+        <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">Top Performing Shelves</h3>
-            
           </div>
           <div className="space-y-2.5">
             {topPerformingShelvesList.map((item) => (
@@ -311,27 +377,6 @@ export default function ShelfPerformance() {
                   <span className="text-xs font-bold text-emerald-400 block">{item.score}</span>
                   <span className="text-[9px] text-slate-500 block">Engagement</span>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SHELF INSIGHTS & ALERTS */}
-        <div className="lg:col-span-4 bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl space-y-4 font-mono text-[11px]">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shelf Insights & Alerts</h3>
-            <span className="text-emerald-400 text-[10px] font-bold">● Active</span>
-          </div>
-          <div className="space-y-3">
-            {shelfInsights.map((item, idx) => (
-              <div key={idx} className="flex items-start justify-between space-x-3 p-2 bg-[#070C18] border border-[#1E293B] rounded-xl">
-                <div className="flex items-start space-x-2">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${item.color}`}>
-                    {item.icon}
-                  </span>
-                  <span className="text-slate-300 text-[10px] leading-relaxed">{item.msg}</span>
-                </div>
-                <span className="text-[9px] text-slate-500 whitespace-nowrap">{item.time}</span>
               </div>
             ))}
           </div>

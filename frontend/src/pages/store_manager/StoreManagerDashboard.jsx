@@ -47,10 +47,7 @@ export default function StoreManagerDashboard({ user, onLogout }) {
       </header>
 
       <main className="flex-1 p-6 space-y-5 max-w-[1700px] w-full mx-auto">
-        <div className="text-xs text-slate-400 flex items-center space-x-1.5 font-medium">
-          <span>Dashboard</span><span>/</span><span>Store Manager Portal</span><span>/</span>
-          <span className="px-2 py-0.5 bg-[#172033] text-slate-200 rounded-md font-bold">{activeTab}</span>
-        </div>
+
 
         <div className="bg-[#111827] border border-[#273449] rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">

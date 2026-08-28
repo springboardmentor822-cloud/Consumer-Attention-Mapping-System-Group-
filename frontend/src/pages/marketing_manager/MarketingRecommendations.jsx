@@ -148,7 +148,6 @@ export default function MarketingRecommendations() {
       {/* PAGE HEADER WITH MASTER DATE SELECTOR */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl shadow-lg">
         <h1 className="text-xl font-black text-white">Marketing Recommendations</h1>
-        <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
       </div>
 
       {/* 1. ACTIVE FILTERS */}

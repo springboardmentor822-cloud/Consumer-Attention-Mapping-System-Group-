@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useCams } from "../../services/CamsContext";
-import { pixelBboxToCSS } from "../../utils/objectCoverTransform";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Camera definitions — must match backend CAMERA_VIDEO_MAP
@@ -79,12 +78,13 @@ function resolveZoneByPosition(centerXPercent, centerYPercent, activeCam) {
 // ─────────────────────────────────────────────────────────────────────────────
 const fmtDwell = (s) => (s >= 60 ?`${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
 
-// ── EMA smoothing factor for bbox positions ────────────────────────────────────
-// alpha=1.0 → no smoothing. alpha=0.80 → fast responsive smoothing
-const EMA_ALPHA = 0.80;
+// EMA_ALPHA for small stable movements. For large jumps (fast movement), alpha snaps
+// toward 1.0 so the box doesn't lag behind the person.
+const EMA_ALPHA_BASE = 0.55;      // normal frame-to-frame smoothing
+const EMA_ALPHA_FAST = 0.90;      // snap factor when person moves quickly
 
 // ─────────────────────────────────────────────────────────────────────────────
-// High-Performance LiveCameraFeed Component
+// LiveCameraFeed — canvas-based real-time tracking overlay
 // ─────────────────────────────────────────────────────────────────────────────
 const LiveCameraFeed = React.forwardRef(({
   showAiBoxes,
@@ -100,187 +100,435 @@ const LiveCameraFeed = React.forwardRef(({
   onVideoTimeUpdate,
   onVideoStatusChange,
 }, ref) => {
-  const [tracks, setTracks] = useState([]);
+  // React state — only for things that must trigger a DOM re-render
   const [sourceDims, setSourceDims] = useState({ width: 1280, height: 720 });
-  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
-  const [currentFrame, setCurrentFrame] = useState(null);
+  const [hudTrackCount, setHudTrackCount] = useState(0);
+
+  // DOM refs
   const containerRef = useRef(null);
-  const videoRef = useRef(null);
-  const historyRef = useRef([]);
+  const videoRef     = useRef(null);
+  const canvasRef    = useRef(null);
 
-  // Bulletproof Refs to store callbacks and avoid dependency cycles
-  const timeUpdateRef = useRef(onVideoTimeUpdate);
+  // Tracking data refs — written immediately on every WS frame, never React state
+  const tracksRef       = useRef([]);
+  const sourceDimsRef2  = useRef({ width: 1280, height: 720 });
+  const hudTimerRef     = useRef(0);
+  const frameImageRef   = useRef(null);
+  const frameImageLoadedRef = useRef(false);
+  const lastTracksReceivedAtRef = useRef(Date.now());
+
+  // rAF control
+  const rafIdRef = useRef(null);
+
+  // ── SYNCHRONOUS prop → ref sync (in render body, always current) ──────────
+  const showAiBoxesRef   = useRef(showAiBoxes);
+  const showHeatmapRef   = useRef(showHeatmap);
+  const wsStatusRef      = useRef(wsStatus);
+  const selectedRef      = useRef(selectedTracker);
+  const showVideoRef     = useRef(showVideo);
+  showAiBoxesRef.current  = showAiBoxes;
+  showHeatmapRef.current  = showHeatmap;
+  wsStatusRef.current     = wsStatus;
+  selectedRef.current     = selectedTracker;
+  showVideoRef.current    = showVideo;
+
+  // Callback refs (kept fresh every render)
+  const timeUpdateRef   = useRef(onVideoTimeUpdate);
   const statusChangeRef = useRef(onVideoStatusChange);
+  timeUpdateRef.current   = onVideoTimeUpdate;
+  statusChangeRef.current = onVideoStatusChange;
 
-  useEffect(() => {
-    timeUpdateRef.current = onVideoTimeUpdate;
-    statusChangeRef.current = onVideoStatusChange;
-  }); // runs every render to keep callbacks fresh
+  // ── Canvas draw (called from rAF — zero React involvement) ────────────────
+  const drawCanvas = useCallback(() => {
+    rafIdRef.current = null;
 
-  React.useImperativeHandle(ref, () => ({
-    updateFeed(newFrame, newTracks, newDims, frameNumber) {
-      setTracks(newTracks);
-      if (newFrame) {
-        setCurrentFrame(newFrame);
-      }
-      if (newDims?.width && newDims?.height) {
-        setSourceDims(newDims);
-      }
-    },
-    clear() {
-      setTracks([]);
-      setCurrentFrame(null);
+    const canvas    = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    // Use getBoundingClientRect for sub-pixel accurate sizing
+    const rect = container.getBoundingClientRect();
+    const cssW = rect.width;
+    const cssH = rect.height;
+    if (cssW <= 0 || cssH <= 0) return;
+
+    // Device pixel ratio for crisp HiDPI rendering
+    const dpr = window.devicePixelRatio || 1;
+    const pw  = Math.round(cssW * dpr);
+    const ph  = Math.round(cssH * dpr);
+
+    // Resize internal canvas resolution only when needed (avoids clearing the canvas unnecessarily)
+    if (canvas.width !== pw || canvas.height !== ph) {
+      canvas.width  = pw;
+      canvas.height = ph;
     }
-  }));
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const measure = () => {
-      const { width, height } = containerRef.current.getBoundingClientRect();
-      if (width > 0 && height > 0) {
-        setContainerSize({ w: width, h: height });
+    const ctx = canvas.getContext("2d");
+    // Apply DPR scale so all drawing coords are in CSS pixels
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Object-cover transform — same formula as pixelBboxToCSS util
+    const { width: nativeW, height: nativeH } = sourceDimsRef2.current;
+    const scale  = Math.max(cssW / nativeW, cssH / nativeH);
+    const offX   = (nativeW * scale - cssW) / 2;
+    const offY   = (nativeH * scale - cssH) / 2;
+
+    // Draw background video frame if online
+    if (showVideoRef.current && wsStatusRef.current === "online" && frameImageLoadedRef.current && frameImageRef.current && frameImageRef.current.complete) {
+      ctx.drawImage(
+        frameImageRef.current,
+        -offX,
+        -offY,
+        nativeW * scale,
+        nativeH * scale
+      );
+    } else {
+      ctx.clearRect(0, 0, cssW, cssH);
+    }
+
+    // Guard: don't draw boxes when toggled off, heatmap on, or WS not live
+    if (!showAiBoxesRef.current || showHeatmapRef.current || wsStatusRef.current !== "online") {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      return;
+    }
+
+    const tracks = tracksRef.current;
+    if (!tracks || tracks.length === 0) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      return;
+    }
+
+    const selId  = selectedRef.current;
+    const dt     = Date.now() - lastTracksReceivedAtRef.current;
+
+    // roundRect helper with fallback for older browsers
+    const rr = (x, y, w, h, r) => {
+      if (typeof ctx.roundRect === "function") {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+      } else {
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
       }
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
+
+    for (const t of tracks) {
+      if (!t.normBbox) continue;
+      const { x, y, w, h } = t.normBbox;
+
+      // Keep bounding boxes within visible camera canvas boundaries
+      const cx1 = Math.max(0, Math.min(1 - w, x));
+      const cy1 = Math.max(0, Math.min(1 - h, y));
+      const cx2 = cx1 + w;
+      const cy2 = cy1 + h;
+
+      const px1 = cx1 * nativeW;
+      const py1 = cy1 * nativeH;
+      const px2 = cx2 * nativeW;
+      const py2 = cy2 * nativeH;
+
+      if (px1 >= px2 || py1 >= py2) continue;
+
+      // Convert native pixel → CSS pixel coordinates (object-cover aware)
+      const bLeft = px1 * scale - offX;
+      const bTop  = py1 * scale - offY;
+      const bW    = (px2 - px1) * scale;
+      const bH    = (py2 - py1) * scale;
+
+      const isSelected = t.id === selId;
+      const color = t.color || "#10B981";
+
+      // ── Box border (Outline-only, transparent, no solid block cover) ──────
+      ctx.globalAlpha = 0.90;
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = isSelected ? 2.5 : 2;
+      if (isSelected) { ctx.shadowColor = color; ctx.shadowBlur = 12; }
+      rr(bLeft, bTop, bW, bH, 4);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // ── Selected cyan ring ────────────────────────────────────────────────
+      if (isSelected) {
+        ctx.globalAlpha = 0.90;
+        ctx.strokeStyle = "#22D3EE";
+        ctx.lineWidth   = 1.5;
+        rr(bLeft - 2, bTop - 2, bW + 4, bH + 4, 5);
+        ctx.stroke();
+      }
+
+      // ── TRK ID badge (top-left, above box to never cover face/body) ───────
+      const label  = String(t.id);
+      const fSize  = 9;
+      ctx.font     = `900 ${fSize}px 'Courier New', monospace`;
+      ctx.globalAlpha = 1.0;
+      const tw    = ctx.measureText(label).width;
+      const padX  = 5;
+      const padY  = 3;
+      const badgeW = tw + padX * 2;
+      const badgeH = fSize + padY * 2;
+
+      // Draw badge just above the box (fall back to top inside if overflowing)
+      const badgeY = bTop - badgeH >= 0 ? bTop - badgeH : bTop;
+
+      ctx.fillStyle = color;
+      rr(bLeft, badgeY, badgeW, badgeH, 3);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFFFFF"; // High-contrast crisp white text
+      ctx.fillText(label, bLeft + padX, badgeY + padY + fSize - 1);
+    }
+
+    // Reset state
+    ctx.globalAlpha = 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
-  // Sync video play / waiting / seek / error statuses
+  // ── Cancel-and-reschedule rAF ─────────────────────────────────────────────
+  // Every call cancels any pending rAF and schedules a fresh one.
+  // This guarantees we ALWAYS draw with the most recent tracksRef.current.
+  const scheduleRedraw = useCallback(() => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+    rafIdRef.current = requestAnimationFrame(drawCanvas);
+  }, [drawCanvas]);
+
+  // ── Imperative API exposed to parent ─────────────────────────────────────
+  React.useImperativeHandle(ref, () => ({
+    updateFeed(newFrame, newTracks, newDims) {
+      // Write tracks immediately — no React state, no scheduling delay
+      tracksRef.current = newTracks || [];
+      lastTracksReceivedAtRef.current = Date.now();
+
+      if (newDims?.width && newDims?.height) {
+        sourceDimsRef2.current = { width: newDims.width, height: newDims.height };
+        // Only trigger re-render when dimensions actually change
+        setSourceDims(prev =>
+          prev.width === newDims.width && prev.height === newDims.height
+            ? prev
+            : { width: newDims.width, height: newDims.height }
+        );
+      }
+
+      // Update frame image without triggering a full React re-render
+      if (newFrame) {
+        if (!frameImageRef.current) {
+          frameImageRef.current = new Image();
+          frameImageRef.current.onload = () => {
+            frameImageLoadedRef.current = true;
+            scheduleRedraw();
+          };
+          frameImageRef.current.onerror = () => {
+            frameImageLoadedRef.current = false;
+          };
+        }
+        frameImageRef.current.src = newFrame;
+      } else {
+        frameImageLoadedRef.current = false;
+      }
+
+      // Schedule redraw — cancel any pending rAF so we draw with latest data
+      scheduleRedraw();
+
+      // Throttle HUD count to ~10 FPS to avoid triggering full React renders at 30 FPS
+      const now = Date.now();
+      if (now - hudTimerRef.current > 100) {
+        hudTimerRef.current = now;
+        setHudTrackCount(tracksRef.current.length);
+      }
+    },
+
+    clear() {
+      tracksRef.current = [];
+      if (frameImageRef.current) {
+        frameImageRef.current.src = "";
+      }
+      frameImageLoadedRef.current = false;
+      setHudTrackCount(0);
+      scheduleRedraw();
+    },
+  }), [scheduleRedraw]);
+
+  // ── Redraw canvas when visual props change ────────────────────────────────
+  // (selectedTracker highlight, showAiBoxes toggle, wsStatus change, etc.)
+  // Props are already synced to refs in render body, so drawCanvas will see
+  // the new values immediately.
+  useEffect(() => {
+    scheduleRedraw();
+  }, [showAiBoxes, showHeatmap, selectedTracker, wsStatus, scheduleRedraw]);
+
+  // ── Redraw on container resize ────────────────────────────────────────────
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(() => scheduleRedraw());
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [scheduleRedraw]);
+
+  // ── Canvas click → hit-test → setSelectedTracker ─────────────────────────
+  useEffect(() => {
+    const canvas    = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const handleClick = (e) => {
+      if (!showAiBoxesRef.current || showHeatmapRef.current || wsStatusRef.current !== "online") return;
+
+      const rect   = canvas.getBoundingClientRect();
+      const mx     = e.clientX - rect.left;
+      const my     = e.clientY - rect.top;
+      const cssW   = rect.width;
+      const cssH   = rect.height;
+
+      const { width: nativeW, height: nativeH } = sourceDimsRef2.current;
+      const scale  = Math.max(cssW / nativeW, cssH / nativeH);
+      const offX   = (nativeW * scale - cssW) / 2;
+      const offY   = (nativeH * scale - cssH) / 2;
+
+      let hitId   = null;
+      let hitArea = Infinity;
+
+      for (const t of tracksRef.current) {
+        if (!t.bbox) continue;
+        const { x1, y1, x2, y2 } = t.bbox;
+        const bLeft = x1 * scale - offX;
+        const bTop  = y1 * scale - offY;
+        const bW    = (x2 - x1) * scale;
+        const bH    = (y2 - y1) * scale;
+
+        if (mx >= bLeft && mx <= bLeft + bW && my >= bTop && my <= bTop + bH) {
+          const area = bW * bH;
+          if (area < hitArea) { hitArea = area; hitId = t.id; }
+        }
+      }
+
+      if (hitId !== null) setSelectedTracker(hitId);
+    };
+
+    canvas.addEventListener("click", handleClick);
+    return () => canvas.removeEventListener("click", handleClick);
+  }, [setSelectedTracker]);
+
+  // ── Video event handlers ──────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    const onPlay    = () => { statusChangeRef.current?.("online");      timeUpdateRef.current?.(video.currentTime); };
+    const onSeeked  = () => { timeUpdateRef.current?.(video.currentTime); };
+    const onWaiting = () => { statusChangeRef.current?.("connecting"); };
+    const onPlaying = () => { statusChangeRef.current?.("online");      };
+    const onError   = () => { statusChangeRef.current?.("offline");     };
 
-    const handlePlay = () => {
-      statusChangeRef.current?.("online");
-      timeUpdateRef.current?.(video.currentTime);
-    };
+    video.addEventListener("play",    onPlay);
+    video.addEventListener("seeked",  onSeeked);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("error",   onError);
 
-    const handleSeeked = () => {
-      timeUpdateRef.current?.(video.currentTime);
-    };
-
-    const handleWaiting = () => {
-      statusChangeRef.current?.("connecting");
-    };
-
-    const handlePlaying = () => {
-      statusChangeRef.current?.("online");
-    };
-
-    const handleError = () => {
-      statusChangeRef.current?.("offline");
-    };
-
-    video.addEventListener("play", handlePlay);
-    video.addEventListener("seeked", handleSeeked);
-    video.addEventListener("waiting", handleWaiting);
-    video.addEventListener("playing", handlePlaying);
-    video.addEventListener("error", handleError);
-
-    // Periodic time sync to backend (every 1.5s)
-    const interval = setInterval(() => {
-      if (video && !video.paused) {
-        timeUpdateRef.current?.(video.currentTime);
-      }
+    const syncTimer = setInterval(() => {
+      if (video && !video.paused) timeUpdateRef.current?.(video.currentTime);
     }, 1500);
 
     return () => {
-      video.removeEventListener("play", handlePlay);
-      video.removeEventListener("seeked", handleSeeked);
-      video.removeEventListener("waiting", handleWaiting);
-      video.removeEventListener("playing", handlePlaying);
-      video.removeEventListener("error", handleError);
-      clearInterval(interval);
+      video.removeEventListener("play",    onPlay);
+      video.removeEventListener("seeked",  onSeeked);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("error",   onError);
+      clearInterval(syncTimer);
     };
   }, []);
 
-  // Handle active camera source changes
+  // ── Reload video on camera switch ─────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
       statusChangeRef.current?.("connecting");
       video.load();
-      video.play().catch(() => {
-        // Autoplay may need user interaction
-      });
+      video.play().catch(() => { /* autoplay policy */ });
     }
   }, [activeCam]);
 
+  // ── Cleanup on unmount ────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
       ref={containerRef}
       className="relative aspect-video bg-[#0B132B] rounded-xl overflow-hidden border border-[#1E293B] shadow-inner select-none"
     >
-      {/* HTML5 Video or Streamed Frame */}
-      {currentFrame ? (
-        <img
-          src={currentFrame}
-          alt="Live Camera Feed"
-          className="w-full h-full object-cover opacity-95 transition-opacity duration-300 pointer-events-none"
-          style={{
-            opacity: showVideo ? 0.95 : 0,
-            filter: showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none"
-          }}
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          src={activeCam?.path}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover opacity-95 transition-opacity duration-300"
-          style={{
-            opacity: showVideo ? 0.95 : 0,
-            filter: showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none"
-          }}
-        />
-      )}
+      {/* Fallback local Video Element */}
+      <video
+        ref={videoRef}
+        src={activeCam?.path}
+        autoPlay loop muted playsInline
+        className="w-full h-full object-cover opacity-95"
+        style={{
+          display: wsStatus === "online" ? "none" : "block",
+          opacity: showVideo ? 0.95 : 0,
+          filter: showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none",
+        }}
+      />
 
-      {/* Video Loading/Offline Overlay */}
+      {/* Offline / connecting overlay */}
       {videoStatus !== "online" && (
-        <div className="absolute inset-0 w-full h-full bg-[#080E1E] overflow-hidden pointer-events-none flex items-center justify-center text-slate-500 z-10">
+        <div className="absolute inset-0 bg-[#080E1E] flex items-center justify-center text-slate-500 z-10 pointer-events-none">
           <div
             className="absolute inset-0 opacity-25"
             style={{
-              backgroundImage:
-                "linear-gradient(to right, #1E293B 1px, transparent 1px), linear-gradient(to bottom, #1E293B 1px, transparent 1px)",
+              backgroundImage: "linear-gradient(to right, #1E293B 1px, transparent 1px), linear-gradient(to bottom, #1E293B 1px, transparent 1px)",
               backgroundSize: "28px 28px",
               transform: "perspective(500px) rotateX(15deg)",
               transformOrigin: "center top",
             }}
           />
-          <div
-            className="absolute inset-0 opacity-60 pointer-events-none"
-            style={{ background: "radial-gradient(circle at center, transparent 55%, rgba(3, 7, 18, 0.85) 100%)" }}
-          />
+          <div className="absolute inset-0 opacity-60" style={{ background: "radial-gradient(circle at center, transparent 55%, rgba(3,7,18,0.85) 100%)" }} />
           <span className="z-10 text-[11px] font-mono tracking-wider animate-pulse">
             {videoStatus === "offline" ? "Video Offline" : "Awaiting Stream Connection..."}
           </span>
         </div>
       )}
 
-      {/* HEATMAP OVERLAY */}
+      {/* Heatmap tint */}
       {showHeatmap && (
         <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/60 via-amber-600/40 to-rose-600/60 mix-blend-color-dodge pointer-events-none animate-pulse z-10" />
       )}
 
-      {/* HUD Overlay — top left (z-30, always above boxes) */}
+      {/* ── Canvas tracking overlay ── */}
+      {/* CSS size = 100%×100% of container; internal resolution set by drawCanvas with DPR */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: 11,
+          pointerEvents: showAiBoxes && !showHeatmap && wsStatus === "online" ? "auto" : "none",
+          cursor:        showAiBoxes && !showHeatmap && wsStatus === "online" ? "pointer" : "default",
+          filter:        showHeatmap ? "hue-rotate(180deg) saturate(200%) contrast(110%)" : "none",
+        }}
+      />
+
+      {/* HUD — top-left, always above canvas (z-30) */}
       <div className="absolute top-2 left-2 bg-black/85 px-2.5 py-1 rounded-lg text-[8px] text-white border border-white/10 pointer-events-none font-mono space-x-2 z-30 flex items-center shadow-lg">
         <span className="text-rose-400 font-black flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" /> LIVE
         </span>
-        <span>{sourceDims.width}x{sourceDims.height}</span>
+        <span>{sourceDims.width}×{sourceDims.height}</span>
         <span>{activeCam?.fps || 30} FPS</span>
         <span className="text-emerald-400 font-bold">
-          {wsStatus === "online" ? `${tracks.length} Persons Tracked` : "Detection Offline"}
+          {wsStatus === "online" ? `${hudTrackCount} Persons Tracked` : "Detection Offline"}
         </span>
       </div>
 
-      {/* Diagnostic HUD Overlay — bottom right compact panel (z-50, always on top) */}
+      {/* Debug HUD — bottom-right (z-50) */}
       {debugInfo && (
         <div
           className="absolute bg-black/85 px-2.5 py-1.5 rounded-lg text-[8px] text-cyan-400 border border-cyan-500/30 pointer-events-none font-mono z-50 shadow-lg space-y-0.5"
@@ -292,55 +540,10 @@ const LiveCameraFeed = React.forwardRef(({
           <div>Frame: {debugInfo.frameNumber}</div>
         </div>
       )}
-
-      {/* ── Layer: Bounding Boxes + Attached Labels (z-index 11-25) ── */}
-      {showAiBoxes && !showHeatmap && wsStatus === "online" && containerSize.w > 0 && containerSize.h > 0 && (
-        <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 11 }}>
-          {tracks.map((t) => {
-            if (!t.bbox) return null;
-            const isSelected = selectedTracker === t.id;
-            const nativeW = sourceDims.width  || 1280;
-            const nativeH = sourceDims.height || 720;
-            const css = pixelBboxToCSS(t.bbox, nativeW, nativeH, containerSize.w, containerSize.h);
-            return (
-              <div
-                key={t.id}
-                id={`track-box-${t.id}`}
-                onClick={() => setSelectedTracker(t.id)}
-                className="absolute cursor-pointer pointer-events-auto transition-[box-shadow] duration-200"
-                style={{
-                  left:   `${css.left}px`,
-                  top:    `${css.top}px`,
-                  width:  `${css.width}px`,
-                  height: `${css.height}px`,
-                  border: `2px solid ${t.color}`,
-                  borderRadius: "4px",
-                  backgroundColor: `${t.color}15`,
-                  boxShadow: isSelected ? `0 0 20px ${t.color}80` : `0 0 8px ${t.color}30`,
-                  zIndex: isSelected ? 25 : 12,
-                }}
-              >
-                {/* Clean top-left TRK ID badge directly inside the box */}
-                <div
-                  className="absolute top-0 left-0 px-1.5 py-0.5 text-[9px] font-black font-mono text-black leading-none select-none"
-                  style={{
-                    backgroundColor: t.color,
-                    borderBottomRightRadius: "3px",
-                  }}
-                >
-                  {t.id}
-                </div>
-
-                {/* Selected ring */}
-                {isSelected && <div className="absolute inset-0 rounded ring-2 ring-cyan-400 pointer-events-none" />}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 });
+
 
 
 export default function LiveCameras() {
@@ -478,35 +681,18 @@ export default function LiveCameras() {
       });
     }
 
-    // 2. Identify and keep lost tracks that are within the 400ms grace period
+    // 2. Clean up stale track states after 10 seconds of inactivity to prevent memory leak
+    // while keeping them cached on brief occlusion to maintain continuity and EMA history.
     for (const id of Object.keys(trackStateRef.current)) {
       if (!seenIds.has(id)) {
         const tstate = trackStateRef.current[id];
         if (!tstate._lostAt) {
           tstate._lostAt = now;
-        }
-
-        const timeSinceLost = now - tstate._lostAt;
-        if (timeSinceLost <= 400) { // 400ms tolerance
-          const prev = smoothedBboxRef.current[id] || tstate.lastBbox;
-          const x1 = Math.round(prev.x * nativeW);
-          const y1 = Math.round(prev.y * nativeH);
-          const x2 = Math.round((prev.x + prev.w) * nativeW);
-          const y2 = Math.round((prev.y + prev.h) * nativeH);
-
-          activeAndLostTracks.push({
-            trackId: id,
-            bbox: { x1, y1, x2, y2 },
-            confidence: tstate.lastConfidence,
-            isLost: true,
-          });
-        } else {
-          // Genuinely gone — clean up state immediately
-          delete trackStateRef.current[id];
+        } else if (now - tstate._lostAt > 10000) {
           delete smoothedBboxRef.current[id];
+          delete trackStateRef.current[id];
         }
       } else {
-        // Active — clear the lost timestamp
         if (trackStateRef.current[id]._lostAt) {
           delete trackStateRef.current[id]._lostAt;
         }
@@ -515,6 +701,12 @@ export default function LiveCameras() {
 
     const adapted = activeAndLostTracks.map((track) => {
       const { trackId, bbox, confidence } = track;
+
+      // Guard: skip if bbox is missing or invalid (malformed backend payload)
+      if (!bbox || bbox.x1 == null || bbox.y1 == null || bbox.x2 == null || bbox.y2 == null) {
+        return null;
+      }
+      if (bbox.x2 <= bbox.x1 || bbox.y2 <= bbox.y1) return null;
 
       // Convert absolute pixel coords {x1, y1, x2, y2} to normalized {x, y, w, h}
       const x = bbox.x1 / nativeW;
@@ -534,28 +726,29 @@ export default function LiveCameras() {
           lastBbox: normBbox,
           lastConfidence: confidence,
           lastUpdateTime: now,
+          vx: 0,
+          vy: 0,
         };
         smoothedBboxRef.current[trackId] = { ...normBbox };
       }
 
       const tstate = trackStateRef.current[trackId];
+
+      // Calculate velocity vector for active tracks (change in normalized position over time)
+      const dt = now - tstate.lastUpdateTime;
+      if (dt > 0 && !track.isLost) {
+        const instantVx = (normBbox.x - tstate.lastBbox.x) / dt;
+        const instantVy = (normBbox.y - tstate.lastBbox.y) / dt;
+        tstate.vx = tstate.vx + 0.35 * (instantVx - tstate.vx);
+        tstate.vy = tstate.vy + 0.35 * (instantVy - tstate.vy);
+      }
+
       tstate.lastBbox = normBbox;
       tstate.lastConfidence = confidence;
       tstate.lastUpdateTime = now;
 
-      // Apply EMA smoothing to active coordinates (EMA_ALPHA = 0.80)
-      if (!track.isLost) {
-        const prev = smoothedBboxRef.current[trackId] || normBbox;
-        const smoothedNormBbox = {
-          x: prev.x + EMA_ALPHA * (normBbox.x - prev.x),
-          y: prev.y + EMA_ALPHA * (normBbox.y - prev.y),
-          w: prev.w + EMA_ALPHA * (normBbox.w - prev.w),
-          h: prev.h + EMA_ALPHA * (normBbox.h - prev.h),
-        };
-        smoothedBboxRef.current[trackId] = smoothedNormBbox;
-      }
-
-      const smoothedNormBbox = smoothedBboxRef.current[trackId] || normBbox;
+      // Use raw current-frame coordinates directly to avoid any lag or interpolation
+      const smoothedNormBbox = normBbox;
 
       // Convert smoothed normalized bbox back to absolute pixel coordinates for rendering
       const smoothedBboxPixels = {
@@ -584,6 +777,9 @@ export default function LiveCameras() {
       return {
         id: trackId,
         bbox: smoothedBboxPixels,
+        normBbox: smoothedNormBbox,
+        vx: tstate.vx || 0,
+        vy: tstate.vy || 0,
         color: getTrackColor(trackId),
         bbX: centerXPercent - (smoothedNormBbox.w * 100 / 2),
         bbY: centerYPercent - (smoothedNormBbox.h * 100 / 2),
@@ -597,14 +793,15 @@ export default function LiveCameras() {
         journey: tstate.journey,
         productsPicked: tstate.productsPicked,
         isLost: track.isLost,
+        timeSinceLost: track.timeSinceLost || 0,
       };
     });
 
-    return adapted;
+    return adapted.filter(Boolean);
   }, [activeCam, getTrackColor]);
 
-  const adaptTracksPayloadRef = useRef();
-  useEffect(() => { adaptTracksPayloadRef.current = adaptTracksPayload; }, [adaptTracksPayload]);
+  const adaptTracksPayloadRef = useRef(adaptTracksPayload);
+  adaptTracksPayloadRef.current = adaptTracksPayload;
 
   const clearTrackingState = useCallback(() => {
     setConfirmedPersonTracks([]);
@@ -839,6 +1036,10 @@ export default function LiveCameras() {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 font-sans text-xs pb-6">
+      {/* PAGE HEADER */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
+        <h1 className="text-xl font-black text-white tracking-wide">Live Camera Tracking & CCTV Feeds</h1>
+      </div>
 
       {/* ── SECTION 1: TOP KPI CARDS ────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

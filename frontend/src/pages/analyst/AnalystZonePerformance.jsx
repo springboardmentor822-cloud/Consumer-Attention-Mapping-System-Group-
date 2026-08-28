@@ -46,7 +46,6 @@ export default function AnalystZonePerformance() {
         <div>
           <h1 className="text-xl font-black text-white">Zone Performance</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}

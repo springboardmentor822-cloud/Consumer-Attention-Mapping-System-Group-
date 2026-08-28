@@ -180,22 +180,10 @@ export default function ProductInteraction() {
     }
   };
 
-  // Global Period State (null means inherit globalFilter)
+  // Global Period State
   const { globalFilter } = useCams();
-  const [localPeriod, setLocalPeriod] = useState(null);
-  const [localCustomRange, setLocalCustomRange] = useState(null);
-
-  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
-  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
-
-  const handleDateChange = (newPeriod, customData = null) => {
-    setLocalPeriod(newPeriod);
-    if (newPeriod === "Custom Date Range" && customData) {
-      setLocalCustomRange(customData);
-    } else if (newPeriod !== "Custom Date Range") {
-      setLocalCustomRange(null);
-    }
-  };
+  const selectedPeriod = globalFilter?.dateRange || "Last 7 Days";
+  const customRange = globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null;
 
   // Synchronized Central Dataset
   const centralData = getCentralScaledData(selectedPeriod, customRange);
@@ -296,8 +284,8 @@ export default function ProductInteraction() {
 
   return (
     <div className="space-y-6 font-sans text-xs pb-6">
-      {/* PAGE HEADER & DATE FILTER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl gap-4 shadow-lg">
+      {/* PAGE HEADER */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black text-white tracking-wide">Product Interaction Analytics</h1>
           {selectedPeriod === "Custom Date Range" && customRange?.label && (
@@ -305,10 +293,6 @@ export default function ProductInteraction() {
               📅 {customRange.label}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <span className="text-xs font-bold text-slate-400 font-mono">Date Range:</span>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
         </div>
       </div>
 
@@ -366,7 +350,7 @@ export default function ProductInteraction() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Line type="monotone" dataKey="count" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Interactions" />
               </LineChart>
             </ResponsiveContainer>
@@ -387,6 +371,7 @@ export default function ProductInteraction() {
                 <Pie data={categoryData} innerRadius={45} outerRadius={65} dataKey="val">
                   {categoryData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                 </Pie>
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} formatter={(value, name) => [`${value} Interactions`, name]} />
               </PieChart>
             </ResponsiveContainer>
 </ComponentErrorBoundary>

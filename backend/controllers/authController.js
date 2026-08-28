@@ -204,4 +204,229 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getCurrentUser, updateProfile };
+// Admin user management controllers
+const listUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'email', 'full_name', 'phone', 'role', 'is_active', 'last_login', 'created_at']
+    });
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    console.error('List users error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to list users'
+    });
+  }
+};
+
+const createUserAdmin = async (req, res) => {
+  try {
+    const { full_name, email, role, password } = req.body;
+    const roleMap = {
+      'admin': 'admin',
+      'administrator': 'admin',
+      'store_manager': 'store_manager',
+      'store manager': 'store_manager',
+      'retail_analyst': 'retail_analyst',
+      'retail analyst': 'retail_analyst',
+      'marketing_manager': 'marketing_manager',
+      'marketing manager': 'marketing_manager'
+    };
+    const dbRole = roleMap[role.toLowerCase().trim()] || 'store_manager';
+
+    const username = email;
+
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ username }, { email }]
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username or email already exists'
+      });
+    }
+
+    const user = await User.create({
+      username,
+      email,
+      password: password || 'CamsPassword123!',
+      full_name,
+      role: dbRole,
+      is_active: true
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          is_active: user.is_active
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Create user admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create user'
+    });
+  }
+};
+
+const updateUserAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { full_name, email, role } = req.body;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ where: { email } });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already in use'
+        });
+      }
+      user.email = email;
+      user.username = email;
+    }
+
+    if (full_name) user.full_name = full_name;
+    
+    if (role) {
+      const roleMap = {
+        'admin': 'admin',
+        'administrator': 'admin',
+        'store_manager': 'store_manager',
+        'store manager': 'store_manager',
+        'retail_analyst': 'retail_analyst',
+        'retail analyst': 'retail_analyst',
+        'marketing_manager': 'marketing_manager',
+        'marketing manager': 'marketing_manager'
+      };
+      user.role = roleMap[role.toLowerCase().trim()] || user.role;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          is_active: user.is_active
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update user admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update user'
+    });
+  }
+};
+
+const toggleUserStatusAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.is_active = !user.is_active;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User status changed to ${user.is_active ? 'Active' : 'Inactive'}`,
+      data: {
+        user: {
+          id: user.id,
+          is_active: user.is_active
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Toggle status error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to toggle user status'
+    });
+  }
+};
+
+const deleteUserAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Safety check: Don't allow deleting yourself
+    if (req.user && parseInt(id) === parseInt(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete your own administrator account'
+      });
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    await user.destroy();
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to delete user'
+    });
+  }
+};
+
+module.exports = { 
+  register, 
+  login, 
+  getCurrentUser, 
+  updateProfile,
+  listUsers,
+  createUserAdmin,
+  updateUserAdmin,
+  toggleUserStatusAdmin,
+  deleteUserAdmin
+};

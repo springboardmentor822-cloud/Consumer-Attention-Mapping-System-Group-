@@ -87,10 +87,6 @@ export default function CampaignPerformance() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <span className="text-xs font-bold text-slate-400 font-mono">Date Range:</span>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
-        </div>
       </div>
 
       {/* KPIs */}

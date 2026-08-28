@@ -41,7 +41,6 @@ export default function AnalystDwellTime() {
         <div>
           <h1 className="text-xl font-black text-white">Dwell Time Analysis</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}

@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { useCams } from "../../services/CamsContext";
 import { DEFAULT_FILTER } from "../../components/PortalDataFilter";
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
+import CustomDateSelector from "../../components/CustomDateSelector";
 
 
 // LocalStorage keys for persistence
@@ -185,7 +186,7 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
   const { globalFilter } = useCams();
   const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'layout' | 'zones' | 'products'
   const [filter, setFilter] = useState(null);
-  const activeFilter = filter || globalFilter || DEFAULT_FILTER;
+  const activeFilter = isStoreManager ? (globalFilter || DEFAULT_FILTER) : (filter || globalFilter || DEFAULT_FILTER);
   const selectedPeriod = activeFilter?.dateRange ?? "Last 7 Days";
 
   // DB loading state
@@ -198,6 +199,15 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
   const [storeFilter, setStoreFilter] = useState(isStoreManager ? assignedStore : "All");
   const [zoneFilter, setZoneFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+
+  const handleDateChange = (newPeriod, customData = null) => {
+    if (newPeriod === "Custom Date Range" && customData) {
+      setFilter(customData);
+    } else {
+      setFilter({ dateRange: newPeriod });
+    }
+  };
+
 
   // Product Inventory Search & Filter State
   const [productSearch, setProductSearch] = useState("");
@@ -307,11 +317,12 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
           return Array.isArray(j.data) ? j.data : Array.isArray(j) ? j : [];
         };
 
-        const [dbStores, dbShelves, dbProducts, dbZones] = await Promise.all([
+        const [dbStores, dbShelves, dbProducts, dbZones, dbCameras] = await Promise.all([
           fetchOrThrow(`${API_BASE}/stores`),
           fetchOrThrow(`${API_BASE}/shelves`),
           fetchOrThrow(`${API_BASE}/products`),
           fetchOrThrow(`${API_BASE}/zones`),
+          fetchOrThrow(`${API_BASE}/cameras`),
         ]);
 
         if (cancelled) return;
@@ -337,6 +348,25 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
         }));
         setZonesList(normalizedZones);
         try { localStorage.setItem(STORAGE_KEY_ZONES, JSON.stringify(normalizedZones)); } catch {}
+
+        const normalizedCameras = dbCameras.map(c => {
+          const matchingStore = dbStores.find(st => st.id === c.store_id || st.store_id === c.store_id);
+          const storeName = matchingStore ? matchingStore.name : "Downtown Flagship";
+          const storeId = matchingStore ? (matchingStore.store_id || `STR-${matchingStore.id}`) : "STR-101";
+          return {
+            id: c.camera_id || `CAM-${c.id}`,
+            name: c.name || `Camera ${c.id}`,
+            store: storeName,
+            storeId: storeId,
+            zone: c.location || c.zone || "Produce",
+            ip: c.camera_url || "127.0.0.1",
+            status: c.is_active ? "Online" : "Offline",
+            coordsX: parseFloat(c.position_x) || 4.0,
+            coordsY: parseFloat(c.position_y) || 4.0
+          };
+        });
+        setCamerasList(normalizedCameras);
+        try { localStorage.setItem(STORAGE_KEY_CAMERAS, JSON.stringify(normalizedCameras)); } catch {}
       } catch (err) {
         console.warn("ShelfManagement: DB fetch error, using cached/initial data:", err);
       } finally {
@@ -345,7 +375,7 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
     }
     loadFromDb();
     return () => { cancelled = true; };
-  }, []);
+  }, [selectedPeriod]);
 
   // Persist datasets to localStorage whenever they change (for offline fallback)
   useEffect(() => {
@@ -864,14 +894,9 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
             <span className="text-xl">📦</span>
             <h1 className="text-xl font-black text-white tracking-wide">Shelf Management &amp; Layout Optimization</h1>
             {isStoreManager ? (
-              <>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 uppercase tracking-widest">
-                  Store Manager
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-700/50 border border-slate-600/40 text-slate-300 uppercase tracking-widest">
-                  {assignedStore}
-                </span>
-              </>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-700/50 border border-slate-600/40 text-slate-300 uppercase tracking-widest">
+                {assignedStore}
+              </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 uppercase tracking-widest">
                 Enterprise Administration
@@ -880,12 +905,21 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
           </div>
         </div>
 
-        <button
-          onClick={handleOpenAddForm}
-          className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-black transition shadow-md flex items-center gap-2 font-sans"
-        >
-          <span className="text-sm font-black">+</span> Add Shelf
-        </button>
+        <div className="flex flex-wrap items-center gap-3.5">
+          {selectedPeriod === "Custom Date Range" && activeFilter?.label && (
+            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+              📅 {activeFilter.label}
+            </span>
+          )}
+
+          <button
+            onClick={handleOpenAddForm}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-black transition shadow-md flex items-center gap-2 font-sans"
+          >
+            <span className="text-sm font-black">+</span> Add Shelf
+          </button>
+        </div>
+
       </div>
 
       {/* 1. DASHBOARD SUMMARY CARDS (DYNAMICALLY SYNCHRONIZED) */}
@@ -1071,32 +1105,6 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
                         </td>
                         <td className="py-3.5 px-4 text-right relative">
                           <div className="flex items-center justify-end gap-1.5 font-sans">
-                            {/* Edit Button (Icon + Label) */}
-                            <button
-                              onClick={() => handleOpenEditForm(s)}
-                              title="Edit Shelf"
-                              className="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-[10px] font-bold border border-indigo-500/30 transition flex items-center gap-1"
-                            >
-                              <span>✏️</span> Edit
-                            </button>
-
-                            {/* Delete Button */}
-                            <button
-                              onClick={() => handleDeleteShelf(s.id, s.name)}
-                              title="Delete Shelf"
-                              className="px-2 py-1 bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 rounded-lg text-[10px] font-bold border border-rose-500/30 transition flex items-center gap-1"
-                            >
-                              <span>🗑️</span>
-                            </button>
-
-                            {/* View Details */}
-                            <button
-                              onClick={() => setSelectedShelfDetails(s)}
-                              className="px-2.5 py-1 bg-[#1E293B] hover:bg-[#273552] text-slate-200 rounded-lg text-[10px] font-bold border border-[#334155] transition"
-                            >
-                              Details
-                            </button>
-
                             {/* Three-Dot Action Dropdown Toggle */}
                             <div className="relative inline-block text-left">
                               <button
@@ -1124,7 +1132,7 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
                                     }}
                                     className="w-full text-left px-3 py-2 text-[11px] text-indigo-400 hover:bg-indigo-600/20 block font-medium"
                                   >
-                                    ✏️ Edit Shelf
+                                    ✏️ Edit
                                   </button>
                                   <button
                                     onClick={() => {
@@ -1133,7 +1141,7 @@ export default function ShelfManagement({ assignedStore = "Store 1 - Koramangala
                                     }}
                                     className="w-full text-left px-3 py-2 text-[11px] text-rose-400 hover:bg-rose-600/20 block font-medium border-t border-[#1E293B]"
                                   >
-                                    🗑️ Delete Shelf
+                                    🗑️ Delete
                                   </button>
                                 </div>
                               )}

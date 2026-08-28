@@ -52,8 +52,8 @@ async def main():
                           f"src={src.get('width')}x{src.get('height')}")
                     for tk in tracks:
                         bb = tk.get("bbox", {})
-                        print(f"           -> {tk['trackId']}  bbox=({bb.get('x'):.3f}, {bb.get('y'):.3f}, "
-                              f"{bb.get('w'):.3f}, {bb.get('h'):.3f})  conf={tk.get('confidence'):.2f}")
+                        print(f"           -> {tk['trackId']}  bbox=(x1={bb.get('x1')}, y1={bb.get('y1')}, "
+                              f"x2={bb.get('x2')}, y2={bb.get('y2')})  conf={tk.get('confidence'):.2f}")
                 elif frame_count % 20 == 0:
                     print(f"  Frame #{frame_num:>5} | 0 persons (frame_count={frame_count})")
 

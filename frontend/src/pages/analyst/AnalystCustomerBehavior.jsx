@@ -50,7 +50,6 @@ export default function AnalystCustomerBehavior() {
         <div>
           <h1 className="text-xl font-black text-white">Customer Behavior Analysis</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}

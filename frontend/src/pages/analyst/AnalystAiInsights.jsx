@@ -269,7 +269,6 @@ export default function AnalystAiInsights() {
         <div>
           <h1 className="text-xl font-black text-white">AI Insights</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter} onChange={handleDateChange} />
       </div>
 
       {/* KPIs */}

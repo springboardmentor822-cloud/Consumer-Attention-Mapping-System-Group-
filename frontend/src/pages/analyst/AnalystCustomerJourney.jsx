@@ -116,7 +116,6 @@ export default function AnalystCustomerJourney() {
           <h1 className="text-xl font-black text-white">Customer Journey Analysis</h1>
         </div>
         <div className="flex items-center space-x-3">
-          <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
           <button className="bg-[#0F172A] border border-[#1E293B] px-3 py-1.5 rounded-xl text-slate-300 text-xs font-semibold flex items-center space-x-2"><span>🏪</span><span>All Stores</span></button>
         </div>
       </div>

@@ -41,12 +41,8 @@ export function CamsProvider({ children }) {
   const [products, setProducts] = useState([]);
 
   // User Access Management State
-  const [users, setUsers] = useState([
-    { id: 1, name: "Priya Mehta", email: "priya@cams-retail.com", role: "Retail Analyst", status: "Active" },
-    { id: 2, name: "Arjun Singh", email: "arjun@cams-retail.com", role: "Store Manager", status: "Active" },
-    { id: 3, name: "Rohan Das", email: "rohan@cams-retail.com", role: "Marketing Manager", status: "Active" },
-    { id: 4, name: "Admin CAMS", email: "admin@cams-retail.com", role: "Administrator", status: "Active" },
-  ]);
+  // User Access Management State
+  const [users, setUsers] = useState([]);
 
   // Role Permissions Configuration
   const [rolePermissions, setRolePermissions] = useState({
@@ -60,6 +56,40 @@ export function CamsProvider({ children }) {
   const [telemetry, setTelemetry] = useState(() => cd.getCentralScaledData(DEFAULT_FILTER).kpis);
   const [dbLoaded, setDbLoaded] = useState(false);
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const rawSession = localStorage.getItem("cams_session");
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+      if (!session || !session.token) return;
+
+      const response = await fetch("http://localhost:5001/api/auth/users", {
+        headers: {
+          "Authorization": `Bearer ${session.token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        const roleLabels = {
+          "admin": "Administrator",
+          "store_manager": "Store Manager",
+          "retail_analyst": "Retail Analyst",
+          "marketing_manager": "Marketing Manager",
+        };
+        const mapped = result.data.map(u => ({
+          id: u.id,
+          name: u.full_name,
+          email: u.email,
+          role: roleLabels[u.role] || u.role,
+          status: u.is_active ? "Active" : "Inactive"
+        }));
+        setUsers(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    }
+  }, []);
+
   const refreshDb = useCallback(async () => {
     console.log("Loading PostgreSQL database records into central data store...");
     const success = await cd.fetchAllFromDatabase();
@@ -72,8 +102,9 @@ export function CamsProvider({ children }) {
       const centralData = cd.getCentralScaledData(globalFilter);
       setTelemetry(centralData.kpis);
       setDbLoaded(true);
+      fetchUsers();
     }
-  }, [globalFilter]);
+  }, [globalFilter, fetchUsers]);
 
   useEffect(() => {
     refreshDb();
@@ -82,20 +113,108 @@ export function CamsProvider({ children }) {
   }, [refreshDb]);
 
   // User Management Actions
-  const addUser = (newUser) => {
-    setUsers(prev => [...prev, { id: Date.now(), ...newUser, status: "Active" }]);
+  const addUser = async (newUser) => {
+    try {
+      const rawSession = localStorage.getItem("cams_session");
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+      
+      const response = await fetch("http://localhost:5001/api/auth/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`
+        },
+        body: JSON.stringify({
+          full_name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        })
+      });
+      const result = await response.json();
+      if (result.success) {
+        fetchUsers();
+      } else {
+        alert(result.message || "Failed to create user");
+      }
+    } catch (err) {
+      console.error("Add user error:", err);
+    }
   };
 
-  const editUser = (updatedUser) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
+  const editUser = async (updatedUser) => {
+    try {
+      const rawSession = localStorage.getItem("cams_session");
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+
+      const response = await fetch(`http://localhost:5001/api/auth/users/${updatedUser.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`
+        },
+        body: JSON.stringify({
+          full_name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role
+        })
+      });
+      const result = await response.json();
+      if (result.success) {
+        fetchUsers();
+      } else {
+        alert(result.message || "Failed to update user");
+      }
+    } catch (err) {
+      console.error("Edit user error:", err);
+    }
   };
 
-  const toggleUserStatus = (id) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "Active" ? "Inactive" : "Active" } : u));
+  const toggleUserStatus = async (id) => {
+    try {
+      const rawSession = localStorage.getItem("cams_session");
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+
+      const response = await fetch(`http://localhost:5001/api/auth/users/${id}/status`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${session.token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        fetchUsers();
+      } else {
+        alert(result.message || "Failed to toggle user status");
+      }
+    } catch (err) {
+      console.error("Toggle user status error:", err);
+    }
   };
 
-  const deleteUser = (id) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
+  const deleteUser = async (id) => {
+    try {
+      const rawSession = localStorage.getItem("cams_session");
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+
+      const response = await fetch(`http://localhost:5001/api/auth/users/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session.token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        fetchUsers();
+      } else {
+        alert(result.message || "Failed to delete user");
+      }
+    } catch (err) {
+      console.error("Delete user error:", err);
+    }
   };
 
   // Role Permissions Save

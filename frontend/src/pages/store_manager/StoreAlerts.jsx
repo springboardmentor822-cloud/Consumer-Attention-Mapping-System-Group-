@@ -6,20 +6,8 @@ import { useCams } from "../../services/CamsContext";
 export default function StoreAlerts() {
   // Date Filter State (null means inherit globalFilter)
   const { globalFilter } = useCams();
-  const [localPeriod, setLocalPeriod] = useState(null);
-  const [localCustomRange, setLocalCustomRange] = useState(null);
-
-  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
-  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
-
-  const handleDateChange = (newPeriod, customData = null) => {
-    setLocalPeriod(newPeriod);
-    if (newPeriod === "Custom Date Range" && customData) {
-      setLocalCustomRange(customData);
-    } else if (newPeriod !== "Custom Date Range") {
-      setLocalCustomRange(null);
-    }
-  };
+  const selectedPeriod = globalFilter?.dateRange || "Last 7 Days";
+  const customRange = globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null;
 
   const centralData = getCentralScaledData(selectedPeriod, customRange);
   const mult = centralData.mult;
@@ -173,8 +161,8 @@ export default function StoreAlerts() {
 
   return (
     <div className="space-y-5 font-sans text-xs pb-6">
-      {/* HEADER & DATE FILTER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl gap-4 shadow-lg">
+      {/* PAGE HEADER */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black text-white tracking-wide">Enterprise Alert Management</h1>
           {selectedPeriod === "Custom Date Range" && customRange?.label && (
@@ -182,10 +170,6 @@ export default function StoreAlerts() {
               📅 {customRange.label}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <span className="text-xs font-bold text-slate-400 font-mono">Date Range:</span>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
         </div>
       </div>
 

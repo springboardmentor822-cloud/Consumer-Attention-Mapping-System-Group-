@@ -45,13 +45,8 @@ export default function ActionCenter() {
 
   return (
     <div className="space-y-6 font-sans text-xs text-slate-200 pb-8">
-      {/* PAGE HEADER WITH DATE FILTER */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl shadow-lg">
         <h1 className="text-xl font-black text-white">Action Center</h1>
-        <div className="flex items-center gap-3 self-end sm:self-auto font-mono">
-          <span className="text-xs font-bold text-slate-400">Date Range:</span>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
-        </div>
       </div>
 
       {/* 1. ACTION OVERVIEW & 2. ACTION PRIORITY BREAKDOWN */}

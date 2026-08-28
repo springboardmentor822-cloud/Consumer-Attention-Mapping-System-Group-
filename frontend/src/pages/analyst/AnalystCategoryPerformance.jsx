@@ -52,7 +52,6 @@ export default function AnalystCategoryPerformance() {
         <div>
           <h1 className="text-xl font-black text-white">Category Performance</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}

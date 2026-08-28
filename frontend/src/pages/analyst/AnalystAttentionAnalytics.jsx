@@ -49,9 +49,6 @@ export default function AnalystAttentionAnalytics() {
         <div>
           <h1 className="text-xl font-black text-white">Attention Analytics</h1>
         </div>
-        <div className="flex items-center space-x-3">
-          <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
-        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

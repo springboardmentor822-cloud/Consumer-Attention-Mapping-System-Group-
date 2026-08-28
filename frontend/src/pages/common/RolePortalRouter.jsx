@@ -286,11 +286,11 @@ export default function RolePortalRouter({ role }) {
               ☰
             </button>
 
-            {/* Breadcrumb */}
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-500 font-mono min-w-0">
-              <span className={`font-bold ${config.accent.text} truncate`}>{role}</span>
-              <span>/</span>
-              <span className={`px-2 py-0.5 rounded-md ${config.accent.bg} ${config.accent.text} border ${config.accent.border} font-bold truncate max-w-[200px]`}>
+            {/* Current section label: Portal Name / Page Title (in a rounded-full pill) */}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-400 font-sans min-w-0">
+              <span className="text-slate-400 font-medium truncate">{role}</span>
+              <span className="text-slate-600 font-normal">/</span>
+              <span className={`px-2.5 py-0.5 rounded-full ${config.accent.bg} ${config.accent.text} border ${config.accent.border} font-bold truncate max-w-[250px]`}>
                 {activeTab}
               </span>
             </div>

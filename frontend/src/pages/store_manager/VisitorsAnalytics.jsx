@@ -102,7 +102,7 @@ export default function VisitorsAnalytics() {
   return (
     <div className="space-y-6 font-sans text-xs pb-6">
       {/* HEADER */}
-      <div className="flex flex-wrap justify-between items-center gap-2">
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <h1 className="text-xl font-black text-white tracking-wide">Visitors Analytics</h1>
       </div>
 
@@ -157,7 +157,7 @@ export default function VisitorsAnalytics() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Line type="monotone" dataKey="visitors" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Visitors" />
               </LineChart>
             </ResponsiveContainer>
@@ -177,7 +177,7 @@ export default function VisitorsAnalytics() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Bar dataKey="val" radius={[4, 4, 0, 0]} name="Visitors">
                   {visitorsByZone.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                 </Bar>
@@ -202,7 +202,7 @@ export default function VisitorsAnalytics() {
                 <Pie data={segmentationData} innerRadius={45} outerRadius={65} dataKey="value">
                   {segmentationData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
               </PieChart>
             </ResponsiveContainer>
 </ComponentErrorBoundary>

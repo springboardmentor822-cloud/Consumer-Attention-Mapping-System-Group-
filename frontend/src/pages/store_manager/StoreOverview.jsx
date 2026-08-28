@@ -91,7 +91,7 @@ export default function StoreOverview({ onNavigateTab }) {
   return (
     <div className="space-y-6 font-sans text-xs pb-8">
       {/* HEADER */}
-      <div className="flex flex-wrap justify-between items-center gap-2">
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <h1 className="text-xl font-black text-white tracking-wide">Store Manager Dashboard</h1>
       </div>
 
@@ -294,7 +294,7 @@ export default function StoreOverview({ onNavigateTab }) {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={9} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Line type="monotone" dataKey="val" stroke="#2563EB" strokeWidth={2.5} dot={{ fill: "#2563EB", r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -313,7 +313,7 @@ export default function StoreOverview({ onNavigateTab }) {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={9} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Bar dataKey="val" radius={[3, 3, 0, 0]}>
                   {customersByZone.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />

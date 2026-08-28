@@ -60,7 +60,6 @@ export default function AnalystProductAnalytics() {
         <div>
           <h1 className="text-xl font-black text-white">Product Analytics</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter} onChange={handleDateChange} />
       </div>
 
       {/* KPIs */}

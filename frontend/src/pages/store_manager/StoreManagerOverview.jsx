@@ -125,7 +125,7 @@ export default function StoreManagerOverview() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Line type="monotone" dataKey="visitors" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Visitors" />
               </LineChart>
             </ResponsiveContainer>
@@ -148,7 +148,7 @@ export default function StoreManagerOverview() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="zone" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Visitors">
                   {visitorsByZone.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -177,7 +177,7 @@ export default function StoreManagerOverview() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
               </PieChart>
             </ResponsiveContainer>
 </ComponentErrorBoundary>

@@ -204,12 +204,6 @@ export default function MarketingOverview() {
               <option value="New Arrival Launch">New Arrival Launch</option>
             </select>
           </div>
-
-          {/* Master Global Date Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 font-mono">Global Period:</span>
-            <CustomDateSelector value={globalPeriod} onChange={handleGlobalDateChange} />
-          </div>
         </div>
       </div>
 

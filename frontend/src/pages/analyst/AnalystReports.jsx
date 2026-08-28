@@ -32,7 +32,6 @@ export default function AnalystReports() {
         <div>
           <h1 className="text-xl font-black text-white">Reports & Export</h1>
         </div>
-        <CustomDateSelector value={localPeriod || globalFilter?.dateRange} onChange={setLocalPeriod} />
       </div>
 
       {/* KPIs */}

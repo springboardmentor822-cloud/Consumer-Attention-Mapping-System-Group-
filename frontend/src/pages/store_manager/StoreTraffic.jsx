@@ -23,11 +23,16 @@ export default function StoreTraffic() {
     ...d,
     scaledVisitors: Math.round(d.visitors * (dailyMult > 1 ? dailyMult * 0.15 : dailyMult))
   }));
-  const matrixVisitors = getCentralScaledData(filter).kpis.totalVisitors;
-  const matrixScaled = zones.map((z, idx) => ({
-    ...z,
-    scaledVisitors: Math.round(matrixVisitors * (0.22 - idx * 0.025))
-  }));
+  const centralData = getCentralScaledData(filter);
+  const matrixZones = centralData.zones || [];
+  const totalZoneVisitors = matrixZones.reduce((sum, z) => sum + (z.visitors || 0), 0) || 1;
+  const matrixScaled = matrixZones.map((z) => {
+    const share = totalZoneVisitors > 0 ? ((z.visitors || 0) / totalZoneVisitors * 100).toFixed(1) : "0.0";
+    return {
+      ...z,
+      share
+    };
+  });
 
   // Yesterday vs Today camera-performance comparison data
   const dataYesterday = getCentralScaledData("Yesterday");
@@ -44,7 +49,7 @@ export default function StoreTraffic() {
   return (
     <div className="space-y-6 font-sans text-xs pb-6">
       {/* HEADER */}
-      <div className="flex flex-wrap justify-between items-center gap-2">
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <h1 className="text-xl font-black text-white tracking-wide">Traffic Analytics</h1>
       </div>
 
@@ -167,7 +172,7 @@ export default function StoreTraffic() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="time" stroke="#64748B" fontSize={9} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Line type="monotone" dataKey="visitors" stroke="#2563EB" strokeWidth={3} dot={{ fill: "#2563EB", r: 4 }} name="Visitors" />
               </LineChart>
             </ResponsiveContainer>
@@ -187,7 +192,7 @@ export default function StoreTraffic() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis type="number" stroke="#64748B" fontSize={9} />
                 <YAxis dataKey="name" type="category" stroke="#64748B" fontSize={9} width={90} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Bar dataKey="val" radius={[0, 4, 4, 0]} name="Visitors">
                   {zonesScaled.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                 </Bar>
@@ -228,7 +233,7 @@ export default function StoreTraffic() {
                 <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={10} />
                 <YAxis stroke="#64748B" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }} itemStyle={{ color: "#F8FAFC" }} labelStyle={{ color: "#94A3B8" }} />
                 <Bar dataKey="scaledVisitors" fill="#2563EB" radius={[4, 4, 0, 0]} name="Visitors" />
               </BarChart>
             </ResponsiveContainer>
@@ -257,10 +262,10 @@ export default function StoreTraffic() {
               {matrixScaled.map((row, i) => (
                 <tr key={i} className="hover:bg-[#070C18]/50 transition">
                   <td className="py-2.5 font-bold text-white">{row.name}</td>
-                  <td className="py-2.5 text-slate-300">{formatNumber(row.scaledVisitors)}</td>
-                  <td className="py-2.5 text-slate-400">{row.trafficDensity}%</td>
-                  <td className="py-2.5 text-slate-300">{row.dwellTime} min</td>
-                  <td className="py-2.5 text-emerald-400 font-bold">{row.attentionScore}/100</td>
+                  <td className="py-2.5 text-slate-300">{formatNumber(row.scaledVisitors || row.visitors || 0)}</td>
+                  <td className="py-2.5 text-slate-400">{row.share || "0.0"}%</td>
+                  <td className="py-2.5 text-slate-300">{(row.dwellTime || 0.0).toFixed(1)} min</td>
+                  <td className="py-2.5 text-emerald-400 font-bold">{(row.attentionScore || 0)}/100</td>
                 </tr>
               ))}
             </tbody>

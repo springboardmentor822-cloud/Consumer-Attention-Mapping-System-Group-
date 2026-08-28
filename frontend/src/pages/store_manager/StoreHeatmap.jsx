@@ -3,7 +3,6 @@ import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer, XAxis, YAxis, Cartes
 import { useCams } from "../../services/CamsContext";
 import { getCentralScaledData } from "../../services/centralData";
 import StoreHeatmapModel from "../../components/StoreHeatmapModel";
-import CustomDateSelector from "../../components/CustomDateSelector";
 import ComponentErrorBoundary from "../../components/ComponentErrorBoundary";
 
 
@@ -11,20 +10,9 @@ export default function StoreHeatmap() {
   const { telemetry, liveTrackedPersons, globalFilter } = useCams();
 
   const [heatmapType, setHeatmapType] = useState("density"); // density | movement | dwell | attention
-  const [localPeriod, setLocalPeriod] = useState(null);
-  const [localCustomRange, setLocalCustomRange] = useState(null);
 
-  const selectedPeriod = localPeriod || globalFilter?.dateRange || "Last 7 Days";
-  const customRange = localCustomRange || (globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null);
-
-  const handleDateChange = (newPeriod, customData = null) => {
-    setLocalPeriod(newPeriod);
-    if (newPeriod === "Custom Date Range" && customData) {
-      setLocalCustomRange(customData);
-    } else if (newPeriod !== "Custom Date Range") {
-      setLocalCustomRange(null);
-    }
-  };
+  const selectedPeriod = globalFilter?.dateRange || "Last 7 Days";
+  const customRange = globalFilter?.dateRange === "Custom Date Range" ? globalFilter : null;
 
   // Synchronized Central Dataset — use the zones computed by getCentralScaledData
   // which includes real dwellTime, attentionScore, and visitor counts derived
@@ -63,12 +51,12 @@ export default function StoreHeatmap() {
 
   return (
     <div className="space-y-6 font-sans text-xs pb-6">
-      {/* PAGE HEADER & DATE FILTER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#0F172A] border border-[#1E293B] p-4 rounded-2xl gap-4 shadow-lg">
+      {/* PAGE HEADER */}
+      <div className="bg-[#0F172A] border border-[#1E293B] p-5 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-black text-white tracking-wide">Heatmap Analytics & Spatial Density</h1>
+          <h1 className="text-xl font-black text-white tracking-wide">Heat Map Analytics</h1>
           {selectedPeriod === "Custom Date Range" && customRange?.label && (
-            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+            <span className="text-[11px] font-mono text-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-emerald-400 font-bold">
               📅 {customRange.label}
             </span>
           )}
@@ -103,7 +91,6 @@ export default function StoreHeatmap() {
         <StoreHeatmapModel
           dateFilter={selectedPeriod}
           customRangeLabel={customRange?.label}
-          onDateChange={handleDateChange}
         />
       </div>
 
@@ -143,7 +130,9 @@ export default function StoreHeatmap() {
                   <XAxis dataKey="name" stroke="#64748B" fontSize={9} />
                   <YAxis stroke="#64748B" fontSize={9} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B" }}
+                    contentStyle={{ backgroundColor: "#070C18", borderColor: "#1E293B", borderRadius: "12px" }}
+                    itemStyle={{ color: "#F8FAFC" }}
+                    labelStyle={{ color: "#94A3B8" }}
                     formatter={(value, name) => [
                       heatmapType === "dwell" ? `${value} min` : value,
                       heatmapType === "density" ? "Density (visitors)"

@@ -70,10 +70,6 @@ export default function TrafficInsights() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 self-end sm:self-auto font-mono">
-          <span className="text-xs font-bold text-slate-400">Date Range:</span>
-          <CustomDateSelector value={selectedPeriod} onChange={handleDateChange} />
-        </div>
       </div>
 
       {/* KPIS */}
