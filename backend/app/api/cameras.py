@@ -88,12 +88,12 @@ def set_camera_active(
     session: Session = Depends(get_session),
     _=Depends(require_roles("StoreManager", "SuperAdmin")),
 ):
-    # NOTE: this only flips the is_active flag in the DB - it does not
-    # start/stop the actual frame_pipeline.py process reading that
-    # camera's source_path. Whether tracking_runner.py checks is_active
-    # before processing a camera is a separate thing to verify, not
-    # something this endpoint controls. Don't assume toggling this off
-    # here actually stops CPU/GPU usage on that camera's stream.
+    # This flips the is_active flag in the DB. tracking_runner.py's
+    # heartbeat (runs ~every 15s) re-checks this same flag and exits
+    # cleanly once it sees is_active=False - see the FIXED comment
+    # there. So toggling this off DOES actually stop that camera's
+    # running process, just not instantly: expect up to one heartbeat
+    # interval (~15s) of delay, not immediate termination.
     camera = session.get(Camera, camera_id)
     if not camera or camera.store_id != store_id:
         raise HTTPException(status_code=404, detail="Camera not found for this store")

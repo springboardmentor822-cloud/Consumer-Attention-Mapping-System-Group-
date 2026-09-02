@@ -142,6 +142,7 @@ def get_attractiveness_history(camera_id: uuid.UUID) -> list[dict]:
             "shelf_name": shelf_names.get(r.shelf_id, str(r.shelf_id)),
             "computed_at": r.computed_at.isoformat(),
             "final_score": r.final_score,
+            "attention_score": r.attention_score,
         }
         for r in rows
     ]

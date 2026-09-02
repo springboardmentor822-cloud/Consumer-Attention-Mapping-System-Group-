@@ -62,6 +62,7 @@ export type DwellTimeEntry = {
   shelf_name: string;
   total_seconds: number;
   distinct_visitors: number;
+  per_visitor_seconds: number[];
 };
 
 // NEW — for the traffic-over-time line chart.
@@ -79,6 +80,7 @@ export type TrafficPoint = {
 export type ZoneTraffic = {
   zone_id: string;
   zone_name: string;
+  zone_type: "entrance" | "aisle" | "checkout";
   event_count: number;
   distinct_visitors: number;
   distinct_visitors_by_camera: {
@@ -171,6 +173,7 @@ export type AttractivenessHistoryPoint = {
   shelf_name: string;
   computed_at: string;
   final_score: number;
+  attention_score: number;
 };
 
 // NEW — for the shopper segment distribution + dwell-time-bucket charts.
@@ -268,6 +271,9 @@ export type CampaignAnalytics = {
     average_pickup_score: number;
     average_purchase_score: number;
     average_repeat_score: number;
+    before_purchase_score: number;
+    after_purchase_score: number;
+    purchase_score_change: number;
     sample_count: number;
   } | null;
   trend: Array<{
@@ -300,6 +306,11 @@ export type CampaignAnalytics = {
     purchase_score: number;
     is_observed_conversion: boolean;
   } | null;
+  funnel: {
+    stages: Array<{ stage: string; count: number }>;
+    is_mock: boolean;
+    disclosure: string;
+  };
 };
 
 // Completion analytics (completion_analytics.py) — journey, conversion,
@@ -330,10 +341,12 @@ export type CompletionInteractions = {
 export type JourneyData = {
   store_id: string;
   sessions: number;
+  matched_transitions: number;
   nodes: Array<{ name: string }>;
   links: Array<{ source: string; target: string; value: number }>;
   zone_observations: Array<{ zone: string; count: number }>;
   data_quality: string;
+  disclosure: string;
 };
 
 export type ConversionSummary = {
@@ -369,6 +382,7 @@ export type AdminMonitoring = {
     memory_used_mb: number;
     memory_total_mb: number;
   }[] | null;
+  network: { sent_kbps: number; recv_kbps: number } | null;
   services: {
     postgres: boolean;
     timescaledb: boolean;
@@ -382,6 +396,20 @@ export type AdminMonitoring = {
     avg_response_time_ms: number | null;
     avg_response_time_window: number;
   };
+};
+
+export type AdminConfig = {
+  auth: { jwt_algorithm: string; jwt_expire_minutes: number; dev_password_reset_mode: boolean };
+  cors: { allowed_origins: string; frontend_url: string };
+  email: { smtp_configured: boolean; smtp_host: string | null; smtp_use_tls: boolean };
+  recommendation_engine: {
+    high_attention_threshold: number;
+    low_engagement_threshold: number;
+    cold_zone_ratio: number;
+    thresholds_are_assumption: boolean;
+  };
+  recommendation_scheduler: { interval_minutes: number; retention_days: number };
+  heatmap_cache: { cache_ttl_seconds: number };
 };
 
 // NEW — forgot/reset password. Dev-mode: dev_reset_token is returned
@@ -587,6 +615,8 @@ export const api = {
 
   // NEW
   getAdminMonitoring: () => request<AdminMonitoring>("/api/admin/monitoring"),
+
+  getAdminConfig: () => request<AdminConfig>("/api/admin/config"),
 
   getAdminAlerts: (alert_type?: string) => {
     const params = new URLSearchParams();

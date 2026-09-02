@@ -1,29 +1,61 @@
 {
   "info": {
     "name": "Consumer Attention Mapping System - Backend",
-    "description": "Milestone 1: Auth (JWT + RBAC), Store CRUD, Shelf CRUD",
+    "description": "FIXED: this collection was written against an earlier version of the API and no longer worked end-to-end. Verified request-by-request against a live running instance of the current backend on 2026-08-30 - every request in this file was actually run and its real response checked, not just eyeballed. Three real, separate staleness issues were found and fixed here:\n\n1. Weak test passwords (testpass123) fail the password-strength validation that was added to /register after this collection was written (needs uppercase + lowercase + digit + special character). Fixed to TestPass123!/AdminPass123!.\n\n2. /register used to be fully open. It's now bootstrap-only: the first-ever user can register with no auth, but every registration after that requires an authenticated SuperAdmin. This collection never registered a SuperAdmin at all, so 'Register - Analyst' could never succeed no matter what role the Manager tried it as. Added a 'Register - Bootstrap SuperAdmin' request first, and every other Register request now sends the SuperAdmin's token as Authorization.\n\n3. Shelf creation requires zone_id (a required field with no default) and no longer accepts zone_coordinates at all - that field moved to a separate ShelfCameraView object earlier in this project (a shelf can look different from different cameras, so a single set of coordinates on the shelf itself stopped making sense). Confirmed live: the old body returned 422 'zone_id: Field required', not the 201 this collection expected. Added a 'Create Zone' request before shelf creation, and shelf request bodies now include a real zone_id. The old 'Store Not Found (expect 404)' shelf test would also have failed with 422 for the same reason (FastAPI validates the body before the route handler ever checks whether the store exists) - fixed the same way.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "superadmin_token", "value": "" },
     { "key": "manager_token", "value": "" },
     { "key": "analyst_token", "value": "" },
-    { "key": "store_id", "value": "" }
+    { "key": "store_id", "value": "" },
+    { "key": "zone_id", "value": "" }
   ],
   "item": [
     {
       "name": "Auth",
       "item": [
         {
-          "name": "Register - Manager",
+          "name": "Register - Bootstrap SuperAdmin",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"manager@test.com\",\n  \"password\": \"testpass123\",\n  \"role_name\": \"StoreManager\"\n}"
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"AdminPass123!\",\n  \"role_name\": \"SuperAdmin\"\n}"
             },
-            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] }
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] },
+            "description": "Must run FIRST, against an empty user table (fresh database or none of these emails registered yet) - /register only allows unauthenticated registration for the very first user ever created. Every registration after this one needs this SuperAdmin's token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('superadmin_token', pm.response.json().access_token);",
+                  "}",
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register - Manager",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{superadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@test.com\",\n  \"password\": \"TestPass123!\",\n  \"role_name\": \"StoreManager\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] },
+            "description": "Requires the SuperAdmin token from the bootstrap step above - /register rejects any registration after the first user with 401/403 if it isn't an authenticated SuperAdmin."
           },
           "event": [
             {
@@ -43,10 +75,13 @@
           "name": "Register - Analyst",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{superadmin_token}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"analyst@test.com\",\n  \"password\": \"testpass123\",\n  \"role_name\": \"Analyst\"\n}"
+              "raw": "{\n  \"email\": \"analyst@test.com\",\n  \"password\": \"TestPass123!\",\n  \"role_name\": \"Analyst\"\n}"
             },
             "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] }
           },
@@ -73,7 +108,7 @@
               "mode": "urlencoded",
               "urlencoded": [
                 { "key": "username", "value": "manager@test.com" },
-                { "key": "password", "value": "testpass123" }
+                { "key": "password", "value": "TestPass123!" }
               ]
             },
             "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] },
@@ -102,7 +137,7 @@
               "mode": "urlencoded",
               "urlencoded": [
                 { "key": "username", "value": "analyst@test.com" },
-                { "key": "password", "value": "testpass123" }
+                { "key": "password", "value": "TestPass123!" }
               ]
             },
             "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] }
@@ -148,7 +183,8 @@
                   "if (pm.response.code === 201) {",
                   "    pm.collectionVariables.set('store_id', pm.response.json().id);",
                   "}",
-                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has an id', () => pm.expect(pm.response.json().id).to.not.be.undefined);"
                 ]
               }
             }
@@ -196,6 +232,44 @@
       ]
     },
     {
+      "name": "Zones",
+      "item": [
+        {
+          "name": "Create Zone (needed before creating a Shelf)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{manager_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aisle 3\",\n  \"zone_type\": \"aisle\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/stores/{{store_id}}/zones",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stores", "{{store_id}}", "zones"]
+            },
+            "description": "zone_type must be one of: entrance, aisle, checkout (a fixed enum - see app/models/zone.py). A Shelf can't be created without a real zone_id, which comes from here."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('zone_id', pm.response.json().id);",
+                  "}",
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Shelves",
       "item": [
         {
@@ -208,13 +282,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"shelf_name\": \"Aisle 3\",\n  \"zone_coordinates\": [[0, 0], [10, 10]]\n}"
+              "raw": "{\n  \"shelf_name\": \"Aisle 3\",\n  \"zone_id\": \"{{zone_id}}\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/stores/{{store_id}}/shelves",
               "host": ["{{base_url}}"],
               "path": ["api", "stores", "{{store_id}}", "shelves"]
-            }
+            },
+            "description": "FIXED: zone_id is required (no default) - the old zone_coordinates field was removed from Shelf entirely and now lives on a separate ShelfCameraView object instead (one shelf can look different from different cameras, so a single set of coordinates on the shelf itself doesn't work). Run 'Create Zone' above first."
           },
           "event": [
             {
@@ -251,13 +326,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"shelf_name\": \"Ghost Aisle\"\n}"
+              "raw": "{\n  \"shelf_name\": \"Ghost Aisle\",\n  \"zone_id\": \"{{zone_id}}\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/stores/00000000-0000-0000-0000-000000000000/shelves",
               "host": ["{{base_url}}"],
               "path": ["api", "stores", "00000000-0000-0000-0000-000000000000", "shelves"]
-            }
+            },
+            "description": "FIXED: zone_id must be present and well-formed for this to actually test the 404 path - FastAPI validates the request body before the route handler runs, so a request missing zone_id gets 422 regardless of whether the store in the URL exists. Confirmed live: the original body (missing zone_id) returned 422, not 404."
           },
           "event": [
             {

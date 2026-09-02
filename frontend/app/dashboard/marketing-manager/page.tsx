@@ -12,11 +12,46 @@ import {
   Campaign,
   CampaignAnalytics,
   AttractivenessEntry,
+  RecommendationEntry,
   Store,
   Camera,
   TrafficPoint,
   ZoneTraffic,
 } from "@/lib/api";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar as RBar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ScatterChart,
+  Scatter,
+  FunnelChart,
+  Funnel,
+  LabelList,
+  XAxis,
+  YAxis,
+  ZAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+
+// Same 5-color palette already used in retail-analyst/page.tsx for
+// multi-series charts, reused here so charts look consistent across
+// dashboards rather than inventing a second palette.
+const CHART_COLORS = ["currentColor", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
+const PRIORITY_COLOR: Record<string, string> = {
+  high: "#ef4444",
+  medium: "#f59e0b",
+  low: "#10b981",
+};
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -37,12 +72,12 @@ const SECTIONS = [
 ];
 
 function formatPercent(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "â€”";
+  if (value == null || Number.isNaN(value)) return "—";
   return `${(value * 100).toFixed(1)}%`;
 }
 
 function formatNumber(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "â€”";
+  if (value == null || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 }).format(value);
 }
 
@@ -120,6 +155,7 @@ export default function MarketingManagerPage() {
   >([]);
   const [traffic, setTraffic] = useState<TrafficPoint[]>([]);
   const [zoneTraffic, setZoneTraffic] = useState<ZoneTraffic[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationEntry[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [showCampaignForm, setShowCampaignForm] = useState(false);
@@ -342,9 +378,16 @@ export default function MarketingManagerPage() {
         } catch {
           setZoneTraffic([]);
         }
+
+        try {
+          setRecommendations(await api.getRecommendations(storeId));
+        } catch {
+          setRecommendations([]);
+        }
       } else {
         setTraffic([]);
         setZoneTraffic([]);
+        setRecommendations([]);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load dashboard data.");
@@ -455,15 +498,17 @@ export default function MarketingManagerPage() {
 
   const averages = useMemo(() => {
     if (!attractivenessByShelf.length) {
-      return { final: 0, attention: 0, pickup: 0, purchase: 0 };
+      return { final: 0, attention: 0, interaction: 0, pickup: 0, purchase: 0, repeat: 0 };
     }
     const total = campaignScopedRows.length ? campaignScopedRows.length : attractivenessByShelf.length;
     const rows = campaignScopedRows.length ? campaignScopedRows : attractivenessByShelf;
     return {
       final: rows.reduce((sum, row) => sum + row.final_score, 0) / total,
       attention: rows.reduce((sum, row) => sum + row.attention_score, 0) / total,
+      interaction: rows.reduce((sum, row) => sum + row.interaction_score, 0) / total,
       pickup: rows.reduce((sum, row) => sum + row.pickup_score, 0) / total,
       purchase: rows.reduce((sum, row) => sum + row.purchase_score, 0) / total,
+      repeat: rows.reduce((sum, row) => sum + row.repeat_score, 0) / total,
     };
   }, [attractivenessByShelf, campaignScopedRows]);
 
@@ -633,7 +678,7 @@ export default function MarketingManagerPage() {
                       <div>
                         <h3 className="font-semibold">{selectedCampaign.name}</h3>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {formatDate(selectedCampaign.start_date)} â€“ {formatDate(selectedCampaign.end_date)}
+                          {formatDate(selectedCampaign.start_date)} – {formatDate(selectedCampaign.end_date)}
                         </p>
                       </div>
                       <span className={`text-xs font-medium ${statusClass(selectedCampaign.status)}`}>
@@ -693,20 +738,56 @@ export default function MarketingManagerPage() {
               {selectedCampaignAnalytics?.trend?.length ? (
                 <div className="rounded-lg border border-border p-5">
                   <h3 className="font-semibold">Campaign Score Trend</h3>
-                  <div className="mt-4 overflow-x-auto">
-                    <div className="flex items-end gap-1 min-w-[620px] h-48">
-                      {selectedCampaignAnalytics.trend.map((point, index) => (
-                        <div
-                          key={`${point.computed_at}-${index}`}
-                          title={`${new Date(point.computed_at).toLocaleString()} â€” ${formatPercent(point.final_score)}`}
-                          className="flex-1 min-w-[3px] rounded-t bg-primary/70 hover:bg-primary"
-                          style={{ height: `${Math.max(4, point.final_score * 100)}%` }}
+                  <div className="mt-4" style={{ width: "100%", height: 260 }}>
+                    <ResponsiveContainer>
+                      <LineChart data={selectedCampaignAnalytics.trend}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis
+                          dataKey="computed_at"
+                          fontSize={11}
+                          tickFormatter={(v) => new Date(v).toLocaleDateString()}
                         />
-                      ))}
-                    </div>
+                        <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={11} />
+                        <Tooltip
+                          formatter={(value, name) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, name]}
+                          labelFormatter={(v) => new Date(String(v)).toLocaleString()}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="final_score" name="Attractiveness" stroke="currentColor" className="text-primary" dot={false} />
+                        <Line type="monotone" dataKey="attention_score" name="Attention" stroke="#f59e0b" dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Each bar is a stored attractiveness-score snapshot inside the selected campaign window. Attention score is real; other attractiveness components may be mocked.
+                    Each point is a stored attractiveness-score snapshot inside the selected campaign window. Attention score is real; other attractiveness components may be mocked.
+                  </p>
+                </div>
+              ) : null}
+
+              {campaignComparisons.length > 1 ? (
+                <div className="rounded-lg border border-border p-5">
+                  <h3 className="font-semibold">Campaign Comparison Chart</h3>
+                  <div className="mt-4" style={{ width: "100%", height: 260 }}>
+                    <ResponsiveContainer>
+                      <BarChart
+                        data={campaignComparisons.map(({ campaign, analytics }) => ({
+                          name: campaign.name,
+                          Attractiveness: analytics.summary!.average_final_score,
+                          Attention: analytics.summary!.average_attention_score,
+                        }))}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis dataKey="name" fontSize={11} angle={-15} textAnchor="end" height={60} />
+                        <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={11} />
+                        <Tooltip formatter={(value, name) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, name]} />
+                        <Legend />
+                        <RBar dataKey="Attractiveness" fill="currentColor" className="text-primary" />
+                        <RBar dataKey="Attention" fill="#f59e0b" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Click a campaign below to select it and drill into its own trend and analytics.
                   </p>
                 </div>
               ) : null}
@@ -737,6 +818,67 @@ export default function MarketingManagerPage() {
           ) : (
             <EmptyState>Promotion lift is available only when the selected campaign has score data.</EmptyState>
           )}
+
+          {campaignSummary ? (
+            <div className="rounded-lg border border-border p-5">
+              <h3 className="font-semibold">Before vs After Promotion</h3>
+              <div className="mt-4" style={{ width: "100%", height: 260 }}>
+                <ResponsiveContainer>
+                  <BarChart
+                    data={[
+                      {
+                        name: "Attention",
+                        Before: campaignSummary.before_attention_score,
+                        After: campaignSummary.after_attention_score,
+                      },
+                      {
+                        name: "Purchase",
+                        Before: campaignSummary.before_purchase_score,
+                        After: campaignSummary.after_purchase_score,
+                      },
+                    ]}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="name" fontSize={11} />
+                    <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={11} />
+                    <Tooltip formatter={(value, name) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, name]} />
+                    <Legend />
+                    <RBar dataKey="Before" fill="#f59e0b" />
+                    <RBar dataKey="After" fill="#10b981" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                First-half vs second-half averages within the campaign window. Attention is the real signal; Purchase
+                {selectedCampaignAnalytics?.promotion_effectiveness?.purchase_proxy_is_real
+                  ? " is real."
+                  : " may be mocked (see the data-quality note above)."}
+              </p>
+            </div>
+          ) : null}
+
+          {selectedCampaignAnalytics?.funnel ? (
+            <div className="rounded-lg border border-border p-5">
+              <h3 className="font-semibold">Campaign Conversion Funnel</h3>
+              <div className="mt-4" style={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer>
+                  <FunnelChart>
+                    <Tooltip formatter={(value, name) => [formatNumber(Number(value ?? 0)), name]} />
+                    <Funnel dataKey="count" data={selectedCampaignAnalytics.funnel.stages} isAnimationActive>
+                      {selectedCampaignAnalytics.funnel.stages.map((stage, index) => (
+                        <Cell key={stage.stage} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                      <LabelList dataKey="stage" position="right" fill="currentColor" fontSize={12} />
+                    </Funnel>
+                  </FunnelChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-amber-700 mt-2">
+                {selectedCampaignAnalytics.funnel.disclosure}
+              </p>
+            </div>
+          ) : null}
+
           <p className="text-xs text-amber-700">
             Sales revenue, footfall lift and conversion uplift are not claimed because those signals are not currently stored against Campaign.
           </p>
@@ -751,7 +893,7 @@ export default function MarketingManagerPage() {
             <>
             <p className="text-xs text-muted-foreground">
               {selectedCampaignAnalytics?.has_data
-                ? `Showing the selected campaign window: ${formatDate(selectedCampaign!.start_date)} â€“ ${formatDate(selectedCampaign!.end_date)}.`
+                ? `Showing the selected campaign window: ${formatDate(selectedCampaign!.start_date)} – ${formatDate(selectedCampaign!.end_date)}.`
                 : "Showing the latest available shelf snapshots."}
             </p>
             <div className="rounded-lg border overflow-x-auto">
@@ -784,6 +926,39 @@ export default function MarketingManagerPage() {
           ) : (
             <EmptyState>No attractiveness snapshots are available.</EmptyState>
           )}
+
+          {attractivenessByShelf.length ? (
+            <div className="rounded-lg border border-border p-5">
+              <h3 className="font-semibold">Visibility Metrics</h3>
+              <div className="mt-4" style={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer>
+                  <RadarChart
+                    data={[
+                      { metric: "Attention", value: averages.attention },
+                      { metric: "Interaction", value: averages.interaction },
+                      { metric: "Pickup", value: averages.pickup },
+                    ]}
+                  >
+                    <PolarGrid className="stroke-border" />
+                    <PolarAngleAxis dataKey="metric" fontSize={12} />
+                    <PolarRadiusAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={10} />
+                    <Radar
+                      name="Visibility"
+                      dataKey="value"
+                      stroke="currentColor"
+                      className="text-primary"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                    />
+                    <Tooltip formatter={(value) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, "Score"]} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Attention is real; Interaction and Pickup are provider-backed proxies until real detection replaces them.
+              </p>
+            </div>
+          ) : null}
         </section>
 
         <section id="product-attractiveness" className="scroll-mt-6 space-y-5">
@@ -817,6 +992,70 @@ export default function MarketingManagerPage() {
           ) : (
             <EmptyState>No attractiveness data available.</EmptyState>
           )}
+
+          {attractivenessByShelf.length ? (
+            <div className="grid lg:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-border p-5">
+                <h3 className="font-semibold">Attractiveness Score Breakdown</h3>
+                <div className="mt-4" style={{ width: "100%", height: 280 }}>
+                  <ResponsiveContainer>
+                    <RadarChart
+                      data={[
+                        { metric: "Attention", value: averages.attention },
+                        { metric: "Interaction", value: averages.interaction },
+                        { metric: "Pickup", value: averages.pickup },
+                        { metric: "Purchase", value: averages.purchase },
+                        { metric: "Repeat", value: averages.repeat },
+                      ]}
+                    >
+                      <PolarGrid className="stroke-border" />
+                      <PolarAngleAxis dataKey="metric" fontSize={12} />
+                      <PolarRadiusAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={10} />
+                      <Radar
+                        name="Attractiveness"
+                        dataKey="value"
+                        stroke="#8b5cf6"
+                        fill="#8b5cf6"
+                        fillOpacity={0.25}
+                      />
+                      <Tooltip formatter={(value) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, "Score"]} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  All five weighted-formula components (35/25/20/15/5). Attention is real; the rest are provider proxies until replaced.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border p-5">
+                <h3 className="font-semibold">Shelf Comparison</h3>
+                <div className="mt-4" style={{ width: "100%", height: 280 }}>
+                  <ResponsiveContainer>
+                    <BarChart
+                      data={attractivenessByShelf.slice(0, 5).map((row) => ({
+                        name: row.shelf_name,
+                        Attention: row.attention_score,
+                        Interaction: row.interaction_score,
+                        Purchase: row.purchase_score,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="name" fontSize={11} angle={-15} textAnchor="end" height={60} />
+                      <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={11} />
+                      <Tooltip formatter={(value, name) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, name]} />
+                      <Legend />
+                      <RBar dataKey="Attention" fill="currentColor" className="text-primary" />
+                      <RBar dataKey="Interaction" fill="#f59e0b" />
+                      <RBar dataKey="Purchase" fill="#10b981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Top 5 shelves by attractiveness across all cameras, not limited to the selected campaign's shelf.
+                </p>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section id="customer-engagement" className="scroll-mt-6 space-y-5">
@@ -849,6 +1088,50 @@ export default function MarketingManagerPage() {
             title="Conversion Analysis"
             description={selectedCampaignAnalytics?.has_data ? "Campaign-window attention score versus purchase proxy for the selected campaign shelf." : "Attention score versus purchase proxy at shelf level."}
           />
+          {attractivenessByShelf.length ? (
+            <div className="rounded-lg border border-border p-5">
+              <h3 className="font-semibold">Attention vs Purchase</h3>
+              <div className="mt-4" style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer>
+                  <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis
+                      type="number"
+                      dataKey="attention_score"
+                      name="Attention"
+                      domain={[0, 1]}
+                      tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      fontSize={11}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="purchase_score"
+                      name="Purchase"
+                      domain={[0, 1]}
+                      tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      fontSize={11}
+                    />
+                    <ZAxis type="number" dataKey="interaction_score" range={[60, 400]} name="Interaction" />
+                    <Tooltip
+                      cursor={{ strokeDasharray: "3 3" }}
+                      formatter={(value, name) => [`${(Number(value ?? 0) * 100).toFixed(1)}%`, name]}
+                      labelFormatter={() => ""}
+                    />
+                    <Scatter
+                      name="Shelves"
+                      data={attractivenessByShelf.slice(0, 20)}
+                      fill="currentColor"
+                      className="text-primary"
+                    />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Bubble size is the Interaction proxy. Attention is real; Purchase and Interaction are provider-backed proxies.
+              </p>
+            </div>
+          ) : null}
+
           {attractivenessByShelf.length ? (
             <div className="rounded-lg border p-5">
               <div className="grid md:grid-cols-2 gap-4">
@@ -924,7 +1207,7 @@ export default function MarketingManagerPage() {
             <div className="rounded-lg border p-5">
               <p className="text-xs text-muted-foreground">Latest observation</p>
               <p className="text-sm font-medium mt-2">
-                {latestTraffic ? formatNumber(latestTraffic.event_count) : "â€”"}
+                {latestTraffic ? formatNumber(latestTraffic.event_count) : "—"}
               </p>
             </div>
           </div>
@@ -956,33 +1239,102 @@ export default function MarketingManagerPage() {
         <section id="marketing-recommendations" className="scroll-mt-6 space-y-5">
           <SectionTitle
             title="Marketing Recommendations"
-            description="Recommendations derived from observable attention and attractiveness patterns."
+            description="Priority Matrix and action items from the store's recommendation engine (shared with the Store Manager dashboard, scoped to the selected store)."
           />
-          {attractivenessByShelf.length ? (
-            <div className="grid md:grid-cols-2 gap-4">
-              {attractivenessByShelf.slice(0, 4).map((row) => {
-                const gap = row.attention_score - row.pickup_score;
-                const highAttentionLowPickup = gap > 0.15;
-                return (
-                  <div key={`${row.store_id}-${row.shelf_id}`} className="rounded-lg border p-5">
-                    <p className="text-xs text-muted-foreground">{row.storeName}</p>
-                    <h3 className="font-semibold mt-1">{row.shelf_name}</h3>
-                    <p className="text-sm text-muted-foreground mt-3">
-                      {highAttentionLowPickup
-                        ? "Attention score is materially higher than the pickup proxy. Review product placement, offer visibility, or shelf messaging."
-                        : row.final_score >= 0.7
-                          ? "Strong attractiveness. Preserve placement and consider using this shelf as a benchmark."
-                          : "Attractiveness is below the strongest shelf. Review placement and attention drivers before changing the campaign."}
-                    </p>
-                    <div className="mt-4">
-                      <Bar label="Attention" value={row.attention_score} />
+          {recommendations.length ? (
+            <>
+              <div className="rounded-lg border border-border p-5">
+                <h3 className="font-semibold">Priority Matrix</h3>
+                <div className="mt-4" style={{ width: "100%", height: 280 }}>
+                  <ResponsiveContainer>
+                    <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis
+                        type="number"
+                        dataKey="uplift"
+                        name="Expected conversion uplift"
+                        unit="%"
+                        fontSize={11}
+                      />
+                      <YAxis
+                        type="number"
+                        dataKey="priorityRank"
+                        name="Priority"
+                        domain={[0.5, 3.5]}
+                        ticks={[1, 2, 3]}
+                        tickFormatter={(v) => (v === 3 ? "High" : v === 2 ? "Medium" : "Low")}
+                        fontSize={11}
+                      />
+                      <Tooltip
+                        cursor={{ strokeDasharray: "3 3" }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const point = payload[0].payload as (typeof recommendations)[number] & {
+                            uplift: number;
+                            priorityRank: number;
+                          };
+                          return (
+                            <div className="rounded-md border border-border bg-background p-3 text-xs shadow-sm max-w-[240px]">
+                              <p className="font-medium">{point.action_item}</p>
+                              <p className="text-muted-foreground mt-1">{point.target_description}</p>
+                              <p className="mt-1">
+                                Priority: {point.priority} · Uplift: {point.uplift.toFixed(1)}%
+                                {point.is_estimate ? " (estimate)" : ""}
+                              </p>
+                            </div>
+                          );
+                        }}
+                      />
+                      {(["high", "medium", "low"] as const).map((priority) => (
+                        <Scatter
+                          key={priority}
+                          name={priority}
+                          data={recommendations
+                            .filter((rec) => rec.priority === priority)
+                            .map((rec) => ({
+                              ...rec,
+                              uplift: rec.expected_conversion_uplift_pct,
+                              priorityRank: priority === "high" ? 3 : priority === "medium" ? 2 : 1,
+                            }))}
+                          fill={PRIORITY_COLOR[priority]}
+                        />
+                      ))}
+                      <Legend />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-xs text-amber-700 mt-2">
+                  Expected conversion uplift is an illustrative estimate, not a fitted prediction — every recommendation carries an is_estimate flag.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {recommendations.slice(0, 8).map((rec, index) => (
+                  <div key={`${rec.rule_type}-${index}`} className="rounded-lg border p-5">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="text-xs font-medium uppercase tracking-wide"
+                        style={{ color: PRIORITY_COLOR[rec.priority] }}
+                      >
+                        {rec.priority} priority
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        +{rec.expected_conversion_uplift_pct.toFixed(1)}%{rec.is_estimate ? " (est.)" : ""}
+                      </span>
                     </div>
+                    <p className="text-sm font-medium mt-2">{rec.action_item}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{rec.target_description}</p>
+                    {rec.based_on_mock?.length ? (
+                      <p className="text-xs text-amber-700 mt-2">
+                        Based partly on mocked: {rec.based_on_mock.join(", ")}
+                      </p>
+                    ) : null}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            </>
           ) : (
-            <EmptyState>No data-backed recommendations can be generated yet.</EmptyState>
+            <EmptyState>No recommendations exist yet for the selected store.</EmptyState>
           )}
         </section>
 

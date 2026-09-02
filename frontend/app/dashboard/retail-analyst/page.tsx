@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api, ApiError, Store, Zone, Camera, DwellTimeEntry, TrafficPoint, ZoneTraffic, AttractivenessEntry, AttractivenessHistoryPoint, SegmentDistribution, ProductInteractionResponse, getApiBaseUrl } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Treemap } from "recharts";
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Treemap, ComposedChart, ScatterChart, Scatter, ZAxis } from "recharts";
 import DashboardSidebar from "../_components/DashboardSidebar";
 import KpiCard from "../_components/KpiCard";
 import CompletionAnalyticsPanel from "../_components/CompletionAnalyticsPanel";
@@ -17,6 +17,71 @@ type SimpleHeatInstance = {
   radius: (r: number, blur?: number) => SimpleHeatInstance;
   draw: (minOpacity?: number) => SimpleHeatInstance;
 };
+
+// Quartile stats for a Box Plot, computed from real raw values (not
+// pre-binned buckets) - see the callers below for exactly which raw
+// values feed this. Linear interpolation between ranks, same method
+// Excel/numpy's default use.
+function quartileStats(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const q = (p: number) => {
+    const pos = (sorted.length - 1) * p;
+    const lower = Math.floor(pos);
+    const upper = Math.ceil(pos);
+    if (lower === upper) return sorted[lower];
+    return sorted[lower] + (sorted[upper] - sorted[lower]) * (pos - lower);
+  };
+  return {
+    min: sorted[0],
+    q1: q(0.25),
+    median: q(0.5),
+    q3: q(0.75),
+    max: sorted[sorted.length - 1],
+    count: sorted.length,
+  };
+}
+
+// Recharts has no native box-plot element, so this is a custom SVG shape
+// drawn onto an invisible Bar - the standard recharts pattern for chart
+// types the library doesn't ship. yScale maps a raw value to a pixel y
+// position within the chart's plot area; passed in from the caller since
+// this shape function only receives its own bar's box, not the axis.
+function BoxPlotShape(props: {
+  x?: number;
+  width?: number;
+  payload?: { min: number; q1: number; median: number; q3: number; max: number };
+  yScale?: (v: number) => number;
+}) {
+  const { x = 0, width = 0, payload, yScale } = props;
+  if (!payload || !yScale) return null;
+  const cx = x + width / 2;
+  const boxWidth = Math.min(36, width * 0.6);
+  const yMin = yScale(payload.min);
+  const yQ1 = yScale(payload.q1);
+  const yMedian = yScale(payload.median);
+  const yQ3 = yScale(payload.q3);
+  const yMax = yScale(payload.max);
+  return (
+    <g className="text-primary">
+      <line x1={cx} x2={cx} y1={yMax} y2={yQ3} stroke="currentColor" strokeWidth={1.5} />
+      <line x1={cx} x2={cx} y1={yQ1} y2={yMin} stroke="currentColor" strokeWidth={1.5} />
+      <line x1={cx - boxWidth / 4} x2={cx + boxWidth / 4} y1={yMax} y2={yMax} stroke="currentColor" strokeWidth={1.5} />
+      <line x1={cx - boxWidth / 4} x2={cx + boxWidth / 4} y1={yMin} y2={yMin} stroke="currentColor" strokeWidth={1.5} />
+      <rect
+        x={cx - boxWidth / 2}
+        y={yQ3}
+        width={boxWidth}
+        height={Math.max(1, yQ1 - yQ3)}
+        fill="currentColor"
+        fillOpacity={0.25}
+        stroke="currentColor"
+        strokeWidth={1.5}
+      />
+      <line x1={cx - boxWidth / 2} x2={cx + boxWidth / 2} y1={yMedian} y2={yMedian} stroke="currentColor" strokeWidth={2} />
+    </g>
+  );
+}
 
 type LiveTrackingMessage = {
   camera_id: string;
@@ -65,16 +130,16 @@ function ZoneTreemapCell(props: {
         className="text-primary"
         fill="currentColor"
         fillOpacity={opacity}
-        stroke="var(--background)"
+        stroke="hsl(var(--background))"
         strokeWidth={2}
       />
       {width > 60 && height > 30 && (
-        <text x={x + 8} y={y + 20} fontSize={12} fill="var(--background)">
+        <text x={x + 8} y={y + 20} fontSize={12} fill="hsl(var(--background))">
           {name}
         </text>
       )}
       {width > 60 && height > 44 && (
-        <text x={x + 8} y={y + 36} fontSize={11} fill="var(--background)" fillOpacity={0.85}>
+        <text x={x + 8} y={y + 36} fontSize={11} fill="hsl(var(--background))" fillOpacity={0.85}>
           {value} events
         </text>
       )}
@@ -86,14 +151,17 @@ const SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "heatmap", label: "Heatmap" },
   { id: "dwell", label: "Dwell time" },
+  { id: "dwell-distribution", label: "Dwell Time Distribution" },
   { id: "attractiveness", label: "Attractiveness scores" },
   { id: "trend", label: "Attractiveness trend" },
+  { id: "attention-distribution", label: "Attention Time Distribution" },
   { id: "traffic", label: "Traffic over time" },
   { id: "zones", label: "Zone comparison" },
   { id: "product-analytics", label: "Product Analytics" },
   { id: "segments", label: "Shopper segments" },
   { id: "zone-performance", label: "Zone Performance" },
   { id: "shopping-behaviour", label: "Shopping Behaviour" },
+  { id: "behavioral-analytics", label: "Behavioral Analytics" },
   { id: "ai-insights", label: "AI Insights" },
   { id: "reports", label: "Reports & Export" },
   { id: "journey", label: "Customer journey" },
@@ -446,6 +514,62 @@ export default function RetailAnalystDashboard() {
                 </CardContent>
               </Card>
 
+              {(() => {
+                const shelvesWithVisits = zoneDwellChartData.filter((d) => d.per_visitor_seconds.length >= 2);
+                if (!shelvesWithVisits.length) return null;
+                const globalMax = Math.max(...shelvesWithVisits.flatMap((d) => d.per_visitor_seconds));
+                // Simplified violin: bin each shelf's real per-visitor seconds into
+                // 10 buckets and mirror the counts left/right of center - a real
+                // distribution shape from real per-visit values, not a KDE curve,
+                // but genuinely computed from the raw numbers above, not faked.
+                const binCount = 10;
+                const violinData = shelvesWithVisits.map((d) => {
+                  const binSize = globalMax / binCount || 1;
+                  const bins = new Array(binCount).fill(0);
+                  for (const v of d.per_visitor_seconds) {
+                    const idx = Math.min(binCount - 1, Math.floor(v / binSize));
+                    bins[idx] += 1;
+                  }
+                  const maxBinCount = Math.max(...bins, 1);
+                  return { name: d.display_name, bins, maxBinCount, visitors: d.per_visitor_seconds.length };
+                });
+                return (
+                  <Card id="dwell-distribution" className="scroll-mt-6">
+                    <CardHeader>
+                      <CardTitle className="text-base">Dwell Time Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {violinData.map((shelf) => (
+                          <div key={shelf.name}>
+                            <p className="text-sm font-medium mb-1">{shelf.name}</p>
+                            <div className="flex items-end gap-px h-28">
+                              {shelf.bins.map((count, i) => {
+                                const widthPct = Math.max(4, (count / shelf.maxBinCount) * 50);
+                                return (
+                                  <div key={i} className="flex-1 flex items-center justify-center h-full" title={`${count} visits`}>
+                                    <div
+                                      className="bg-primary/60 rounded-full"
+                                      style={{ width: `${widthPct}%`, height: "100%" }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {shelf.visitors} tracked visits, low → high dwell seconds left to right
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Width per bucket is the real count of tracked visitors whose dwell time fell in that range for this camera&apos;s most recent run. Needs at least 2 tracked visits per shelf to render.
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               <Card id="attractiveness" className="scroll-mt-6">
                 <CardHeader>
                   <CardTitle className="text-base">Attractiveness scores</CardTitle>
@@ -529,6 +653,60 @@ export default function RetailAnalystDashboard() {
                 </CardContent>
               </Card>
 
+              {(() => {
+                if (trendTimestamps.length < 2) return null;
+                const boxData = trendShelfNames
+                  .map((name) => {
+                    const values = historyData.filter((h) => h.shelf_name === name).map((h) => h.attention_score);
+                    const stats = quartileStats(values);
+                    return stats ? { name, ...stats } : null;
+                  })
+                  .filter((d): d is NonNullable<typeof d> => d !== null && d.count >= 2);
+                if (!boxData.length) return null;
+                const globalMax = Math.max(...boxData.map((d) => d.max), 0.01);
+                const chartHeight = 260;
+                const yScale = (v: number) => chartHeight - (v / globalMax) * chartHeight;
+                return (
+                  <Card id="attention-distribution" className="scroll-mt-6">
+                    <CardHeader>
+                      <CardTitle className="text-base">Attention Time Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div style={{ width: "100%", height: chartHeight + 40 }}>
+                        <ResponsiveContainer>
+                          <ComposedChart data={boxData} margin={{ top: 10, bottom: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis dataKey="name" fontSize={11} angle={-15} textAnchor="end" height={60} />
+                            <YAxis domain={[0, globalMax]} tickFormatter={(v) => v.toFixed(2)} fontSize={11} />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null;
+                                const d = payload[0].payload as (typeof boxData)[number];
+                                return (
+                                  <div className="rounded-md border border-border bg-background p-3 text-xs shadow-sm">
+                                    <p className="font-medium">{d.name}</p>
+                                    <p>Max: {d.max.toFixed(3)}</p>
+                                    <p>Q3: {d.q3.toFixed(3)}</p>
+                                    <p>Median: {d.median.toFixed(3)}</p>
+                                    <p>Q1: {d.q1.toFixed(3)}</p>
+                                    <p>Min: {d.min.toFixed(3)}</p>
+                                    <p className="text-muted-foreground mt-1">{d.count} snapshots</p>
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Bar dataKey="max" fill="transparent" shape={<BoxPlotShape yScale={yScale} />} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Real distribution of this camera&apos;s attention-score snapshots per shelf across the retention window — not pre-binned buckets. Needs at least 2 snapshots per shelf.
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               <Card id="traffic" className="scroll-mt-6">
                 <CardHeader>
                   <CardTitle className="text-base">Traffic over time</CardTitle>
@@ -568,7 +746,7 @@ export default function RetailAnalystDashboard() {
                             value: z.event_count,
                           }))}
                           dataKey="value"
-                          stroke="var(--background)"
+                          stroke="hsl(var(--background))"
                           content={<ZoneTreemapCell />}
                         >
                           <Tooltip formatter={(value) => [value ?? 0, "Tracked events"]} />
@@ -614,6 +792,38 @@ export default function RetailAnalystDashboard() {
                         <KpiCard value="Real" label="Visibility signal" accent="blue" />
                       </div>
 
+                      <div className="grid md:grid-cols-3 gap-4 my-4">
+                        {([
+                          { key: "pickup_count" as const, label: "Most Picked Products" },
+                          { key: "return_count" as const, label: "Most Returned Products" },
+                          { key: "comparison_count" as const, label: "Most Compared Products" },
+                        ]).map(({ key, label }) => {
+                          const ranked = [...productAnalyticsData.products]
+                            .filter((p) => (p[key] ?? 0) > 0)
+                            .sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))
+                            .slice(0, 5);
+                          return (
+                            <div key={key}>
+                              <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
+                              {ranked.length ? (
+                                <div className="space-y-1.5">
+                                  {ranked.map((p) => (
+                                    <div key={p.product_name} className="flex items-center justify-between text-sm">
+                                      <span className="truncate">{p.product_name}</span>
+                                      <span className="text-xs text-muted-foreground ml-2">{p[key]}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  Run completion interactions for this camera to compute candidates.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
                       <div className="overflow-x-auto rounded-md border border-border">
                         <table className="w-full text-sm">
                           <thead>
@@ -624,7 +834,7 @@ export default function RetailAnalystDashboard() {
                               <th className="py-2 px-3 font-medium">Tracks</th>
                               <th className="py-2 px-3 font-medium">Observations</th>
                               <th className="py-2 px-3 font-medium">Visible time</th>
-                              <th className="py-2 px-3 font-medium">Interaction</th>
+                              <th className="py-2 px-3 font-medium">Pickup / Return / Compare</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -638,7 +848,11 @@ export default function RetailAnalystDashboard() {
                                 <td className="py-2 px-3">{product.observed_track_count}</td>
                                 <td className="py-2 px-3">{product.observation_count}</td>
                                 <td className="py-2 px-3">{product.estimated_visible_seconds.toFixed(1)}s</td>
-                                <td className="py-2 px-3 text-muted-foreground">Placeholder</td>
+                                <td className="py-2 px-3 text-muted-foreground">
+                                  {product.pickup_count === null
+                                    ? "Not yet computed"
+                                    : `${product.pickup_count} / ${product.return_count} / ${product.comparison_count}`}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -652,9 +866,10 @@ export default function RetailAnalystDashboard() {
                   )}
 
                   <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
-                    Product visibility is a real tracking signal. Pickup, return, comparison and purchase
-                    are intentionally not inferred from product appearance/disappearance; those require
-                    dedicated person-product interaction detection and, for purchase, a transaction source.
+                    Product visibility is a real tracking signal. Pickup and return are shelf-exit/entry-plus-contact
+                    candidates, and comparison is cross-SKU contact by the same shopper within 15 seconds — real
+                    spatial-temporal heuristics computed from tracking data, not hand-level or barcode-confirmed
+                    detection. Purchase still requires a POS transaction source and is not inferred here.
                   </div>
                 </CardContent>
               </Card>
@@ -735,10 +950,63 @@ export default function RetailAnalystDashboard() {
                 </CardContent>
               </Card>
 
+              {(() => {
+                const bubbleData = zoneAttractivenessData
+                  .map((a) => {
+                    const dwell = zoneDwellTimeData.find((d) => d.shelf_id === a.shelf_id);
+                    return dwell
+                      ? {
+                          name: a.shelf_name,
+                          attention: a.attention_score,
+                          purchase: a.purchase_score,
+                          dwell: dwell.total_seconds,
+                        }
+                      : null;
+                  })
+                  .filter((d): d is NonNullable<typeof d> => d !== null);
+                if (!bubbleData.length) return null;
+                return (
+                  <Card id="behavioral-analytics" className="scroll-mt-6">
+                    <CardHeader><CardTitle className="text-base">Behavioral Analytics</CardTitle></CardHeader>
+                    <CardContent>
+                      <div style={{ width: "100%", height: 300 }}>
+                        <ResponsiveContainer>
+                          <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis type="number" dataKey="attention" name="Attention" domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={11} />
+                            <YAxis type="number" dataKey="purchase" name="Purchase" domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} fontSize={11} />
+                            <ZAxis type="number" dataKey="dwell" range={[60, 400]} name="Dwell seconds" />
+                            <Tooltip
+                              cursor={{ strokeDasharray: "3 3" }}
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null;
+                                const d = payload[0].payload as (typeof bubbleData)[number];
+                                return (
+                                  <div className="rounded-md border border-border bg-background p-3 text-xs shadow-sm">
+                                    <p className="font-medium">{d.name}</p>
+                                    <p>Attention: {(d.attention * 100).toFixed(1)}%</p>
+                                    <p>Purchase: {(d.purchase * 100).toFixed(1)}%</p>
+                                    <p>Dwell: {d.dwell.toFixed(1)}s</p>
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Scatter name="Shelves" data={bubbleData} fill="currentColor" className="text-primary" />
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Bubble size is real dwell time (seconds). Attention is real; Purchase is a provider-backed proxy until real purchase detection replaces it.
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               <Card id="ai-insights" className="scroll-mt-6">
                 <CardHeader><CardTitle className="text-base">AI Insights</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                  {recommendations.length ? recommendations.map((r, i) => <div key={`${r.rule_type}-${i}`} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-3"><span className="font-medium text-sm">{r.action_item}</span><span className="text-xs uppercase text-muted-foreground">{r.priority}</span></div><p className="text-sm text-muted-foreground mt-1">{r.target_description}</p><p className="text-xs text-muted-foreground mt-2">Expected uplift: {(r.expected_conversion_uplift_pct * 100).toFixed(1)}%{r.is_estimate ? " (estimate)" : ""}{r.based_on_mock?.length ? ` · Mock inputs: ${r.based_on_mock.join(", ")}` : ""}</p></div>) : <p className="text-sm text-muted-foreground">No recommendation rules have fired for this store yet.</p>}
+                  {recommendations.length ? recommendations.map((r, i) => <div key={`${r.rule_type}-${i}`} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-3"><span className="font-medium text-sm">{r.action_item}</span><span className="text-xs uppercase text-muted-foreground">{r.priority}</span></div><p className="text-sm text-muted-foreground mt-1">{r.target_description}</p><p className="text-xs text-muted-foreground mt-2">Expected uplift: {r.expected_conversion_uplift_pct.toFixed(1)}%{r.is_estimate ? " (estimate)" : ""}{r.based_on_mock?.length ? ` · Mock inputs: ${r.based_on_mock.join(", ")}` : ""}</p></div>) : <p className="text-sm text-muted-foreground">No recommendation rules have fired for this store yet.</p>}
                 </CardContent>
               </Card>
 

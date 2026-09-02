@@ -29,6 +29,7 @@ from app.core.timescale_db import timescale_engine
 from app.models.tracking_event import TrackingEvent
 from app.models.store import Shelf
 from app.models.shelf_camera_view import ShelfCameraView
+from app.models.product_interaction_event import ProductInteractionEvent
 
 
 MAX_TRACK_GAP_SECONDS = 5.0
@@ -138,7 +139,6 @@ def get_product_interactions(
             },
             "products": [],
         }
-
     # TrackingEvent belongs to TimescaleDB.
     statement = select(TrackingEvent).where(
         TrackingEvent.camera_id == str(camera_id),
@@ -217,6 +217,39 @@ def get_product_interactions(
 
         bucket["track_last_seen"][key] = row.event_time
 
+    # FIXED (was a real gap): pickup_count/return_count/comparison_count used
+    # to be hardcoded None on every product, with a comment saying product
+    # visibility alone isn't evidence of pickup/return/comparison - true,
+    # but app/services/completion_analytics.py's derive_interactions()
+    # already computes AND (since the fix above) persists exactly these
+    # candidates per product, to ProductInteractionEvent. This queries that
+    # real, already-computed data instead of leaving it stranded. Note this
+    # is populated only after /api/v1/completion/{store}/{camera}/interactions
+    # has been called at least once for this camera - it's a separate
+    # persisted table, not computed fresh here.
+    with Session(engine) as postgres_session:
+        candidate_rows = postgres_session.exec(
+            select(ProductInteractionEvent)
+            .where(ProductInteractionEvent.camera_id == camera_id)
+            .where(ProductInteractionEvent.event_type.in_(["pickup_candidate", "return_candidate", "comparison"]))
+        ).all()
+        candidates_computed = (
+            postgres_session.exec(
+                select(ProductInteractionEvent).where(ProductInteractionEvent.camera_id == camera_id).limit(1)
+            ).first()
+            is not None
+        )
+    pickup_by_product: dict[str, int] = defaultdict(int)
+    return_by_product: dict[str, int] = defaultdict(int)
+    comparison_by_product: dict[str, int] = defaultdict(int)
+    for row in candidate_rows:
+        if row.event_type == "pickup_candidate":
+            pickup_by_product[row.product_name] += 1
+        elif row.event_type == "return_candidate":
+            return_by_product[row.product_name] += 1
+        elif row.event_type == "comparison":
+            comparison_by_product[row.product_name] += 1
+
     products = []
 
     for product_name, bucket in per_product.items():
@@ -244,13 +277,11 @@ def get_product_interactions(
                     }
                     for shelf_id, track_ids in bucket["shelves"].items()
                 ],
-                # Deliberately null: product visibility alone is not evidence
-                # of pickup, return, comparison, or purchase.
-                "pickup_count": None,
-                "return_count": None,
-                "comparison_count": None,
+                "pickup_count": pickup_by_product.get(product_name, 0) if candidates_computed else None,
+                "return_count": return_by_product.get(product_name, 0) if candidates_computed else None,
+                "comparison_count": comparison_by_product.get(product_name, 0) if candidates_computed else None,
                 "purchase_count": None,
-                "interaction_status": "placeholder",
+                "interaction_status": "candidate_derived" if candidates_computed else "placeholder",
             }
         )
 
@@ -271,9 +302,9 @@ def get_product_interactions(
         },
         "data_quality": {
             "product_visibility": "real_from_product_tracking",
-            "pickup": "placeholder",
-            "return": "placeholder",
-            "comparison": "placeholder",
+            "pickup": "candidate_derived_from_shelf_exit_plus_contact" if candidates_computed else "placeholder_run_completion_interactions_first",
+            "return": "candidate_derived_from_shelf_entry_plus_contact" if candidates_computed else "placeholder_run_completion_interactions_first",
+            "comparison": "derived_from_cross_sku_contact" if candidates_computed else "placeholder_run_completion_interactions_first",
             "purchase": "placeholder",
         },
         "products": products,

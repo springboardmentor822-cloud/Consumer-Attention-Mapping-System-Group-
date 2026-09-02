@@ -94,10 +94,32 @@ def run(
                             f"heartbeat updated for camera "
                             f"{camera_row.name} ({camera_id})"
                         )
+
+                        # FIXED (was a real gap - see the comment on
+                        # PATCH /cameras/{id}/active in api/cameras.py):
+                        # that endpoint only ever flipped the DB flag and
+                        # explicitly said it "does not confirm it stops
+                        # the actual tracking_runner process" - because
+                        # nothing in this loop ever checked it. The
+                        # heartbeat was already re-fetching this row
+                        # every 15s regardless, so this reuses that same
+                        # query instead of adding a new one - if the
+                        # camera has been deactivated since this process
+                        # started, stop pushing events and exit cleanly
+                        # rather than silently continuing to burn
+                        # CPU/GPU and write to Redis for a camera an
+                        # operator just turned off.
+                        if not camera_row.is_active:
+                            print(
+                                f"Camera {camera_row.name} ({camera_id}) was "
+                                f"deactivated (is_active=False) - stopping."
+                            )
+                            break
                     else:
                         print(
                             f"Camera {camera_id} no longer exists in database."
                         )
+                        break
 
                 last_heartbeat = now_monotonic
 

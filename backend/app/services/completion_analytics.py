@@ -27,7 +27,7 @@ from app.core.timescale_db import timescale_engine
 from app.models.camera import Camera
 from app.models.shelf_camera_view import ShelfCameraView
 from app.models.store import Shelf, Store
-from app.models.zone import Zone
+from app.models.zone import Zone, ZoneType
 from app.models.purchase_event import PurchaseEvent
 from app.models.product_interaction_event import ProductInteractionEvent
 from app.models.tracking_event import TrackingEvent
@@ -172,6 +172,8 @@ def derive_interactions(store_id: uuid.UUID, camera_id: uuid.UUID) -> dict:
 
     pickup_candidates = 0
     return_candidates = 0
+    pickup_events = []
+    return_events = []
     for (sku, track_id), prows in products.items():
         if not polygons:
             continue
@@ -180,18 +182,50 @@ def derive_interactions(store_id: uuid.UUID, camera_id: uuid.UUID) -> dict:
         for idx in range(1, len(prows)):
             if shelf_state[idx - 1] and not shelf_state[idx]:
                 # Require a nearby contact within a small frame neighbourhood.
-                if any(abs(c[3] - prows[idx].frame_index) <= 3 and c[1] == sku and c[2] == track_id for c in contacts):
+                match = next(
+                    (c for c in contacts if abs(c[3] - prows[idx].frame_index) <= 3 and c[1] == sku and c[2] == track_id),
+                    None,
+                )
+                if match is not None:
                     pickup_candidates += 1
+                    pickup_events.append({
+                        "person_track_id": int(match[0]),
+                        "product_track_id": track_id,
+                        "product_name": sku,
+                        "event_type": "pickup_candidate",
+                        "event_time": prows[idx].event_time,
+                        "confidence": round(match[5], 3),
+                    })
             if not shelf_state[idx - 1] and shelf_state[idx]:
-                if any(abs(c[3] - prows[idx].frame_index) <= 3 and c[1] == sku and c[2] == track_id for c in contacts):
+                match = next(
+                    (c for c in contacts if abs(c[3] - prows[idx].frame_index) <= 3 and c[1] == sku and c[2] == track_id),
+                    None,
+                )
+                if match is not None:
                     return_candidates += 1
+                    return_events.append({
+                        "person_track_id": int(match[0]),
+                        "product_track_id": track_id,
+                        "product_name": sku,
+                        "event_type": "return_candidate",
+                        "event_time": prows[idx].event_time,
+                        "confidence": round(match[5], 3),
+                    })
 
-    # Persist only contact/comparison candidates; duplicate-safe enough for a
+    # Persist contact/comparison/pickup/return candidates; duplicate-safe enough for a
     # dashboard run because the API deletes the current camera's derived rows
     # before re-inserting the latest run.
+    # FIXED (was a real gap): pickup_candidates/return_candidates used to only
+    # ever be returned as aggregate counts - the per-product detail computed
+    # above (which product, which shopper, when) was thrown away instead of
+    # persisted, even though ProductInteractionEvent.event_type's own
+    # docstring already listed "pickup_candidate / return_candidate" as
+    # values it expected to hold. Nothing downstream could ever answer
+    # "which products get picked up most" from this - now it can, via
+    # get_product_interactions() in product_interactions.py.
     with Session(engine) as db:
         db.exec(delete(ProductInteractionEvent).where(ProductInteractionEvent.camera_id == camera_id))
-        for event in interaction_events + comparison_events:
+        for event in interaction_events + comparison_events + pickup_events + return_events:
             db.add(ProductInteractionEvent(
                 store_id=store_id,
                 camera_id=camera_id,
@@ -222,48 +256,116 @@ def derive_interactions(store_id: uuid.UUID, camera_id: uuid.UUID) -> dict:
 
 
 def journey_data(store_id: uuid.UUID) -> dict:
-    """Build a truthful journey/flow proxy from camera-zone observations."""
+    """
+    Build a real Sankey-ready journey dataset from actual TrackingEvent
+    timestamps, linked with a timing-proximity heuristic across cameras.
+
+    FIXED (was a real bug): this used to sort sessions from DIFFERENT
+    cameras by frame_index and treat adjacency in that sort as a "flow".
+    frame_index is camera-local (each camera's own video starts at frame
+    0) - comparing frame numbers across two different cameras' videos is
+    comparing incomparable numbers, not a real chronology. event_time is
+    a real wall-clock timestamp (set by the background worker at persist
+    time - see tracking_query_utils.py), the same field already trusted
+    elsewhere in this codebase for run-boundary detection. This function
+    now uses event_time throughout instead.
+
+    The heuristic itself: a track's session END in one zone is linked to
+    a DIFFERENT track's session START in a zone the store's own ZoneType
+    ordering (Entrance -> Aisle -> Checkout) says is a plausible next
+    step, if that start happens within TRANSITION_WINDOW_SECONDS of the
+    end. Each source session contributes to at most one outgoing link
+    (its closest-in-time match), so one long session can't fan out into
+    many inflated links. This is still NOT visual re-identification -
+    two different real people could plausibly satisfy "left zone A right
+    when someone entered zone B" - which is exactly why every response
+    here discloses it as a timing heuristic, not confirmed identity.
+    """
+    TRANSITION_WINDOW_SECONDS = 120
+
     with Session(engine) as db:
         cameras = db.exec(select(Camera).where(Camera.store_id == store_id)).all()
         zones = db.exec(select(Zone).where(Zone.store_id == store_id)).all()
-    zone_map = {str(z.id): z.name for z in zones}
-    camera_map = {str(c.id): (c.name, zone_map.get(str(c.zone_id), "Unknown Zone")) for c in cameras}
+    zone_map = {str(z.id): z for z in zones}
+    zone_order = {ZoneType.ENTRANCE: 0, ZoneType.AISLE: 1, ZoneType.CHECKOUT: 2}
+    camera_zone = {str(c.id): zone_map.get(str(c.zone_id)) for c in cameras}
+    camera_name = {str(c.id): c.name for c in cameras}
 
     sessions = []
     for cam in cameras:
+        zone = camera_zone.get(str(cam.id))
+        if zone is None:
+            continue
         events = get_latest_run_person_events(cam.id)
         by_track = defaultdict(list)
         for e in events:
             by_track[int(e.track_id)].append(e)
         for track_id, evs in by_track.items():
-            evs.sort(key=lambda x: x.frame_index)
+            evs.sort(key=lambda x: x.event_time)
             sessions.append({
+                "camera_id": str(cam.id),
                 "track_id": track_id,
-                "camera": camera_map[str(cam.id)][0],
-                "zone": camera_map[str(cam.id)][1],
-                "start_frame": evs[0].frame_index,
-                "end_frame": evs[-1].frame_index,
+                "camera": camera_name[str(cam.id)],
+                "zone": zone.name,
+                "zone_order": zone_order.get(zone.zone_type, 99),
+                "start_time": evs[0].event_time,
+                "end_time": evs[-1].event_time,
             })
 
-    # Since track IDs are camera-local, edges are observation-flow edges, not
-    # re-identified shopper transitions. This still gives the frontend a real
-    # Sankey-ready dataset and exposes the identity limitation explicitly.
     counts = Counter(s["zone"] for s in sessions)
-    ordered_zones = []
-    for s in sorted(sessions, key=lambda x: x["start_frame"]):
-        if not ordered_zones or ordered_zones[-1] != s["zone"]:
-            ordered_zones.append(s["zone"])
-    links = []
-    for a, b in zip(ordered_zones, ordered_zones[1:]):
-        if a != b:
-            links.append({"source": a, "target": b, "value": 1})
+
+    # Greedy nearest-in-time forward match: for each session, find the
+    # closest-starting session in a later zone within the transition
+    # window. Sort candidates by start_time so "closest" is a simple
+    # first-match-after-end scan, not an O(n^2) argmin.
+    by_zone_order = defaultdict(list)
+    for s in sessions:
+        by_zone_order[s["zone_order"]].append(s)
+    for bucket in by_zone_order.values():
+        bucket.sort(key=lambda s: s["start_time"])
+
+    link_counts: Counter = Counter()
+    matched_pairs = 0
+    for s in sessions:
+        best = None
+        best_gap = None
+        for order in sorted(by_zone_order.keys()):
+            if order <= s["zone_order"]:
+                continue
+            for candidate in by_zone_order[order]:
+                if candidate["camera_id"] == s["camera_id"] and candidate["track_id"] == s["track_id"]:
+                    continue
+                gap = (candidate["start_time"] - s["end_time"]).total_seconds()
+                if 0 <= gap <= TRANSITION_WINDOW_SECONDS:
+                    if best_gap is None or gap < best_gap:
+                        best, best_gap = candidate, gap
+            if best is not None:
+                break  # nearest zone tier first; don't skip ahead to a farther tier
+        if best is not None:
+            link_counts[(s["zone"], best["zone"])] += 1
+            matched_pairs += 1
+
+    links = [
+        {"source": source, "target": target, "value": value}
+        for (source, target), value in link_counts.items()
+    ]
+
     return {
         "store_id": str(store_id),
         "sessions": len(sessions),
+        "matched_transitions": matched_pairs,
         "nodes": [{"name": z} for z in counts],
         "links": links,
         "zone_observations": [{"zone": z, "count": c} for z, c in counts.items()],
-        "data_quality": "camera_scoped_flow_proxy_no_cross_camera_reidentification",
+        "data_quality": "timing_proximity_heuristic_no_visual_reidentification",
+        "disclosure": (
+            f"Links connect a session ending in one zone to a DIFFERENT track's session "
+            f"starting in a later zone (by store layout order) within "
+            f"{TRANSITION_WINDOW_SECONDS}s - a timing-proximity heuristic computed from "
+            f"real event timestamps, not confirmed same-person visual re-identification. "
+            f"Two different shoppers could coincidentally satisfy this. "
+            f"{matched_pairs} of {len(sessions)} sessions matched a plausible next-zone session."
+        ),
     }
 
 

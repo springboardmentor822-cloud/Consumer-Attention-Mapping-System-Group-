@@ -74,4 +74,19 @@ def create_store(
         target_id=store.id,
         metadata={"action": "create"},
     )
+    # FIXED (real bug, found by actually running a load test against
+    # this endpoint - not caught by earlier tests, which only checked
+    # status_code, never the response body): log_event() defaults to
+    # commit=True. That second commit on the SAME session, happening
+    # AFTER the `store` object above was already committed+refreshed,
+    # expires every attribute SQLAlchemy had cached on it. The DB write
+    # itself is fine (confirmed via a subsequent GET /api/stores showing
+    # the row correctly) - but by the time FastAPI serializes the
+    # returned `store` object for the HTTP response, the session
+    # dependency has already torn down and the expired attributes can no
+    # longer be lazily reloaded, so the client received `{}` on every
+    # store creation instead of the created store's data. Re-refreshing
+    # here, while the session is still open, fixes it without touching
+    # log_event's commit behavior (other callers may rely on it).
+    session.refresh(store)
     return store

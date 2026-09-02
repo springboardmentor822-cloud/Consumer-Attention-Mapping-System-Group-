@@ -8,7 +8,7 @@ from app.core.db import get_session, engine
 from app.core.timescale_db import timescale_engine
 from app.core.redis_client import redis_client
 from app.core.deps import require_roles
-from app.core.monitoring_state import get_stats
+from app.core.monitoring_state import get_stats, get_network_rate_kbps
 from app.models.user import User
 from app.models.store import Store
 from app.models.camera import Camera
@@ -29,6 +29,65 @@ except ImportError:
     # equivalent) to turn this on - not confirmed pre-installed, same
     # caveat as apscheduler earlier in this project.
     PSUTIL_AVAILABLE = False
+
+
+@router.get("/config")
+def get_system_configuration(_=Depends(require_roles("SuperAdmin"))):
+    """
+    Real, currently-in-effect configuration values pulled directly from
+    app.core.config.settings and the handful of service-level constants
+    that aren't in Settings (thresholds/intervals were deliberately kept
+    as plain module constants close to the code that uses them - see
+    recommendation_engine.py's own docstring on HIGH_THRESHOLD/
+    LOW_THRESHOLD - rather than duplicated into Settings).
+
+    Read-only on purpose: none of these are editable through this
+    endpoint. Making them live-editable would need a real settings-
+    persistence layer (a Settings table, or safely rewriting .env) -
+    a bigger change than "show what's currently configured", which is
+    what Admin's System Configuration section actually needs first.
+
+    Secrets are deliberately excluded, not redacted-with-asterisks -
+    JWT_SECRET_KEY, DATABASE_URL, TIMESCALE_DATABASE_URL, and
+    SMTP_PASSWORD are never returned, even to SuperAdmin, since this
+    travels over HTTP to a browser tab (logs, screen shares, browser
+    history). Only whether SMTP is configured (bool) is exposed, not
+    the credential itself.
+    """
+    from app.core.config import settings
+    from app.services.recommendation_engine import HIGH_THRESHOLD, LOW_THRESHOLD, COLD_ZONE_RATIO
+    from app.services.heatmap_engine import CACHE_TTL_SECONDS
+    from app.workers.recommendation_scheduler import INTERVAL_MINUTES, RETENTION_DAYS
+
+    return {
+        "auth": {
+            "jwt_algorithm": settings.JWT_ALGORITHM,
+            "jwt_expire_minutes": settings.JWT_EXPIRE_MINUTES,
+            "dev_password_reset_mode": settings.DEV_PASSWORD_RESET,
+        },
+        "cors": {
+            "allowed_origins": settings.CORS_ORIGINS,
+            "frontend_url": settings.FRONTEND_URL,
+        },
+        "email": {
+            "smtp_configured": bool(settings.SMTP_HOST and settings.SMTP_USERNAME),
+            "smtp_host": settings.SMTP_HOST or None,
+            "smtp_use_tls": settings.SMTP_USE_TLS,
+        },
+        "recommendation_engine": {
+            "high_attention_threshold": HIGH_THRESHOLD,
+            "low_engagement_threshold": LOW_THRESHOLD,
+            "cold_zone_ratio": COLD_ZONE_RATIO,
+            "thresholds_are_assumption": True,  # per the module's own docstring - not from the spec doc
+        },
+        "recommendation_scheduler": {
+            "interval_minutes": INTERVAL_MINUTES,
+            "retention_days": RETENTION_DAYS,
+        },
+        "heatmap_cache": {
+            "cache_ttl_seconds": CACHE_TTL_SECONDS,
+        },
+    }
 
 
 @router.get("/overview")
@@ -173,6 +232,7 @@ def admin_monitoring(_=Depends(require_roles("SuperAdmin"))):
         "system": system,
         "system_available": PSUTIL_AVAILABLE,
         "gpu": _get_gpu_stats(),
+        "network": get_network_rate_kbps(),
         "services": services,
         "services_running_count": sum(services.values()),
         "services_total_count": len(services),

@@ -12,6 +12,7 @@ import {
   TrafficPoint,
   ZoneTraffic,
   AttractivenessEntry,
+  ProductInteractionResponse,
   getApiBaseUrl,
 } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -25,8 +26,15 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   Treemap,
+  FunnelChart,
+  Funnel,
+  LabelList,
+  Cell,
+  RadialBarChart,
+  RadialBar,
 } from "recharts";
 import DashboardSidebar from "../_components/DashboardSidebar";
 import KpiCard from "../_components/KpiCard";
@@ -83,16 +91,16 @@ function ZoneTreemapCell(props: {
         className="text-primary"
         fill="currentColor"
         fillOpacity={opacity}
-        stroke="var(--background)"
+        stroke="hsl(var(--background))"
         strokeWidth={2}
       />
       {width > 60 && height > 30 && (
-        <text x={x + 8} y={y + 20} fontSize={12} fill="var(--background)">
+        <text x={x + 8} y={y + 20} fontSize={12} fill="hsl(var(--background))">
           {name}
         </text>
       )}
       {width > 60 && height > 44 && (
-        <text x={x + 8} y={y + 36} fontSize={11} fill="var(--background)" fillOpacity={0.85}>
+        <text x={x + 8} y={y + 36} fontSize={11} fill="hsl(var(--background))" fillOpacity={0.85}>
           {value} events
         </text>
       )}
@@ -107,6 +115,7 @@ const SECTIONS = [
   { id: "shelves", label: "Shelf Performance" },
   { id: "heatmap", label: "Store Heatmap" },
   { id: "products", label: "Product Interaction" },
+  { id: "conversion", label: "Store Conversion" },
   { id: "alerts", label: "Store Alerts" },
   { id: "reports", label: "Reports" },
 ];
@@ -131,6 +140,7 @@ export default function StoreManagerDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const [dwellTimeData, setDwellTimeData] = useState<DwellTimeEntry[]>([]);
+  const [productInteractions, setProductInteractions] = useState<ProductInteractionResponse | null>(null);
   const [trafficData, setTrafficData] = useState<TrafficPoint[]>([]);
   const [zoneTrafficData, setZoneTrafficData] = useState<ZoneTraffic[]>([]);
   const [cameraActivity, setCameraActivity] = useState<Record<string, number>>({});
@@ -282,10 +292,12 @@ export default function StoreManagerDashboard() {
     if (!store || !selectedCameraId) {
       setDwellTimeData([]);
       setTrafficData([]);
+      setProductInteractions(null);
       return;
     }
     api.getDwellTime(store.id, selectedCameraId).then(setDwellTimeData).catch(() => setDwellTimeData([]));
     api.getTrafficOverTime(store.id, selectedCameraId).then(setTrafficData).catch(() => setTrafficData([]));
+    api.getProductInteractions(store.id, selectedCameraId).then(setProductInteractions).catch(() => setProductInteractions(null));
   }, [store, selectedCameraId]);
 
   const zoneCameras = cameras.filter((c) => c.zone_id === selectedZoneId);
@@ -515,7 +527,7 @@ export default function StoreManagerDashboard() {
                               value: z.event_count,
                             }))}
                             dataKey="value"
-                            stroke="var(--background)"
+                            stroke="hsl(var(--background))"
                             content={<ZoneTreemapCell />}
                           >
                             <Tooltip formatter={(value) => [value ?? 0, "Tracked events"]} />
@@ -617,11 +629,137 @@ export default function StoreManagerDashboard() {
                   <CardTitle className="text-base">Product Interaction</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {productInteractions?.products?.length ? (
+                    <div className="grid md:grid-cols-3 gap-4 mb-5">
+                      {([
+                        { key: "pickup_count" as const, label: "Most Picked Products" },
+                        { key: "return_count" as const, label: "Most Returned Products" },
+                        { key: "comparison_count" as const, label: "Most Compared Products" },
+                      ]).map(({ key, label }) => {
+                        const ranked = [...productInteractions.products]
+                          .filter((p) => (p[key] ?? 0) > 0)
+                          .sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))
+                          .slice(0, 5);
+                        return (
+                          <div key={key}>
+                            <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
+                            {ranked.length ? (
+                              <div className="space-y-1.5">
+                                {ranked.map((p) => (
+                                  <div key={p.product_name} className="flex items-center justify-between text-sm">
+                                    <span className="truncate">{p.product_name}</span>
+                                    <span className="text-xs text-muted-foreground ml-2">{p[key]}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                {productInteractions.data_quality[key === "pickup_count" ? "pickup" : key === "return_count" ? "return" : "comparison"].startsWith("placeholder")
+                                  ? "Run completion interactions for this camera first."
+                                  : "No candidates yet."}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <p className="text-xs text-amber-700 mb-4">
+                    Pickup/return are shelf-exit-plus-contact candidates, and comparison is cross-SKU contact within 15s by the same shopper — spatial-temporal heuristics, not hand-level or barcode-confirmed detection.
+                  </p>
                   {store && selectedCameraId ? (
                     <CompletionAnalyticsPanel storeId={store.id} cameraId={selectedCameraId} compact />
                   ) : (
                     <p className="text-sm text-muted-foreground">Select a store/camera to load product interaction analytics.</p>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card id="conversion" className="scroll-mt-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Store Conversion</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const entranceZone = zoneTrafficData.find((z) => z.zone_type === "entrance");
+                    const aisleZone = zoneTrafficData.find((z) => z.zone_type === "aisle");
+                    const checkoutZone = zoneTrafficData.find((z) => z.zone_type === "checkout");
+                    const funnelStages = [
+                      { stage: "Entrance", count: entranceZone?.distinct_visitors ?? 0 },
+                      { stage: "Product Aisle", count: aisleZone?.distinct_visitors ?? 0 },
+                      { stage: "Checkout", count: checkoutZone?.distinct_visitors ?? 0 },
+                    ].filter((s) => s.count > 0);
+                    const funnelColors = ["currentColor", "#f59e0b", "#10b981"];
+                    const entranceCount = entranceZone?.distinct_visitors ?? 0;
+                    const checkoutCount = checkoutZone?.distinct_visitors ?? 0;
+                    const reachRate = entranceCount > 0
+                      ? Math.min(100, Math.round((checkoutCount / entranceCount) * 100))
+                      : 0;
+
+                    if (!funnelStages.length) {
+                      return (
+                        <p className="text-sm text-muted-foreground">
+                          No zone traffic data yet — this section needs tracked events in at least the entrance zone.
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <div className="grid lg:grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-sm font-medium mb-2">Entrance → Aisle → Checkout</h3>
+                          <div style={{ width: "100%", height: 260 }}>
+                            <ResponsiveContainer>
+                              <FunnelChart>
+                                <Tooltip formatter={(value, name) => [Number(value ?? 0).toLocaleString(), name]} />
+                                <Funnel dataKey="count" data={funnelStages} isAnimationActive>
+                                  {funnelStages.map((stage, index) => (
+                                    <Cell key={stage.stage} fill={funnelColors[index % funnelColors.length]} className={index === 0 ? "text-primary" : undefined} />
+                                  ))}
+                                  <LabelList dataKey="stage" position="right" fill="currentColor" fontSize={12} />
+                                </Funnel>
+                              </FunnelChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Real distinct-visitor counts per zone (see Store Traffic), not a sales funnel — this system
+                            doesn&apos;t yet detect individual product pickups or confirmed purchases.
+                          </p>
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-medium mb-2">Checkout Reach Rate</h3>
+                          <div style={{ width: "100%", height: 260 }}>
+                            <ResponsiveContainer>
+                              <RadialBarChart
+                                innerRadius="70%"
+                                outerRadius="100%"
+                                startAngle={180}
+                                endAngle={0}
+                                barSize={22}
+                                data={[{ name: "Checkout reach", value: reachRate, fill: "currentColor" }]}
+                              >
+                                <RadialBar dataKey="value" cornerRadius={8} className="text-primary" background={{ fill: "hsl(var(--muted))" }} />
+                                <text
+                                  x="50%"
+                                  y="80%"
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  className="fill-current text-2xl font-semibold"
+                                >
+                                  {reachRate}%
+                                </text>
+                              </RadialBarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Share of entrance visitors whose track also appeared in the checkout zone — a real footfall
+                            ratio, not a confirmed-sale conversion rate (no purchase detection exists yet).
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 

@@ -1,14 +1,20 @@
 import csv
 import io
+import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.core.db import get_session
-from app.core.deps import require_roles
+from app.core.deps import require_roles, get_current_user
+from fastapi.security import OAuth2PasswordBearer
+
+_optional_oauth2_scheme_completion = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 from app.models.event_log import EventCategory, EventLog
 from app.models.purchase_event import PurchaseEvent
 from app.services.heatmap_engine import get_or_generate_heatmap
@@ -31,6 +37,38 @@ class PurchaseIn(BaseModel):
     purchased_at: str | None = None
     shopper_track_id: int | None = None
     camera_id: uuid.UUID | None = None
+
+
+def _pos_ingest_auth(
+    x_pos_api_key: str | None = Header(default=None),
+    token: str | None = Depends(_optional_oauth2_scheme_completion),
+    session: Session = Depends(get_session),
+):
+    """
+    Two ways in, for two different real callers. A real POS/payment
+    system is a server calling this on its own schedule - it should
+    hold one long-lived, narrowly-scoped API key (X-POS-API-Key),
+    not a human StoreManager's JWT that expires and needs a login
+    flow to refresh. A human manually testing this endpoint (e.g. via
+    Postman, or the Admin dashboard triggering it directly) still uses
+    the normal JWT/role path. secrets.compare_digest avoids a timing
+    side-channel on the API key comparison - a naive == comparison
+    leaks how many leading characters matched via response timing.
+    """
+    if x_pos_api_key and settings.POS_WEBHOOK_API_KEY:
+        if secrets.compare_digest(x_pos_api_key, settings.POS_WEBHOOK_API_KEY):
+            return None  # authenticated as the POS system, no User row
+        raise HTTPException(status_code=401, detail="Invalid POS API key")
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Provide either X-POS-API-Key or a StoreManager/SuperAdmin Bearer token",
+        )
+    user = get_current_user(token=token, session=session)
+    if not user.role or user.role.name not in ("StoreManager", "SuperAdmin"):
+        raise HTTPException(status_code=403, detail="Requires one of roles: ('StoreManager', 'SuperAdmin')")
+    return user
 
 
 @router.get("/{store_id}/cameras/{camera_id}/interactions")
@@ -99,8 +137,9 @@ def purchases(
 @router.post("/pos/purchases", status_code=201)
 def ingest_purchase(
     payload: PurchaseIn,
+    response: Response,
     session: Session = Depends(get_session),
-    _=Depends(require_roles("StoreManager", "SuperAdmin")),
+    _=Depends(_pos_ingest_auth),
 ):
     from datetime import datetime, UTC
     purchased_at = datetime.fromisoformat(payload.purchased_at) if payload.purchased_at else datetime.now(UTC)
@@ -115,7 +154,25 @@ def ingest_purchase(
         camera_id=payload.camera_id,
     )
     session.add(row)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # FIXED (real gap): real POS/payment webhooks retry on timeout as
+        # standard practice - the same transaction_id arriving twice is
+        # expected, normal behavior, not an error condition. Returning the
+        # ALREADY-recorded purchase (200, not a new 201) instead of a raw
+        # IntegrityError/500 makes this endpoint genuinely idempotent,
+        # matching how real webhook receivers (Stripe, etc.) are expected
+        # to behave - the caller can safely retry without fear of double-
+        # counting revenue or purchase counts.
+        session.rollback()
+        existing = session.exec(
+            select(PurchaseEvent).where(PurchaseEvent.transaction_id == payload.transaction_id)
+        ).first()
+        if existing:
+            response.status_code = 200
+            return existing
+        raise
     session.refresh(row)
     return row
 

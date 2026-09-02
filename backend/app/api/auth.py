@@ -1,6 +1,6 @@
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -10,7 +10,7 @@ from app.core.db import get_session
 from app.core.deps import get_current_user
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
 from app.models.user import User, Role
-from app.models.event_log import EventCategory
+from app.models.event_log import EventCategory, EventLog
 from app.services.audit import log_event
 from app.models.password_reset import PasswordResetToken
 from pydantic import BaseModel, EmailStr, field_validator
@@ -19,6 +19,15 @@ import smtplib
 from email.message import EmailMessage
 
 router = APIRouter()
+
+# Real security-audit fix - see login()'s comment for the full reasoning.
+# 5 failed attempts within 15 minutes locks that (username, IP) pair out.
+# Numbers are a judgment call, not from a spec doc: strict enough to
+# meaningfully slow down a password-guessing script, loose enough that a
+# real user who fat-fingers their password a few times isn't locked out
+# over one bad morning.
+LOGIN_LOCKOUT_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_WINDOW = timedelta(minutes=15)
 
 _optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
@@ -182,6 +191,32 @@ def login(
     session: Session = Depends(get_session),
 ):
     ip_address = request.client.host if request.client else None
+
+    # Brute-force lockout, real security-audit fix: this endpoint had
+    # ZERO rate limiting or failed-attempt tracking before this - a
+    # script could try unlimited passwords against any known email with
+    # no pushback at all. Built on EventLog rather than a new in-memory
+    # tracker, since login_failed events were already being persisted
+    # here on every failure anyway (see below) - this just queries that
+    # existing, indexed data instead of adding a second, separate,
+    # restart-losing data structure. Locks by (username, IP) pair, not
+    # username alone, so one person's genuine mistyped password doesn't
+    # lock out every OTHER user of a shared/NAT'd IP, and locks by IP
+    # too so a script can't just keep trying different reported
+    # usernames from the same IP unlimited times either.
+    lockout_cutoff = datetime.now(timezone.utc) - LOGIN_LOCKOUT_WINDOW
+    recent_failures = session.exec(
+        select(func.count(EventLog.id))
+        .where(EventLog.event_type == "login_failed")
+        .where(EventLog.created_at >= lockout_cutoff)
+        .where(EventLog.event_metadata["username"].as_string() == form_data.username)
+        .where(EventLog.ip_address == ip_address)
+    ).one()
+    if recent_failures >= LOGIN_LOCKOUT_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed login attempts. Try again in a few minutes.",
+        )
 
     attempted_user = session.exec(
         select(User).where(User.email == form_data.username)

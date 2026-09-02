@@ -94,4 +94,7 @@ def create_shelf_camera_view(
             "shelf_camera_view_id": str(view.id),
         },
     )
+    # FIXED: same log_event()-expires-the-returned-object bug as
+    # api/stores.py's create_store() - see that fix's comment.
+    session.refresh(view)
     return view

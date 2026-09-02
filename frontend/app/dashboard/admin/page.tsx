@@ -7,6 +7,7 @@ import {
   api,
   AdminOverview,
   AdminMonitoring,
+  AdminConfig,
   ApiError,
   UserAccount,
   Store,
@@ -15,7 +16,28 @@ import {
   CurrentUser,
   AdminAlert,
   AdminLogEntry,
+  getApiBaseUrl,
 } from "@/lib/api";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+
+// How many polls (10s apart, see monitoringInterval below) to keep in the
+// rolling in-memory buffer that feeds the infra trend charts. 30 polls =
+// 5 minutes of real history. This is genuinely real data - every point is
+// an actual reading from GET /monitoring - but it only covers however
+// long this browser tab has had the dashboard open, not historical data
+// since the server started (that would need a real time-series store,
+// which doesn't exist for this endpoint - see monitoring_state.py).
+const MONITORING_HISTORY_LIMIT = 30;
+
+type MonitoringHistoryPoint = {
+  t: number;
+  cpu: number | null;
+  ram: number | null;
+  disk: number | null;
+  gpu: number | null;
+  netSent: number | null;
+  netRecv: number | null;
+};
 
 function usageColor(percent: number): string {
   if (percent >= 90) return "bg-red-500";
@@ -107,8 +129,11 @@ const ROLE_OPTIONS = ["SuperAdmin", "StoreManager", "Analyst", "MarketingManager
 export default function AdminDashboard() {
   const [data, setData] = useState<AdminOverview | null>(null);
   const [monitoring, setMonitoring] = useState<AdminMonitoring | null>(null);
+  const [monitoringHistory, setMonitoringHistory] = useState<MonitoringHistoryPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
+  const [config, setConfig] = useState<AdminConfig | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [me, setMe] = useState<CurrentUser | null>(null);
@@ -199,9 +224,25 @@ export default function AdminDashboard() {
       })
       .finally(() => setLoading(false));
 
+    const applyMonitoring = (data: AdminMonitoring) => {
+      setMonitoring(data);
+      setMonitoringHistory((prev) => {
+        const point: MonitoringHistoryPoint = {
+          t: Date.now(),
+          cpu: data.system?.cpu_percent ?? null,
+          ram: data.system?.ram_percent ?? null,
+          disk: data.system?.disk_percent ?? null,
+          gpu: data.gpu?.[0]?.utilization_percent ?? null,
+          netSent: data.network?.sent_kbps ?? null,
+          netRecv: data.network?.recv_kbps ?? null,
+        };
+        return [...prev, point].slice(-MONITORING_HISTORY_LIMIT);
+      });
+    };
+
     api
       .getAdminMonitoring()
-      .then(setMonitoring)
+      .then(applyMonitoring)
       .catch((err: unknown) => {
         setMonitoringError(
           err instanceof ApiError ? err.message : "Failed to load platform monitoring."
@@ -209,6 +250,13 @@ export default function AdminDashboard() {
       });
 
     api.getMe().then(setMe).catch(() => setMe(null));
+
+    api
+      .getAdminConfig()
+      .then(setConfig)
+      .catch((err: unknown) => {
+        setConfigError(err instanceof ApiError ? err.message : "Failed to load system configuration.");
+      });
 
     loadUsers();
 
@@ -232,7 +280,7 @@ export default function AdminDashboard() {
     }, 10_000);
 
     const monitoringInterval = setInterval(() => {
-      api.getAdminMonitoring().then(setMonitoring).catch(() => {});
+      api.getAdminMonitoring().then(applyMonitoring).catch(() => {});
     }, 10_000);
 
     const alertInterval = setInterval(() => {
@@ -294,6 +342,7 @@ export default function AdminDashboard() {
         sections={[
           { id: "overview", label: "Overview" },
           { id: "monitoring", label: "Platform Monitoring" },
+          { id: "config", label: "System Configuration" },
           { id: "users", label: "User Management" },
           { id: "stores", label: "Store Management" },
           { id: "cameras", label: "Camera Management" },
@@ -301,6 +350,7 @@ export default function AdminDashboard() {
           { id: "audit-logs", label: "Audit Logs" },
           { id: "camera-health", label: "Camera Health" },
           { id: "alerts", label: "Alerts" },
+          { id: "help", label: "Help & Support" },
         ]}
       />
       <main className="flex-1 p-6 flex flex-col gap-6">
@@ -411,6 +461,77 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {monitoringHistory.length >= 2 && (
+                <div className="rounded-md border border-border p-4">
+                  <p className="text-sm font-medium mb-1">Infrastructure Trend</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Real readings polled every 10s from this endpoint, kept only for as long as this tab has been
+                    open (last {monitoringHistory.length} of {MONITORING_HISTORY_LIMIT} points) — not historical
+                    data since the server started.
+                  </p>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {([
+                      { key: "cpu" as const, label: "CPU Usage", color: "currentColor", className: "text-primary" },
+                      { key: "ram" as const, label: "Memory Usage", color: "#f59e0b" },
+                      { key: "gpu" as const, label: "GPU Usage", color: "#8b5cf6" },
+                      { key: "disk" as const, label: "Disk Usage", color: "#10b981" },
+                    ]).map(({ key, label, color, className }) => {
+                      const hasAnyValue = monitoringHistory.some((p) => p[key] !== null);
+                      if (!hasAnyValue) return null;
+                      return (
+                        <div key={key}>
+                          <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                          <div style={{ width: "100%", height: 140 }}>
+                            <ResponsiveContainer>
+                              <LineChart data={monitoringHistory}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis
+                                  dataKey="t"
+                                  fontSize={10}
+                                  tickFormatter={(t) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                />
+                                <YAxis domain={[0, 100]} fontSize={10} tickFormatter={(v) => `${v}%`} />
+                                <Tooltip
+                                  labelFormatter={(t) => new Date(Number(t)).toLocaleTimeString()}
+                                  formatter={(value) => [value === null ? "—" : `${value}%`, label]}
+                                />
+                                <Line type="monotone" dataKey={key} stroke={color} className={className} dot={false} connectNulls isAnimationActive={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {monitoringHistory.some((p) => p.netSent !== null) && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Network Traffic (KB/s)</p>
+                        <div style={{ width: "100%", height: 140 }}>
+                          <ResponsiveContainer>
+                            <LineChart data={monitoringHistory}>
+                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                              <XAxis
+                                dataKey="t"
+                                fontSize={10}
+                                tickFormatter={(t) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                              />
+                              <YAxis fontSize={10} />
+                              <Tooltip
+                                labelFormatter={(t) => new Date(Number(t)).toLocaleTimeString()}
+                                formatter={(value, name) => [value === null ? "—" : `${value} KB/s`, name]}
+                              />
+                              <Legend />
+                              <Line type="monotone" dataKey="netSent" name="Sent" stroke="#ef4444" dot={false} connectNulls isAnimationActive={false} />
+                              <Line type="monotone" dataKey="netRecv" name="Received" stroke="#3b82f6" dot={false} connectNulls isAnimationActive={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-md border border-border p-4 flex flex-col gap-3">
                 <p className="text-sm font-medium">Services</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -421,6 +542,72 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
+        </div>
+
+        <div id="config" className="flex flex-col gap-3 scroll-mt-6">
+          <h2 className="text-base font-semibold">System Configuration</h2>
+          <p className="text-xs text-muted-foreground">
+            Read-only — the currently-running values, not an editable settings form. Changing any of these means
+            updating the .env file or the source constant and restarting the service.
+          </p>
+          {configError && <p className="text-sm text-red-500">{configError}</p>}
+          {config ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-md border border-border p-4">
+                <p className="text-sm font-medium mb-2">Auth</p>
+                <dl className="text-sm space-y-1">
+                  <div className="flex justify-between"><dt className="text-muted-foreground">JWT algorithm</dt><dd>{config.auth.jwt_algorithm}</dd></div>
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Token expiry</dt><dd>{config.auth.jwt_expire_minutes} min</dd></div>
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Dev password-reset mode</dt><dd>{config.auth.dev_password_reset_mode ? "On" : "Off"}</dd></div>
+                </dl>
+              </div>
+
+              <div className="rounded-md border border-border p-4">
+                <p className="text-sm font-medium mb-2">CORS</p>
+                <dl className="text-sm space-y-1">
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Allowed origins</dt><dd className="truncate ml-2">{config.cors.allowed_origins}</dd></div>
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Frontend URL</dt><dd className="truncate ml-2">{config.cors.frontend_url}</dd></div>
+                </dl>
+              </div>
+
+              <div className="rounded-md border border-border p-4">
+                <p className="text-sm font-medium mb-2">Email</p>
+                <dl className="text-sm space-y-1">
+                  <div className="flex justify-between"><dt className="text-muted-foreground">SMTP configured</dt><dd>{config.email.smtp_configured ? "Yes" : "No"}</dd></div>
+                  {config.email.smtp_host && <div className="flex justify-between"><dt className="text-muted-foreground">SMTP host</dt><dd>{config.email.smtp_host}</dd></div>}
+                </dl>
+              </div>
+
+              <div className="rounded-md border border-border p-4">
+                <p className="text-sm font-medium mb-2">Recommendation Engine</p>
+                <dl className="text-sm space-y-1">
+                  <div className="flex justify-between"><dt className="text-muted-foreground">High-attention threshold</dt><dd>{config.recommendation_engine.high_attention_threshold}</dd></div>
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Low-engagement threshold</dt><dd>{config.recommendation_engine.low_engagement_threshold}</dd></div>
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Cold-zone ratio</dt><dd>{config.recommendation_engine.cold_zone_ratio}</dd></div>
+                </dl>
+                {config.recommendation_engine.thresholds_are_assumption && (
+                  <p className="text-xs text-amber-700 mt-2">These thresholds are an engineering assumption, not from a spec document.</p>
+                )}
+              </div>
+
+              <div className="rounded-md border border-border p-4">
+                <p className="text-sm font-medium mb-2">Recommendation Scheduler</p>
+                <dl className="text-sm space-y-1">
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Run interval</dt><dd>{config.recommendation_scheduler.interval_minutes} min</dd></div>
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Retention</dt><dd>{config.recommendation_scheduler.retention_days} days</dd></div>
+                </dl>
+              </div>
+
+              <div className="rounded-md border border-border p-4">
+                <p className="text-sm font-medium mb-2">Heatmap Cache</p>
+                <dl className="text-sm space-y-1">
+                  <div className="flex justify-between"><dt className="text-muted-foreground">Cache TTL</dt><dd>{config.heatmap_cache.cache_ttl_seconds}s</dd></div>
+                </dl>
+              </div>
+            </div>
+          ) : !configError ? (
+            <p className="text-sm text-muted-foreground">Loading configuration...</p>
+          ) : null}
         </div>
 
         <div id="users" className="flex flex-col gap-3 scroll-mt-6">
@@ -737,6 +924,56 @@ export default function AdminDashboard() {
           <p className="text-xs text-muted-foreground">
             Alerts are read from persisted EventLog records. This dashboard does not fabricate
             alert states or treat the camera DB active flag as camera health.
+          </p>
+        </div>
+
+        <div id="help" className="flex flex-col gap-3 scroll-mt-6">
+          <h2 className="text-base font-semibold">Help & Support</h2>
+          <p className="text-xs text-muted-foreground">
+            Real links to this system&apos;s own documentation — not a fabricated support
+            desk or a contact this project doesn&apos;t have.
+          </p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <a
+              href={`${getApiBaseUrl()}/docs`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-border p-4 hover:bg-muted transition-colors"
+            >
+              <p className="text-sm font-medium">API Reference (Swagger UI)</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Every real endpoint on this backend, auto-generated from the actual FastAPI routes — not a
+                separately-maintained doc that can drift out of date.
+              </p>
+            </a>
+            <a
+              href={`${getApiBaseUrl()}/redoc`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-border p-4 hover:bg-muted transition-colors"
+            >
+              <p className="text-sm font-medium">API Reference (ReDoc)</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Same underlying OpenAPI schema as Swagger UI above, in a more readable single-page layout.
+              </p>
+            </a>
+            <a
+              href={`${getApiBaseUrl()}/health/dependencies`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-border p-4 hover:bg-muted transition-colors"
+            >
+              <p className="text-sm font-medium">Dependency Health Check</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Live status of PostgreSQL, TimescaleDB, and Redis — useful as a first check if something looks
+                wrong elsewhere in this dashboard.
+              </p>
+            </a>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            This project doesn&apos;t have a support ticketing system or a staffed help desk — for anything not
+            answered by the API reference above, that&apos;s a conversation with whoever maintains this
+            deployment, not a page this dashboard can generate.
           </p>
         </div>
       </main>

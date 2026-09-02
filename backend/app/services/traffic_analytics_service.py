@@ -84,6 +84,7 @@ def compute_zone_traffic(store_id: uuid.UUID) -> list[dict]:
     with Session(engine) as session:
         store_zones = session.exec(select(Zone).where(Zone.store_id == store_id)).all()
         zone_names = {z.id: z.name for z in store_zones}
+        zone_types = {z.id: z.zone_type.value for z in store_zones}
         cameras = session.exec(select(Camera).where(Camera.store_id == store_id)).all()
 
     zone_event_counts: dict = defaultdict(int)
@@ -109,6 +110,7 @@ def compute_zone_traffic(store_id: uuid.UUID) -> list[dict]:
         {
             "zone_id": str(zone_id),
             "zone_name": zone_names[zone_id],
+            "zone_type": zone_types[zone_id],
             "event_count": zone_event_counts.get(zone_id, 0),
             "distinct_visitors": max(
                 (c["distinct_visitors"] for c in zone_visitor_breakdown.get(zone_id, [])),

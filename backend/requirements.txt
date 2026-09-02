@@ -26,3 +26,4 @@ psutil
 deep-sort-realtime
 pytest
 httpx
+fakeredis

@@ -16,6 +16,126 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
   return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${cls}`}>{children}</span>;
 }
 
+const SANKEY_COLORS = ["currentColor", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
+
+// Custom SVG Sankey - no sankey-layout library is installed in this
+// project (checked package.json before writing this), and with only a
+// handful of zones per store, a hand-computed layout is simpler and
+// lighter than adding a new dependency for it. Real column-per-zone,
+// zones ordered left-to-right by first appearance in the links (source
+// zones left of the targets they feed), link widths proportional to the
+// real matched-transition counts from journey_data().
+function JourneySankey({ journey }: { journey: JourneyData }) {
+  const nodeNames = journey.nodes.map((n) => n.name);
+  if (!nodeNames.length) return null;
+
+  // Column assignment: a node with no incoming link is column 0; every
+  // other node's column is 1 + the max column of anything that links
+  // into it. Falls back gracefully for cycles/unlinked nodes (stays at
+  // its default column) rather than looping forever.
+  const columnOf = new Map<string, number>(nodeNames.map((n) => [n, 0]));
+  for (let pass = 0; pass < nodeNames.length; pass++) {
+    let changed = false;
+    for (const link of journey.links) {
+      const targetCol = columnOf.get(link.target) ?? 0;
+      const sourceCol = columnOf.get(link.source) ?? 0;
+      if (targetCol <= sourceCol) {
+        columnOf.set(link.target, sourceCol + 1);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  const columns = new Map<number, string[]>();
+  for (const name of nodeNames) {
+    const col = columnOf.get(name) ?? 0;
+    columns.set(col, [...(columns.get(col) ?? []), name]);
+  }
+  const columnCount = Math.max(...columns.keys()) + 1;
+
+  const width = 560;
+  const height = 220;
+  const nodeWidth = 14;
+  const colGap = columnCount > 1 ? (width - nodeWidth) / (columnCount - 1) : 0;
+
+  const nodePositions = new Map<string, { x: number; y: number; height: number; color: string }>();
+  for (let col = 0; col < columnCount; col++) {
+    const names = columns.get(col) ?? [];
+    const totalValue = names.reduce(
+      (sum, name) =>
+        sum +
+        Math.max(
+          1,
+          journey.zone_observations.find((z) => z.zone === name)?.count ?? 1
+        ),
+      0
+    );
+    let y = 10;
+    const gap = 10;
+    const usableHeight = height - 20 - gap * Math.max(0, names.length - 1);
+    names.forEach((name, i) => {
+      const value = Math.max(1, journey.zone_observations.find((z) => z.zone === name)?.count ?? 1);
+      const h = Math.max(20, (value / totalValue) * usableHeight);
+      nodePositions.set(name, { x: col * colGap, y, height: h, color: SANKEY_COLORS[i % SANKEY_COLORS.length] });
+      y += h + gap;
+    });
+  }
+
+  const maxLinkValue = Math.max(...journey.links.map((l) => l.value), 1);
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
+      {journey.links.map((link, i) => {
+        const source = nodePositions.get(link.source);
+        const target = nodePositions.get(link.target);
+        if (!source || !target) return null;
+        const strokeWidth = Math.max(2, (link.value / maxLinkValue) * 24);
+        const x1 = source.x + nodeWidth;
+        const y1 = source.y + source.height / 2;
+        const x2 = target.x;
+        const y2 = target.y + target.height / 2;
+        const midX = (x1 + x2) / 2;
+        return (
+          <path
+            key={`${link.source}-${link.target}-${i}`}
+            d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
+            fill="none"
+            stroke={source.color}
+            className={source.color === "currentColor" ? "text-primary" : undefined}
+            strokeOpacity={0.4}
+            strokeWidth={strokeWidth}
+          />
+        );
+      })}
+      {[...nodePositions.entries()].map(([name, pos]) => (
+        <g key={name}>
+          <rect
+            x={pos.x}
+            y={pos.y}
+            width={nodeWidth}
+            height={pos.height}
+            fill={pos.color}
+            className={pos.color === "currentColor" ? "text-primary" : undefined}
+            rx={2}
+          />
+          <text
+            x={pos.x + (pos.x < width / 2 ? nodeWidth + 6 : -6)}
+            y={pos.y + pos.height / 2}
+            fontSize={11}
+            fill="currentColor"
+            className="text-foreground"
+            textAnchor={pos.x < width / 2 ? "start" : "end"}
+            dominantBaseline="middle"
+          >
+            {name}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export default function CompletionAnalyticsPanel({
   storeId,
   cameraId,
@@ -117,10 +237,26 @@ export default function CompletionAnalyticsPanel({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-sm font-semibold">Journey / zone flow</h3>
-            <p className="text-xs text-muted-foreground">Sankey-ready flow data. Cross-camera re-identification is not claimed.</p>
+            <p className="text-xs text-muted-foreground">
+              Real timing-proximity heuristic, not confirmed shopper identity — see the note below the diagram.
+            </p>
           </div>
         </div>
-        <div className="space-y-2">
+
+        {journey?.links?.length ? (
+          <>
+            <JourneySankey journey={journey} />
+            <p className="mt-3 text-xs text-amber-700">{journey.disclosure}</p>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No zone-to-zone transitions matched the timing window yet
+            {journey ? ` (${journey.sessions} session${journey.sessions === 1 ? "" : "s"} observed, 0 matched).` : "."}
+          </p>
+        )}
+
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Zone observation counts</p>
           {(journey?.zone_observations ?? []).map((z) => (
             <div key={z.zone} className="flex items-center gap-3">
               <div className="w-36 truncate text-xs">{z.zone}</div>
@@ -131,7 +267,6 @@ export default function CompletionAnalyticsPanel({
             </div>
           ))}
         </div>
-        {!journey?.links?.length && <p className="mt-3 text-xs text-muted-foreground">No trustworthy cross-zone links yet. The backend will not fabricate shopper transitions.</p>}
       </div>
 
       <div className="mt-4 rounded-lg border p-3">

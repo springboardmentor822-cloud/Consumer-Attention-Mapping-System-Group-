@@ -8,6 +8,8 @@ from sqlmodel import Session, select
 from app.core.db import engine
 from app.core.deps import require_roles
 from app.models.camera import Camera
+from app.models.shelf_camera_view import ShelfCameraView
+from app.models.store import Shelf
 from app.services.heatmap_engine import get_or_generate_heatmap
 
 # ROLE CHECK ADDED: no auth dependency existed at all before - both
@@ -57,6 +59,61 @@ def get_store_heatmaps(
             errors[str(camera.id)] = {"camera_name": camera.name, "error": str(e)}
 
     return {"store_id": str(store_id), "heatmaps": results, "skipped": errors}
+
+
+@router.get("/shelf/{shelf_id}")
+def get_shelf_heatmap(
+    shelf_id: uuid.UUID,
+    class_name: str | None = Query(default=None),
+    start_time: datetime | None = Query(default=None),
+    end_time: datetime | None = Query(default=None),
+    _=Depends(require_roles("StoreManager", "Analyst", "SuperAdmin")),
+):
+    """
+    Per M3 doc: '/api/v1/heatmaps/shelf' - the pairing endpoint alongside
+    /store above. This is deliberately shelf-scoped, not camera-scoped:
+    a shelf can be seen by more than one camera (see ShelfCameraView's
+    module docstring - Zone 2's cameras 2 & 3 both see the same shelves,
+    from different angles). A camera_id-only endpoint would silently
+    return an incomplete picture for any shelf with more than one
+    camera view. This aggregates every camera that actually has a
+    ShelfCameraView row for the shelf, same skip-on-error pattern as
+    the /store endpoint above so one thin camera doesn't 500 the rest.
+    """
+    with Session(engine) as session:
+        shelf = session.get(Shelf, shelf_id)
+        if shelf is None:
+            raise HTTPException(status_code=404, detail=f"Shelf {shelf_id} not found")
+
+        views = session.exec(
+            select(ShelfCameraView, Camera)
+            .join(Camera, Camera.id == ShelfCameraView.camera_id)
+            .where(ShelfCameraView.shelf_id == shelf_id)
+        ).all()
+
+    if not views:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No camera is configured to view shelf {shelf_id} (no ShelfCameraView rows).",
+        )
+
+    results = {}
+    errors = {}
+    for _view, camera in views:
+        try:
+            results[str(camera.id)] = {
+                "camera_name": camera.name,
+                **get_or_generate_heatmap(camera.id, class_name, start_time, end_time),
+            }
+        except ValueError as e:
+            errors[str(camera.id)] = {"camera_name": camera.name, "error": str(e)}
+
+    return {
+        "shelf_id": str(shelf_id),
+        "shelf_name": shelf.shelf_name,
+        "heatmaps": results,
+        "skipped": errors,
+    }
 
 
 @router.get("/camera/{camera_id}")

@@ -7,8 +7,10 @@
 - [x] Docker build definitions added
 - [x] Compose includes application + data services
 - [x] CI workflow added
-- [x] Backend smoke test added
+- [x] Backend smoke test added — expanded well beyond a smoke test: 60 real tests covering auth, role gating, self-lockout, attractiveness, dwell-time, campaigns, exports, heatmaps, journey linking, product interactions, tracking-runner stop behavior, and admin config
 - [x] Deployment/API/data-quality documentation added
+- [x] Admin dashboard System Configuration + Help & Support sections — real read-only config values (secrets excluded) and real links to auto-generated API docs
+- [x] Camera active/inactive toggle actually stops the running tracking process (was previously DB-flag-only)
 - [ ] Cloud account deployment
 - [ ] Managed object storage configuration
 - [ ] Production secrets and domain configuration
@@ -17,7 +19,7 @@
 - [ ] Performance/load benchmark with representative camera workload
 - [ ] Centralized production log/trace backend
 - [ ] Model/stream/error monitoring service
-- [ ] True hand-level pickup/return model
-- [ ] Cross-camera ReID
+- [~] Pickup/return/comparison candidates — real, shelf-exit/entry-plus-contact and cross-SKU-contact heuristics now persisted per-product and surfaced as ranked lists on Store Manager and Retail Analyst; still not true hand-level keypoint detection
+- [~] Cross-camera journey linking — real timing-proximity heuristic (event-time + store zone order) now links sessions across different cameras; still not true visual re-identification (appearance-embedding matching), which does not exist in this system
 - [ ] Calibrated floorplan homography and true gaze/shelf layers
 - [ ] Real POS population for purchase conversion

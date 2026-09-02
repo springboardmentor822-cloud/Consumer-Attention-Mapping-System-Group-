@@ -1,3 +1,4 @@
+import hashlib
 import io
 import uuid
 from datetime import datetime, time, UTC
@@ -53,6 +54,45 @@ def _load_campaign(campaign_id: uuid.UUID):
     return campaign, shelf, rows
 
 
+def _campaign_funnel(campaign_id: uuid.UUID) -> dict:
+    """
+    Marketing funnel (Impressions -> Viewed -> Engaged -> Interested ->
+    Converted) has no real backing data anywhere in this system - there is
+    no ad-impression or promotional-view tracking, only in-store attention/
+    pickup/purchase captured by the camera pipeline. This follows the same
+    pattern as app/services/metrics/mock_providers.py: deterministic per
+    campaign (hashed, not re-randomized on every call) so the chart doesn't
+    visibly jitter between refreshes, and explicitly disclosed via
+    is_mock=True rather than presented as observed data.
+    """
+    digest = hashlib.md5(f"{campaign_id}-funnel".encode()).hexdigest()
+    seed = int(digest, 16)
+
+    impressions = 8000 + (seed % 4000)
+    stages = [("Impressions", impressions)]
+    remaining = impressions
+    # Each stage keeps a deterministic 45-75% of the previous stage, so the
+    # funnel always narrows (a real funnel never widens) while still
+    # varying by campaign.
+    for i, label in enumerate(("Viewed", "Engaged", "Interested", "Converted")):
+        digit = int(digest[i * 2 : i * 2 + 2], 16)
+        keep_ratio = 0.45 + (digit / 255) * 0.30
+        remaining = round(remaining * keep_ratio)
+        stages.append((label, remaining))
+
+    return {
+        "stages": [{"stage": label, "count": count} for label, count in stages],
+        "is_mock": True,
+        "disclosure": (
+            "Impressions/Viewed/Engaged/Interested have no tracking source in this "
+            "system (no ad-impression or promotional-view pipeline exists) and are "
+            "a deterministic illustrative mock, not observed data. Only in-store "
+            "attention, pickup, and purchase (shown elsewhere on this dashboard) are "
+            "measured."
+        ),
+    }
+
+
 def _analytics_payload(campaign, shelf, rows):
     base = {
         "id": str(campaign.id),
@@ -77,6 +117,7 @@ def _analytics_payload(campaign, shelf, rows):
             "promotion_effectiveness": None,
             "engagement": None,
             "conversion": None,
+            "funnel": _campaign_funnel(campaign.id),
         }
 
     latest = rows[-1]
@@ -125,6 +166,9 @@ def _analytics_payload(campaign, shelf, rows):
             "average_pickup_score": avg("pickup_score"),
             "average_purchase_score": avg("purchase_score"),
             "average_repeat_score": avg("repeat_score"),
+            "before_purchase_score": before_purchase,
+            "after_purchase_score": after_purchase,
+            "purchase_score_change": round(after_purchase - before_purchase, 3),
             "sample_count": len(rows),
         },
         "trend": [
@@ -169,6 +213,7 @@ def _analytics_payload(campaign, shelf, rows):
             "purchase_score": avg("purchase_score"),
             "is_observed_conversion": "purchase" not in mock_metrics,
         },
+        "funnel": _campaign_funnel(campaign.id),
     }
 
 

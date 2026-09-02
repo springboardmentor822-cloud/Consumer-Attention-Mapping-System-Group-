@@ -142,11 +142,13 @@ def compute_dwell_time_data(camera_id: uuid.UUID) -> list[dict]:
     seen_shelf_ids = set()
     for shelf_id, per_track in frames_inside.items():
         total_frames = sum(per_track.values())
+        per_visitor_seconds = [round(frames * seconds_per_frame, 1) for frames in per_track.values()]
         results.append({
             "shelf_id": str(shelf_id),
             "shelf_name": shelf_names.get(shelf_id, str(shelf_id)),
             "total_seconds": round(total_frames * seconds_per_frame, 1),
             "distinct_visitors": len(per_track),
+            "per_visitor_seconds": per_visitor_seconds,
         })
         seen_shelf_ids.add(shelf_id)
 
@@ -157,6 +159,7 @@ def compute_dwell_time_data(camera_id: uuid.UUID) -> list[dict]:
                 "shelf_name": shelf_names.get(view.shelf_id, str(view.shelf_id)),
                 "total_seconds": 0.0,
                 "distinct_visitors": 0,
+                "per_visitor_seconds": [],
             })
 
     return results

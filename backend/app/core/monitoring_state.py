@@ -25,6 +25,43 @@ _total_requests = 0
 _recent_durations_ms: deque = deque(maxlen=200)
 _lock = Lock()
 
+_net_lock = Lock()
+_last_net_sample: tuple[float, int, int] | None = None  # (timestamp, bytes_sent, bytes_recv)
+
+
+def get_network_rate_kbps() -> dict | None:
+    """
+    Real network throughput (KB/s), computed from the delta between this
+    call and the previous one - psutil.net_io_counters() only gives
+    cumulative bytes since boot, not a rate, so a rate needs two samples.
+    Returns None on the very first call (no previous sample yet) and on
+    any machine without psutil installed. Same in-memory, not-persisted
+    pattern as the rest of this module - a page reload loses the
+    previous sample and the next call just returns None once, then rates
+    resume.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return None
+
+    now = time.time()
+    counters = psutil.net_io_counters()
+    with _net_lock:
+        global _last_net_sample
+        previous = _last_net_sample
+        _last_net_sample = (now, counters.bytes_sent, counters.bytes_recv)
+
+    if previous is None:
+        return None
+    prev_time, prev_sent, prev_recv = previous
+    elapsed = now - prev_time
+    if elapsed <= 0:
+        return None
+    sent_kbps = round((counters.bytes_sent - prev_sent) / 1024 / elapsed, 2)
+    recv_kbps = round((counters.bytes_recv - prev_recv) / 1024 / elapsed, 2)
+    return {"sent_kbps": max(0.0, sent_kbps), "recv_kbps": max(0.0, recv_kbps)}
+
 
 def record_request(duration_ms: float) -> None:
     global _total_requests

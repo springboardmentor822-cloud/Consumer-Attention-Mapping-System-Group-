@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     # false and provide SMTP_* settings.
     DEV_PASSWORD_RESET: bool = True
     SMTP_HOST: str = ""
+    # Real POS/webhook integration: a separate, machine-to-machine
+    # credential for POST /pos/purchases, distinct from human user JWTs.
+    # A real POS system is a server calling this API on its own, not a
+    # person who logs in - making it hold a StoreManager's JWT (which
+    # expires and needs a human login flow to refresh) is the wrong
+    # shape for that. Empty by default (this endpoint then falls back to
+    # requiring a StoreManager/SuperAdmin JWT, e.g. for manual testing);
+    # set this to a long random value to enable real webhook-style access.
+    POS_WEBHOOK_API_KEY: str = ""
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""

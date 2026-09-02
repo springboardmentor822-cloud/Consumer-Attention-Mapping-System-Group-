@@ -1,4 +1,4 @@
-﻿services:
+services:
   postgres:
     image: postgres:16
     container_name: camsystem-postgres
@@ -51,6 +51,14 @@
   frontend:
     build:
       context: ./frontend
+      # FIX: NEXT_PUBLIC_API_BASE_URL must be passed at build time, not
+      # runtime — Next.js inlines NEXT_PUBLIC_* vars into the client bundle
+      # during `npm run build`. The old `environment:` entry below was a
+      # no-op for client-side code. Kept it too, since some server-side
+      # code paths do read process.env at runtime — but the client bundle
+      # only picks up the build arg.
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
     container_name: camsystem-frontend
     restart: unless-stopped
     environment:
@@ -61,6 +69,13 @@
       - "3000:3000"
 
 volumes:
+  # NOTE: these are external — they must already exist before `docker
+  # compose up`, e.g. from earlier `docker run` containers in this
+  # project. On a first-ever clone/deploy, create them first:
+  #   docker volume create backend_camsystem_pgdata
+  #   docker volume create backend_camsystem_redisdata
+  #   docker volume create backend_camsystem_timescaledata
+  # DEPLOYMENT.md did not mention this step — added below.
   camsystem_pgdata:
     external: true
     name: backend_camsystem_pgdata

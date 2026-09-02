@@ -75,4 +75,7 @@ def create_shelf(
         target_id=shelf.id,
         metadata={"action": "create", "store_id": str(store_id), "zone_id": str(shelf.zone_id)},
     )
+    # FIXED: same log_event()-expires-the-returned-object bug as
+    # api/stores.py's create_store() - see that fix's comment.
+    session.refresh(shelf)
     return shelf
