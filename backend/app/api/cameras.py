@@ -77,6 +77,14 @@ def create_camera(
         target_id=camera.id,
         metadata={"store_id": str(store_id), "zone_id": str(camera.zone_id)},
     )
+    # FIXED: log_event() defaults to commit=True. That second commit on
+    # this same session, happening AFTER the refresh() above, expires
+    # every attribute SQLAlchemy had cached on `camera` again - so
+    # without this second refresh, FastAPI would serialize an empty {}
+    # for the HTTP response even though the DB row itself is correct.
+    # Same bug/fix as api/stores.py's create_store() and
+    # api/shelves.py's create_shelf().
+    session.refresh(camera)
     return camera
 
 
@@ -114,4 +122,8 @@ def set_camera_active(
         target_id=camera.id,
         metadata={"old_is_active": previous_active, "new_is_active": camera.is_active},
     )
+    # FIXED: same log_event()-expires-the-object bug as create_camera()
+    # above - the second commit inside log_event() wipes out the
+    # refresh() that already happened a few lines up.
+    session.refresh(camera)
     return camera
