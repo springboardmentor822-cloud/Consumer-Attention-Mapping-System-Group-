@@ -1,0 +1,49 @@
+# CPU-only deployment variant of requirements.txt.
+#
+# WHY THIS FILE EXISTS: requirements.txt pins torch/torchvision with +cu126
+# CUDA wheels, needed for real GPU acceleration on local dev (RTX 4060).
+# On a GPU-less box (e.g. AWS EC2 without a GPU instance type), pip still
+# tries to pull those CUDA wheels by default - several GB of unusable
+# NVIDIA/CUDA packages (nvidia-cudnn, cublas, triton, etc.), which is what
+# caused the original EBS "no space left on device" failures during
+# deployment. Removing the +cu126 suffix alone does NOT fix this - PyPI's
+# default Linux torch wheel bundles CUDA regardless. The real fix is
+# pointing pip at PyTorch's actual CPU-only wheel index instead.
+#
+# Usage on a CPU-only deployment target:
+#   pip install -r requirements-cpu.txt
+#
+# (Do NOT use this file for local dev on a GPU machine - use the normal
+# requirements.txt there, or you lose real GPU acceleration silently.)
+
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlmodel==0.0.22
+psycopg2-binary==2.9.12
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+pydantic-settings==2.5.2
+email-validator==2.2.0
+python-multipart==0.0.9
+opencv-python==4.10.0.84
+torch==2.13.0
+torchvision==0.28.0
+ultralytics
+redis
+reportlab
+openpyxl
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+apscheduler
+psutil
+deep-sort-realtime
+pytest
+httpx
+fakeredis

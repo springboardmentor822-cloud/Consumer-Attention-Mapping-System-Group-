@@ -16,6 +16,9 @@ your team wants the exact library; the styling tokens already match.
    copy .env.local.example .env.local
    ```
    Edit `.env.local` if your backend isn't on `http://localhost:8000`.
+   Note: `NEXT_PUBLIC_API_BASE_URL` is baked in at **build time**, not
+   read at container runtime — see `docs/DEPLOYMENT.md` if you're
+   deploying anywhere other than localhost.
 
 3. **Run the dev server** (make sure the backend is running first):
    ```
@@ -25,8 +28,11 @@ your team wants the exact library; the styling tokens already match.
 
 4. **Try it:**
    - Register a `StoreManager` account
-   - You're redirected to `/stores`
-   - Add a store, click it to expand, add a shelf
+   - You're redirected to `/stores` — add a store, click it to expand, add a shelf
+   - Visit `/dashboard` and pick a role view: Store Manager, Retail
+     Analyst, Marketing Manager, or Admin — each pulls real data from the
+     backend's analytics endpoints (dwell time, heatmaps, product
+     interactions, journeys, campaigns, alerts, recommendations)
    - Log out, register an `Analyst` account, try adding a store —
      the backend's 403 will surface as an error message in the UI
      (this is intentional — it proves the role check isn't just a
@@ -37,13 +43,20 @@ your team wants the exact library; the styling tokens already match.
 ```
 frontend/
 ├── app/
-│   ├── login/page.tsx     # register/login toggle
-│   ├── stores/page.tsx    # store list, create, shelf management
+│   ├── login/page.tsx              # register/login toggle
+│   ├── forgot-password/page.tsx
+│   ├── stores/page.tsx             # store list, create, shelf management
+│   ├── dashboard/
+│   │   ├── page.tsx                # role picker / landing
+│   │   ├── store-manager/page.tsx
+│   │   ├── retail-analyst/page.tsx
+│   │   ├── marketing-manager/page.tsx  # campaigns, funnel/radar/waterfall charts
+│   │   └── admin/page.tsx          # system config, help & support
 │   ├── layout.tsx
-│   └── globals.css        # shadcn-style CSS variable tokens (light/dark)
-├── components/ui/         # Button, Card, Input — shadcn-style primitives
+│   └── globals.css                 # shadcn-style CSS variable tokens (light/dark)
+├── components/ui/                  # Button, Card, Input — shadcn-style primitives
 ├── lib/
-│   ├── api.ts              # typed API client matching the backend contract exactly
+│   ├── api.ts                      # typed API client matching the backend contract exactly
 │   └── utils.ts
 └── package.json
 ```
@@ -56,3 +69,4 @@ frontend/
   the 14.x line has no backported fix for a CSP-nonce XSS CVE
   (GHSA-ffhc-5mcf-pf4q) affecting App Router. `npm audit` should show
   0 vulnerabilities; if it doesn't after you install, don't ignore it.
+- Deployed live via Docker/AWS EC2 — see `docs/DEPLOYMENT.md`.
