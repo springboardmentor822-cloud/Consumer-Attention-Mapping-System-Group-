@@ -13,3 +13,11 @@ Current KDE heatmaps are generated from observed camera coordinates. A calibrate
 
 ## Recommendations
 Recommendations that depend on proxy/mock inputs must remain visibly labelled as estimates. `expected_conversion_uplift_pct` is already a percent-scale number (e.g. `8.4` means 8.4%) — do not multiply it by 100 again when displaying it; that exact mistake was found and fixed in the Retail Analyst dashboard's AI Insights section.
+
+## Camera footage
+The three camera feeds (`Zone_1.mp4`, `Zone_2.mp4`, `Zone_3.mp4`) are free stock video clips chosen to visually match each zone's purpose (entrance, aisle, checkout), not real CCTV footage from one physical store. They come from unrelated productions/locations. This matters in two ways beyond general disclosure:
+
+- **They were not always content-accurate.** The original `Zone_1.mp4` was a wide shopping-mall concourse shot (not an entrance/foyer), and the original `Zone_2.mp4` carried a visible iStock/Getty Images watermark — meaning it was very likely an unlicensed preview clip, not cleared for use. Both were identified by actually reviewing extracted frames (not trusting filenames or the original spec's example layout) and replaced with unwatermarked, commercial-use-licensed clips (Pixabay/Pexels) that genuinely match their zone's content.
+- **Even the corrected clips are not one coherent physical space.** This means the journey-analytics timing heuristic described above (linking a session's exit from one zone to another track's entry in the next) is not just "not visual re-identification" — the underlying premise that a shopper could plausibly walk from one zone's camera view into the next literally does not hold, since the three zones were never the same location to begin with. Any cross-zone journey output from this demo footage should be read as proof the linking *code* runs correctly, not as a real linked shopper journey. Real footage from one physical store, wired to real cameras, is the only fix for this — not something the current codebase can compensate for.
+
+The one registered demo store ("Demo Retail Store") and its 3 zones/cameras are named generically for exactly this reason — the footage was deliberately not attributed to any real or fictional named business, since none of it depicts one.
