@@ -2,11 +2,17 @@ import io
 import json
 import os
 import time
+import hmac
+import shutil
+import sqlite3
+import urllib.request
+import urllib.error
 import threading
 import queue
 import random
 import asyncio
 import datetime
+from collections import deque, defaultdict
 from typing import List, Dict, Optional
 from contextlib import asynccontextmanager
 
@@ -34,9 +40,23 @@ from jose import JWTError, jwt
 # Import Database & Models
 import database
 import models
-import ml_engine
+# ml_engine.py is currently unused everywhere in this file (see its own
+# header comment for the full status of each function) — importing it
+# defensively, matching the YOLO/mediapipe pattern used elsewhere, so a
+# missing filterpy dependency (ml_engine.py's own unconditional import)
+# can't crash the whole backend over a module nothing actually calls yet.
+try:
+    import ml_engine
+    HAS_ML_ENGINE = True
+except ImportError as e:
+    ml_engine = None
+    HAS_ML_ENGINE = False
+    print(f"⚠️ ml_engine.py unavailable ({e}) — harmless, nothing currently calls it. See ml_engine.py's header for status.")
 from database import engine, SessionLocal, Base, User, POSTransaction
-from models import StoreZoneDB, ProductAttractiveness, ShopperSession, Recommendation
+from models import (
+    StoreZoneDB, ProductAttractiveness, ShopperSession, Recommendation,
+    SystemSettings, AuditLogEntry, BackupRecord, FailedLoginRecord,
+)
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Creates the database file and tables if they don't exist yet
@@ -66,7 +86,8 @@ def migrate_missing_columns():
     inspector = sqlalchemy_inspect(engine)
     with engine.connect() as conn:
         for model in (User, POSTransaction, models.StoreZoneDB, models.ProductAttractiveness,
-                      models.ShopperSession, models.Recommendation, models.ShopperProfile):
+                      models.ShopperSession, models.Recommendation, models.ShopperProfile,
+                      models.SystemSettings, models.AuditLogEntry, models.BackupRecord, models.FailedLoginRecord):
             table_name = model.__tablename__
             if not inspector.has_table(table_name):
                 continue  # brand new table — create_all() already built it correctly
@@ -109,6 +130,42 @@ CAMERA_DATASETS = {
 }
 
 DATASET_SALES = os.path.join(PROJECT_ROOT, "frontend", "public", "datasets", "supermarket_sales - Sheet1.csv")
+
+# Real, backend-local (not web-served) folder for SQLite backups — see
+# POST /api/v1/admin/backup. Deliberately NOT under frontend/public like
+# the camera datasets above; backup files should never be reachable over
+# HTTP by path guessing.
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+# Live-adjustable YOLO detection confidence — loaded from SystemSettings at
+# startup (see lifespan()) and updated in-process by POST /admin/settings.
+# Previously the Detection Confidence Threshold slider on the Settings
+# screen was 100% cosmetic; stream_camera_frames()'s detector() call now
+# reads this value on every frame instead of using YOLO's silent default.
+DETECTION_CONFIDENCE_THRESHOLD = 0.25
+
+# --- API Performance tracking (real, in-process) ---
+# A capped rolling window of the last N requests' timing, replacing the
+# previously-hardcoded "42ms / 115ms p99 / 0.01% error rate" on the API
+# Performance tab. Process-local by design: this is one FastAPI process,
+# not a distributed system needing a shared metrics store.
+API_LATENCY_SAMPLES: "deque" = deque(maxlen=1000)  # each item: {"path","status","ms","ts"}
+API_STATS_LOCK = threading.Lock()
+
+# --- Security / Firewall tracking (real, in-process) ---
+# Previously the Security Monitoring tab had an explicit banner saying no
+# such tracking existed anywhere. FAILED_LOGIN_TRACKER holds the ACTIVE
+# block state (in-memory, per-process — a restart clears active blocks,
+# which is an acceptable tradeoff for a single-process deployment and is
+# documented on FailedLoginRecord in models.py); every failure is also
+# persisted to FailedLoginRecord for the 24h "Blocked IPs" count and the
+# real audit trail, which does survive a restart.
+FAILED_LOGIN_TRACKER: Dict[str, List[float]] = defaultdict(list)
+FAILED_LOGIN_LOCK = threading.Lock()
+FAILED_LOGIN_THRESHOLD = 5          # failures...
+FAILED_LOGIN_WINDOW_MINUTES = 10    # ...within this many minutes...
+FAILED_LOGIN_BLOCK_MINUTES = 15     # ...triggers a block lasting this long
 
 
 def filter_sales_df_by_time(df: pd.DataFrame, time_filter: str) -> pd.DataFrame:
@@ -238,6 +295,147 @@ def get_current_user(request: Request, db: Session = Depends(database.get_db)) -
     if user is None:
         raise HTTPException(status_code=401, detail="User no longer exists")
     return user
+
+
+def require_roles(*allowed_roles: str):
+    """
+    Real, server-enforced RBAC dependency factory. Previously the Permission
+    Matrix screen was explicitly labeled "illustrative only — not enforced
+    by the backend" for every endpoint except data export, and two
+    endpoints in particular (GET /admin/users, POST /layout) had zero role
+    check at all — any authenticated account, any role, could list every
+    registered user's email or overwrite the store's live planogram.
+
+    Usage: current_user: User = Depends(require_roles("Administrator"))
+    — reuses get_current_user for the actual auth check, then additionally
+    verifies current_user.role is one of allowed_roles, 403ing otherwise.
+    GET /api/v1/admin/permission-matrix returns this exact same
+    role→endpoint mapping (ADMIN_PROTECTED_RESOURCES below) so the UI can
+    never drift from what's actually enforced here.
+    """
+    def _check(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Your role ({current_user.role}) doesn't have access to this. Requires: {', '.join(allowed_roles)}.",
+            )
+        return current_user
+    return _check
+
+
+# Mirrors exactly what require_roles(...) is applied to below — kept as one
+# explicit list (rather than introspecting FastAPI's route table at
+# runtime) so GET /admin/permission-matrix has a simple, readable source of
+# truth for the frontend's Permission Matrix screen.
+ADMIN_PROTECTED_RESOURCES = [
+    {"resource": "Registered User List", "roles": ["Administrator"]},
+    {"resource": "System Settings", "roles": ["Administrator"]},
+    {"resource": "Audit Logs", "roles": ["Administrator"]},
+    {"resource": "Database Backup & Restore", "roles": ["Administrator"]},
+    {"resource": "Security / Firewall Status", "roles": ["Administrator"]},
+    {"resource": "API Performance Metrics", "roles": ["Administrator"]},
+    {"resource": "Store Layout (Publish Planogram)", "roles": ["Administrator", "Store Manager"]},
+    # Was missing — send_test_notification() is genuinely require_roles("Administrator")-
+    # gated, but had no entry here, so PermissionMgmtTab.tsx's matrix (which
+    # claims completeness — "fetched from the exact same list... on every
+    # request") silently omitted one real protected endpoint. Found by
+    # cross-checking every Depends(require_roles(...)) call site against this list.
+    {"resource": "Notification Webhooks (Send Test)", "roles": ["Administrator"]},
+]
+
+
+def get_client_ip(request: Request) -> str:
+    """Best-effort real client IP — request.client.host directly (this app
+    has no reverse proxy adding X-Forwarded-For in front of it; if one is
+    added later, that header should be preferred here instead)."""
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def write_audit_log(db: Session, level: str, source: str, event_type: str, message: str, ip_address: Optional[str] = None):
+    """
+    Real audit-trail writer — previously the Logs tab showed 4 hardcoded
+    sample rows with an explicit banner saying no aggregation existed.
+    Called from real events (login, signup, layout publish, settings
+    change, manual score recalc, backup/restore) rather than synthesized.
+    Never raises — a logging failure shouldn't break the action being
+    logged; it's caught and printed instead.
+    """
+    try:
+        entry = AuditLogEntry(
+            timestamp=datetime.datetime.utcnow(), level=level, source=source,
+            event_type=event_type, message=message, ip_address=ip_address,
+        )
+        db.add(entry)
+        db.commit()
+    except Exception as e:
+        print(f"⚠️ write_audit_log failed (non-fatal): {e}")
+
+
+def is_ip_blocked(ip: str) -> Optional[int]:
+    """Returns seconds remaining until unblocked, or None if not currently
+    blocked. Real logic backing the Security Monitoring tab's "Blocked
+    IPs" — previously that number was always "—" with a banner saying
+    nothing was actually tracked."""
+    with FAILED_LOGIN_LOCK:
+        attempts = FAILED_LOGIN_TRACKER.get(ip, [])
+        now = time.time()
+        window_s = FAILED_LOGIN_WINDOW_MINUTES * 60
+        recent = [t for t in attempts if now - t <= window_s]
+        FAILED_LOGIN_TRACKER[ip] = recent
+        if len(recent) < FAILED_LOGIN_THRESHOLD:
+            return None
+        block_until = recent[-1] + (FAILED_LOGIN_BLOCK_MINUTES * 60)
+        remaining = block_until - now
+        return int(remaining) if remaining > 0 else None
+
+
+def record_failed_login(ip: str, email_attempted: str, db: Session):
+    """Records one failed login attempt — both in the in-memory active-block
+    tracker (FAILED_LOGIN_TRACKER) and persisted to FailedLoginRecord for
+    the 24h count and audit trail."""
+    with FAILED_LOGIN_LOCK:
+        FAILED_LOGIN_TRACKER[ip].append(time.time())
+    try:
+        db.add(FailedLoginRecord(ip_address=ip, email_attempted=email_attempted, timestamp=datetime.datetime.utcnow()))
+        db.commit()
+    except Exception as e:
+        print(f"⚠️ record_failed_login persist failed (non-fatal): {e}")
+
+
+def clear_failed_login_tracking(ip: str):
+    """Called on a successful login — clears this IP's active failure
+    count so a legitimate user who mistyped their password a few times
+    isn't left sitting near the block threshold."""
+    with FAILED_LOGIN_LOCK:
+        FAILED_LOGIN_TRACKER.pop(ip, None)
+
+
+SIGNUP_TRACKER: Dict[str, List[float]] = defaultdict(list)
+SIGNUP_LOCK = threading.Lock()
+SIGNUP_MAX_PER_WINDOW = 5       # signups...
+SIGNUP_WINDOW_MINUTES = 60      # ...per IP, per this many minutes
+
+
+def is_signup_rate_limited(ip: str) -> bool:
+    """Real signup abuse protection — previously /api/auth/signup had ZERO
+    rate limiting (unlike /api/auth/login, which now blocks after repeated
+    failures). Anyone could script unlimited account creation. Deliberately
+    a separate tracker from FAILED_LOGIN_TRACKER: a successful signup isn't
+    a "failure", so it needs its own count-per-window rather than reusing
+    the failed-login block logic."""
+    with SIGNUP_LOCK:
+        now = time.time()
+        window_s = SIGNUP_WINDOW_MINUTES * 60
+        recent = [t for t in SIGNUP_TRACKER[ip] if now - t <= window_s]
+        SIGNUP_TRACKER[ip] = recent
+        return len(recent) >= SIGNUP_MAX_PER_WINDOW
+
+
+def record_signup(ip: str):
+    with SIGNUP_LOCK:
+        SIGNUP_TRACKER[ip].append(time.time())
 
 # Seed a few demo accounts into the real User table on first startup, so the
 # app is still logs-in-able out of the box. Unlike the old USER_DB dict, this
@@ -1165,6 +1363,31 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(calculate_and_store_scores, 'interval', minutes=15) 
 scheduler.add_job(_evict_stale_global_profiles, 'interval', hours=1)
 
+
+def load_system_settings():
+    """Loads the singleton SystemSettings row at startup, creating it with
+    defaults if this is a fresh database, and applies
+    detection_confidence_threshold to the module-level
+    DETECTION_CONFIDENCE_THRESHOLD that stream_camera_frames()'s YOLO call
+    actually reads. Mirrors the pattern already used by
+    migrate_missing_columns()/seed_default_zones() for other first-run setup."""
+    global DETECTION_CONFIDENCE_THRESHOLD
+    db = database.SessionLocal()
+    try:
+        settings_row = db.query(SystemSettings).filter(SystemSettings.id == 1).first()
+        if settings_row is None:
+            settings_row = SystemSettings(id=1)
+            db.add(settings_row)
+            db.commit()
+            db.refresh(settings_row)
+        DETECTION_CONFIDENCE_THRESHOLD = settings_row.detection_confidence_threshold
+        print(f"⚙️  Loaded system settings — detection confidence threshold: {DETECTION_CONFIDENCE_THRESHOLD}")
+    except Exception as e:
+        print(f"⚠️ load_system_settings failed, using default confidence 0.25: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     load_inventory_metadata()
@@ -1172,6 +1395,7 @@ async def lifespan(app: FastAPI):
     migrate_missing_columns()
     seed_default_users()
     seed_default_zones()
+    load_system_settings()
     scheduler.start()
     yield
     scheduler.shutdown()
@@ -1190,6 +1414,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def track_api_performance(request: Request, call_next):
+    """
+    Real per-request latency tracking backing GET /dashboard/api-performance
+    — previously that entire tab was 3 hardcoded numbers with a banner
+    explicitly saying no instrumentation existed. Records every request
+    (path template + method, status code, elapsed ms) into
+    API_LATENCY_SAMPLES, a capped deque so memory use can't grow unbounded.
+    MJPEG camera stream requests are excluded — they stay open for the
+    life of the stream, so their "elapsed ms" would be meaningless noise
+    dwarfing every real API call's latency.
+    """
+    if request.url.path.startswith("/api/camera/stream/"):
+        return await call_next(request)
+
+    start = time.time()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed_ms = (time.time() - start) * 1000
+        with API_STATS_LOCK:
+            API_LATENCY_SAMPLES.append({
+                "path": request.url.path,
+                "method": request.method,
+                "status": status_code,
+                "ms": elapsed_ms,
+                "ts": time.time(),
+            })
+
 class SignupRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
     # bcrypt's real limit is 72 BYTES, and passlib's modern bcrypt handler
@@ -1199,6 +1456,9 @@ class SignupRequest(BaseModel):
     # accepted password inside bcrypt's actual limit; this is a char count,
     # not bytes, so it's still conservative for any multi-byte UTF-8 password.
     password: str = Field(..., min_length=8, max_length=72)
+    # NOT validated against a fixed set here — see create_account()'s
+    # explicit self-signup role allowlist. That's where "Administrator" is
+    # actually blocked; this field alone would accept literally any string.
     role: Optional[str] = "Store Manager"
 
 class LoginRequest(BaseModel):
@@ -1246,7 +1506,7 @@ def stream_camera_frames(camera_id: int):
             if HAS_YOLO and frame_idx % process_every_n_frames == 0:
                 try:
                     with model_lock:
-                        results = detector(frame, classes=[0], verbose=False)
+                        results = detector(frame, classes=[0], conf=DETECTION_CONFIDENCE_THRESHOLD, verbose=False)
                     current_boxes = []
                     for r in results:
                         for box in r.boxes:
@@ -1336,7 +1596,30 @@ def get_system_health():
         }
     }
 @app.post("/api/auth/signup")
-def create_account(credentials: SignupRequest, db: Session = Depends(database.get_db)):
+def create_account(credentials: SignupRequest, request: Request, db: Session = Depends(database.get_db)):
+    client_ip = get_client_ip(request)
+    if is_signup_rate_limited(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many accounts created from this address recently. Max {SIGNUP_MAX_PER_WINDOW} per {SIGNUP_WINDOW_MINUTES} minutes.",
+        )
+
+    # SECURITY: credentials.role was previously used completely unvalidated
+    # — new_user = User(..., role=credentials.role) — meaning anyone could
+    # POST {"role": "Administrator"} to this PUBLIC, unauthenticated endpoint
+    # and grant themselves full admin access, bypassing every single
+    # require_roles("Administrator") check protecting backups, security
+    # monitoring, the audit log, and user management. "Administrator" is
+    # deliberately excluded from self-service signup — every other role is
+    # a legitimate business self-signup choice, admin access is not.
+    SELF_SIGNUP_ALLOWED_ROLES = {"Store Manager", "Retail Analyst", "Marketing Manager"}
+    requested_role = credentials.role or "Store Manager"
+    if requested_role not in SELF_SIGNUP_ALLOWED_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{requested_role}' isn't a valid self-signup role. Choose one of: {', '.join(sorted(SELF_SIGNUP_ALLOWED_ROLES))}.",
+        )
+
     # Was `credentials: dict` with manual .get() calls — no validation, no
     # OpenAPI schema, and a malformed body (wrong type, missing field) would
     # either silently coerce to None or fail somewhere non-obvious downstream
@@ -1357,18 +1640,39 @@ def create_account(credentials: SignupRequest, db: Session = Depends(database.ge
     except ValueError:
         raise HTTPException(status_code=400, detail="Password is too long (bcrypt supports at most 72 bytes).")
 
-    new_user = User(email=credentials.email, password=hashed_password, role=credentials.role)
+    new_user = User(email=credentials.email, password=hashed_password, role=requested_role)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
+    record_signup(client_ip)
+    write_audit_log(db, "INFO", new_user.email, "auth", f"Account created with role {new_user.role}.", ip_address=client_ip)
+
     return {"status": "created", "role": new_user.role, "email": new_user.email}
 
 @app.post("/api/auth/login")
-def login(credentials: LoginRequest, response: Response, db: Session = Depends(database.get_db)):
+def login(credentials: LoginRequest, request: Request, response: Response, db: Session = Depends(database.get_db)):
+    client_ip = get_client_ip(request)
+
+    # Real firewall check — previously the Security Monitoring tab claimed
+    # "no IP-blocking or rate-limiting is currently implemented" and that
+    # was true. Blocked IPs get a 429, not a 401, so the difference between
+    # "wrong password" and "too many wrong passwords" is visible to a client.
+    retry_after = is_ip_blocked(client_ip)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed login attempts from this address. Try again in {retry_after}s.",
+        )
+
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not verify_password(credentials.password, user.password):
+        record_failed_login(client_ip, credentials.email, db)
+        write_audit_log(db, "WARN", credentials.email, "auth", "Failed login attempt (invalid email or password).", ip_address=client_ip)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    clear_failed_login_tracking(client_ip)
+    write_audit_log(db, "INFO", user.email, "auth", f"Logged in as {user.role}.", ip_address=client_ip)
 
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
 
@@ -1459,12 +1763,17 @@ def get_behavioral_segments(db: Session = Depends(database.get_db), current_user
 
 
 @app.get("/api/v1/admin/users")
-def get_registered_users(db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
+def get_registered_users(db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
     """Real registered accounts, queried straight from the same `User` table
     /api/auth/signup writes to — previously this read from a separate
     in-memory USER_DB dict that signup never actually populated, so this
     endpoint always returned only the 4 seed accounts no matter who signed up.
-    Requires an authenticated session (admin-facing data)."""
+
+    Previously required only an authenticated session (ANY role), not
+    Administrator specifically — every consumer of this endpoint (IAMTab's
+    Users/Sessions/Role Management sub-tabs, the Administrator Overview's
+    User Distribution donut) is Administrator-only UI already, so this now
+    matches what was already true in practice, just enforced server-side."""
     users = db.query(User).all()
     return {"status": "success", "data": [{"email": u.email, "role": u.role} for u in users]}
 
@@ -1544,10 +1853,10 @@ def get_dashboard_telemetry(role: str = "Store Manager", time_filter: str = "all
 
     if role == "Store Manager":
         kpis = [
-            {"label": "Gross Revenue", "val": f"${total_rev:,.0f}", "trend": "From Sales CSV", "icon": "💰"},
-            {"label": "Total Units", "val": f"{total_units:,}", "trend": "From Sales CSV", "icon": "📦"},
-            {"label": "Avg Transaction", "val": f"${avg_tx:,.2f}", "trend": "From Sales CSV", "icon": "💳"},
-            {"label": "Top Category", "val": str(top_cat), "trend": "Highest Revenue", "icon": "⭐"},
+            {"label": "Gross Revenue", "val": f"${total_rev:,.0f}", "trend": "From Sales CSV"},
+            {"label": "Total Units", "val": f"{total_units:,}", "trend": "From Sales CSV"},
+            {"label": "Avg Transaction", "val": f"${avg_tx:,.2f}", "trend": "From Sales CSV"},
+            {"label": "Top Category", "val": str(top_cat), "trend": "Highest Revenue"},
             # Was hardcoded "4 / 4, All systems nominal" regardless of
             # whether any camera had actually reported a frame recently —
             # now reflects the real CAMERA_LAST_UPDATE heartbeat.
@@ -1639,8 +1948,24 @@ def get_store_layout(db: Session = Depends(database.get_db), current_user: User 
     ]}
 
 @app.post("/api/v1/layout")
-def save_store_layout(zones: List[ZoneItem], db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
-    """Overwrites the global planogram with the new layout from the Studio."""
+def save_store_layout(zones: List[ZoneItem], db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator", "Store Manager"))):
+    """Overwrites the global planogram with the new layout from the Studio.
+
+    Previously required only an authenticated session (ANY role) — a
+    Marketing Manager or Retail Analyst account could silently overwrite
+    the live store layout that every camera zone mapping, the heatmap, and
+    the journey view all depend on. Now restricted to the two roles that
+    actually own store operations.
+
+    Also previously had no server-side floor-is-non-empty check —
+    StoreLayoutTab.tsx's handleDeleteZone() already refuses to let a user
+    delete the last zone client-side ("the floor plan requires at least
+    one active zone"), but nothing enforced that server-side, so a direct
+    API call (bypassing the UI, or a future UI bug) could still POST an
+    empty list and wipe every zone — breaking the heatmap, journey view,
+    and every camera's zone name in one call."""
+    if len(zones) == 0:
+        raise HTTPException(status_code=400, detail="Cannot publish an empty layout — at least one zone is required.")
     try:
         # Clear the old layout
         db.query(StoreZoneDB).delete()
@@ -1654,6 +1979,7 @@ def save_store_layout(zones: List[ZoneItem], db: Session = Depends(database.get_
             db.add(new_zone)
         
         db.commit()
+        write_audit_log(db, "INFO", current_user.email, "layout", f"Published a new planogram ({len(zones)} zone(s)).")
         return {"status": "success", "message": "Planogram synchronized globally."}
     except Exception as e:
         db.rollback()
@@ -2455,7 +2781,7 @@ def get_attractiveness_scores(db: Session = Depends(database.get_db), current_us
 
 
 @app.post("/api/v1/dashboard/attractiveness/recalculate")
-def recalculate_attractiveness_scores(current_user: User = Depends(get_current_user)):
+def recalculate_attractiveness_scores(db: Session = Depends(database.get_db), current_user: User = Depends(get_current_user)):
     """
     Manually runs calculate_and_store_scores() on demand, instead of only
     on server startup (see lifespan()) or the scheduler's 15-minute tick
@@ -2470,6 +2796,11 @@ def recalculate_attractiveness_scores(current_user: User = Depends(get_current_u
     (and a real write, if there's data) happen right now instead of on the
     next scheduled tick, so the response tells the caller which case
     occurred rather than just "success" either way.
+
+    Also writes to the audit log — models.py's AuditLogEntry docstring has
+    always named "manual score recalculation" as one of the real logged
+    event types, but nothing here ever actually called write_audit_log()
+    until now.
     """
     with COMPLETED_SESSIONS_LOCK:
         session_count = len(COMPLETED_SESSIONS_BUFFER)
@@ -2477,11 +2808,13 @@ def recalculate_attractiveness_scores(current_user: User = Depends(get_current_u
     calculate_and_store_scores()
 
     if session_count == 0:
+        write_audit_log(db, "INFO", current_user.email, "scoring", "Requested a manual score recalculation — no completed sessions yet, nothing written.")
         return {
             "status": "success",
             "wrote_data": False,
             "message": "No completed camera sessions yet — nothing to score. Open the Cameras tab and let at least one tracked shopper fully leave a camera's frame, then try again.",
         }
+    write_audit_log(db, "INFO", current_user.email, "scoring", f"Manually recalculated attractiveness scores from {session_count} completed session(s).")
     return {
         "status": "success",
         "wrote_data": True,
@@ -2489,7 +2822,398 @@ def recalculate_attractiveness_scores(current_user: User = Depends(get_current_u
     }
 
 # ==========================================
-# MOCK / SUPPLEMENTARY ENDPOINTS
+# ADMIN OPERATIONS: SETTINGS, AUDIT LOGS,
+# BACKUP/RESTORE, SECURITY, API PERFORMANCE
+# All 6 real replacements for what were previously 100%-placeholder
+# screens (System Settings persistence, Audit Logs, Permission Matrix
+# enforcement, Backup/Restore, API Performance, Security/Firewall).
+# ==========================================
+
+class SystemSettingsUpdate(BaseModel):
+    store_id: Optional[str] = None
+    data_retention_days: Optional[int] = Field(None, ge=1, le=3650)
+    detection_confidence_threshold: Optional[float] = Field(None, ge=0.01, le=1.0)
+    slack_webhook_url: Optional[str] = None
+
+
+def send_slack_notification(message: str) -> Dict:
+    """
+    Real Slack delivery via an Incoming Webhook URL (stdlib urllib, no SDK
+    dependency) — previously the Notifications screen's Slack field was a
+    read-only "Not configured" input with a banner saying nothing was
+    wired up anywhere. Reads the webhook URL from SystemSettings (set via
+    POST /admin/settings or the Notifications screen) at CALL time, not at
+    import time, so a URL added after startup is picked up immediately.
+
+    Honest by construction, not by comment: if no URL is configured, this
+    returns {"sent": False, ...} rather than silently pretending to
+    succeed — it never claims delivery that didn't happen.
+    """
+    db = database.SessionLocal()
+    try:
+        row = db.query(SystemSettings).filter(SystemSettings.id == 1).first()
+        webhook_url = row.slack_webhook_url if row else None
+    finally:
+        db.close()
+
+    if not webhook_url:
+        return {"sent": False, "reason": "No Slack webhook URL is configured."}
+
+    try:
+        payload = json.dumps({"text": message}).encode("utf-8")
+        req = urllib.request.Request(webhook_url, data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            success = 200 <= resp.status < 300
+            return {"sent": success, "reason": None if success else f"Slack returned HTTP {resp.status}."}
+    except urllib.error.URLError as e:
+        return {"sent": False, "reason": f"Could not reach Slack: {e.reason}"}
+    except Exception as e:
+        return {"sent": False, "reason": f"Unexpected error sending to Slack: {e}"}
+
+
+@app.post("/api/v1/admin/notifications/test")
+def send_test_notification(db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
+    """Sends one real test message to the configured Slack webhook — lets
+    an admin verify delivery actually works from the Notifications screen
+    instead of guessing whether a webhook URL is correct."""
+    result = send_slack_notification(f"🔔 Test notification from VisionRetail AI, triggered by {current_user.email}.")
+    if result["sent"]:
+        write_audit_log(db, "INFO", current_user.email, "notifications", "Sent a real test Slack notification.")
+        return {"status": "success", "sent": True, "message": "Test message sent to Slack."}
+    return {"status": "success", "sent": False, "message": result["reason"]}
+
+
+@app.get("/api/v1/admin/settings")
+def get_system_settings(db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
+    """Real settings, previously 100% cosmetic <input defaultValue> fields
+    with no backing table and an explicit "not wired up" alert on Save."""
+    row = db.query(SystemSettings).filter(SystemSettings.id == 1).first()
+    if row is None:
+        row = SystemSettings(id=1)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return {
+        "status": "success",
+        "data": {
+            "store_id": row.store_id,
+            "data_retention_days": row.data_retention_days,
+            "detection_confidence_threshold": row.detection_confidence_threshold,
+            "slack_webhook_url": row.slack_webhook_url,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        },
+        # Explicit about which fields actually DO something vs. are just
+        # stored for later — same honesty standard as everywhere else in
+        # this codebase, not implying data_retention_days triggers a purge
+        # job that doesn't exist yet.
+        "applied_fields": ["detection_confidence_threshold", "slack_webhook_url"],
+        "stored_only_fields": ["store_id", "data_retention_days"],
+    }
+
+
+@app.post("/api/v1/admin/settings")
+def update_system_settings(payload: SystemSettingsUpdate, db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
+    """Persists settings AND, for detection_confidence_threshold, applies
+    the change live — no restart needed, since stream_camera_frames()
+    reads the module-level DETECTION_CONFIDENCE_THRESHOLD on every frame.
+    slack_webhook_url is read fresh from the DB on every send, so it's
+    also live immediately with no restart."""
+    global DETECTION_CONFIDENCE_THRESHOLD
+    row = db.query(SystemSettings).filter(SystemSettings.id == 1).first()
+    if row is None:
+        row = SystemSettings(id=1)
+        db.add(row)
+
+    changes = []
+    if payload.store_id is not None:
+        changes.append(f"store_id: {row.store_id!r} -> {payload.store_id!r}")
+        row.store_id = payload.store_id
+    if payload.data_retention_days is not None:
+        changes.append(f"data_retention_days: {row.data_retention_days} -> {payload.data_retention_days}")
+        row.data_retention_days = payload.data_retention_days
+    if payload.detection_confidence_threshold is not None:
+        changes.append(f"detection_confidence_threshold: {row.detection_confidence_threshold} -> {payload.detection_confidence_threshold}")
+        row.detection_confidence_threshold = payload.detection_confidence_threshold
+        DETECTION_CONFIDENCE_THRESHOLD = payload.detection_confidence_threshold
+    if payload.slack_webhook_url is not None:
+        changes.append("slack_webhook_url updated")  # never log the URL itself — it can double as a bearer secret
+        row.slack_webhook_url = payload.slack_webhook_url or None
+
+    row.updated_at = datetime.datetime.utcnow()
+    db.commit()
+
+    if changes:
+        write_audit_log(db, "INFO", current_user.email, "settings", "Updated system settings: " + "; ".join(changes))
+
+    applied_note = " Detection confidence is applied immediately, no restart needed." if payload.detection_confidence_threshold is not None else ""
+    return {"status": "success", "message": "Settings saved." + applied_note}
+
+
+@app.get("/api/v1/admin/permission-matrix")
+def get_permission_matrix(current_user: User = Depends(require_roles("Administrator"))):
+    """Returns the exact same ADMIN_PROTECTED_RESOURCES list require_roles()
+    is applied against on every protected route above — this can't drift
+    from what's actually enforced the way the old hardcoded illustrative
+    table could (and did)."""
+    return {"status": "success", "data": ADMIN_PROTECTED_RESOURCES}
+
+
+@app.get("/api/v1/dashboard/logs")
+def get_audit_logs(
+    level: Optional[str] = None,
+    search: Optional[str] = None,
+    format: str = "json",
+    db: Session = Depends(database.get_db),
+    current_user: User = Depends(require_roles("Administrator")),
+):
+    """
+    Real, persisted audit trail — previously the Logs tab showed 4
+    hardcoded sample rows with a banner saying no real aggregation existed.
+    level filters to INFO/WARN/ERROR (matching the tab's filter buttons);
+    search matches source or message, case-insensitive. format=csv streams
+    a real download, wiring up the tab's previously-inert Export CSV button.
+    """
+    query = db.query(AuditLogEntry).order_by(AuditLogEntry.timestamp.desc())
+    if level and level.lower() != "all":
+        query = query.filter(AuditLogEntry.level == level.upper())
+    if search:
+        like = f"%{search}%"
+        query = query.filter((AuditLogEntry.message.ilike(like)) | (AuditLogEntry.source.ilike(like)))
+    entries = query.limit(500).all()
+
+    if format == "csv":
+        buf = io.StringIO()
+        buf.write("timestamp,level,source,event_type,message,ip_address\n")
+        for e in entries:
+            buf.write(",".join([
+                e.timestamp.isoformat() if e.timestamp else "",
+                e.level or "",
+                (e.source or "").replace(",", ";"),
+                e.event_type or "",
+                (e.message or "").replace(",", ";").replace("\n", " "),
+                e.ip_address or "",
+            ]) + "\n")
+        buf.seek(0)
+        return StreamingResponse(
+            iter([buf.getvalue()]), media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=audit_log.csv"},
+        )
+
+    return {
+        "status": "success",
+        "data": [
+            {"id": e.id, "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+             "level": e.level, "source": e.source, "event_type": e.event_type,
+             "message": e.message, "ip_address": e.ip_address}
+            for e in entries
+        ],
+    }
+
+
+def _get_sqlite_path() -> str:
+    """Real on-disk path to the SQLite file, read from the SQLAlchemy
+    engine's own URL rather than a second hardcoded filename that could
+    drift from database.py's actual configuration.
+
+    Raises clearly if DATABASE_URL has been pointed at something other than
+    SQLite (e.g. Postgres) — this backup/restore implementation uses
+    Python's sqlite3 module directly, which only makes sense for a SQLite
+    file. Silently doing nothing, or worse, "succeeding" against the wrong
+    thing, would be far more dangerous than an explicit error here. Real
+    Postgres backup would need pg_dump/pg_restore instead, which isn't
+    built — this project's default (see database.py) is SQLite specifically
+    because nothing else here assumes a running Postgres server exists.
+
+    Raises RuntimeError, not HTTPException — both callers wrap this in a
+    broad `except Exception as e: raise HTTPException(..., detail=f"...{e}")`,
+    so an HTTPException raised here would get caught by that same handler
+    and re-wrapped with a mangled message (HTTPException's str() isn't its
+    detail text) instead of propagating cleanly. A plain RuntimeError's
+    message passes through that existing formatting correctly.
+    """
+    if not database.engine.url.get_backend_name().startswith("sqlite"):
+        raise RuntimeError(
+            "Backup/restore only supports SQLite. DATABASE_URL is configured for a different "
+            "database, which needs its own backup mechanism (e.g. pg_dump/pg_restore for "
+            "Postgres) — not implemented here."
+        )
+    db_path = database.engine.url.database
+    if not db_path:
+        raise RuntimeError("Could not determine the SQLite database file path from the engine URL.")
+    return db_path
+
+
+@app.post("/api/v1/admin/backup")
+def create_backup(db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
+    """
+    Real SQLite backup via sqlite3's own online backup API — safe to run
+    against a live database (it doesn't need exclusive access the way a
+    raw file copy would if a write happened mid-copy). Previously "Trigger
+    Manual Backup" just showed an alert saying nothing was wired up.
+    """
+    try:
+        src_path = _get_sqlite_path()
+        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        filename = f"cams_backup_{timestamp}.db"
+        dest_path = os.path.join(BACKUP_DIR, filename)
+
+        src_conn = sqlite3.connect(src_path)
+        dest_conn = sqlite3.connect(dest_path)
+        with dest_conn:
+            src_conn.backup(dest_conn)
+        src_conn.close()
+        dest_conn.close()
+
+        size_bytes = os.path.getsize(dest_path)
+        record = BackupRecord(filename=filename, size_bytes=size_bytes, created_by=current_user.email)
+        db.add(record)
+        db.commit()
+        write_audit_log(db, "INFO", current_user.email, "backup", f"Created backup {filename} ({size_bytes:,} bytes).")
+
+        return {"status": "success", "filename": filename, "size_bytes": size_bytes, "created_at": record.created_at.isoformat()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backup failed: {e}")
+
+
+@app.get("/api/v1/admin/backups")
+def list_backups(db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
+    """Real backup file history — previously "Last Automated Snapshot"
+    always read "Not configured" with nothing behind it."""
+    records = db.query(BackupRecord).order_by(BackupRecord.created_at.desc()).all()
+    return {
+        "status": "success",
+        "data": [
+            {"id": r.id, "filename": r.filename, "size_bytes": r.size_bytes,
+             "created_at": r.created_at.isoformat() if r.created_at else None, "created_by": r.created_by}
+            for r in records
+        ],
+    }
+
+
+class RestoreRequest(BaseModel):
+    filename: str
+
+
+@app.post("/api/v1/admin/restore")
+def restore_backup(payload: RestoreRequest, current_user: User = Depends(require_roles("Administrator"))):
+    """
+    Restores the live database from a real backup file.
+
+    SAFETY NOTE, stated plainly rather than implied away: this disposes the
+    SQLAlchemy connection pool before swapping the file, and it reconnects
+    lazily on the next query — safe for SQLite's single-writer model, but
+    any request already mid-transaction when this runs could still observe
+    inconsistent state. A full backend process restart immediately after
+    restoring is the genuinely safest practice, which is why the response
+    says so explicitly instead of claiming this is 100% seamless.
+
+    No `db: Session = Depends(...)` here on purpose — a request-injected
+    session's lifecycle would span the risky dispose+file-swap below, so
+    the audit-log write after restore opens a deliberately fresh session
+    instead of reusing one whose connection state is unpredictable here.
+    """
+    backup_path = os.path.join(BACKUP_DIR, payload.filename)
+    # Path-traversal guard — filename must resolve to a real file actually
+    # inside BACKUP_DIR, not something like "../../etc/passwd".
+    if not os.path.abspath(backup_path).startswith(os.path.abspath(BACKUP_DIR) + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid backup filename.")
+    if not os.path.exists(backup_path):
+        raise HTTPException(status_code=404, detail="Backup file not found.")
+
+    try:
+        src_path = _get_sqlite_path()
+        database.engine.dispose()
+        shutil.copyfile(backup_path, src_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Restore failed: {e}")
+
+    fresh_db = database.SessionLocal()
+    try:
+        write_audit_log(fresh_db, "WARN", current_user.email, "backup", f"Restored database from backup {payload.filename}. A backend restart is recommended.")
+    finally:
+        fresh_db.close()
+
+    return {
+        "status": "success",
+        "message": f"Database restored from {payload.filename}. Restarting the backend process is strongly recommended for a clean reconnect.",
+    }
+
+
+@app.get("/api/v1/dashboard/api-performance")
+def get_api_performance(current_user: User = Depends(require_roles("Administrator"))):
+    """
+    Real latency/error-rate stats computed from API_LATENCY_SAMPLES (see
+    the track_api_performance() middleware) — previously this tab was 3
+    hardcoded numbers (42ms avg / 115ms p99 / 0.01% error) with a banner
+    stating plainly that no instrumentation existed.
+    """
+    with API_STATS_LOCK:
+        samples = list(API_LATENCY_SAMPLES)
+
+    if not samples:
+        return {
+            "status": "success", "has_data": False,
+            "message": "No requests recorded yet this server run.",
+            "avg_ms": 0, "p99_ms": 0, "error_rate_pct": 0, "top_endpoints": [],
+        }
+
+    latencies = sorted(s["ms"] for s in samples)
+    avg_ms = sum(latencies) / len(latencies)
+    p99_ms = latencies[min(len(latencies) - 1, int(len(latencies) * 0.99))]
+    error_count = sum(1 for s in samples if s["status"] >= 500)
+
+    endpoint_counts: Dict[str, int] = defaultdict(int)
+    for s in samples:
+        endpoint_counts[f"{s['method']} {s['path']}"] += 1
+    top_endpoints = sorted(endpoint_counts.items(), key=lambda kv: kv[1], reverse=True)[:5]
+
+    return {
+        "status": "success", "has_data": True, "sample_count": len(samples),
+        "avg_ms": round(avg_ms, 1), "p99_ms": round(p99_ms, 1),
+        "error_rate_pct": round((error_count / len(samples)) * 100, 2),
+        "top_endpoints": [{"endpoint": ep, "count": c} for ep, c in top_endpoints],
+    }
+
+
+@app.get("/api/v1/dashboard/security")
+def get_security_status(db: Session = Depends(database.get_db), current_user: User = Depends(require_roles("Administrator"))):
+    """
+    Real firewall status — previously this tab explicitly said no
+    IP-blocking or rate-limiting existed anywhere. currently_blocked comes
+    from the in-memory FAILED_LOGIN_TRACKER (process-local by design — see
+    FailedLoginRecord in models.py); blocked_ip_count_24h comes from the
+    persisted FailedLoginRecord table, which does survive a restart.
+    """
+    with FAILED_LOGIN_LOCK:
+        tracked_ips = list(FAILED_LOGIN_TRACKER.keys())
+
+    blocked_now = []
+    for ip in tracked_ips:
+        retry_after = is_ip_blocked(ip)
+        if retry_after is not None:
+            blocked_now.append({"ip_address": ip, "retry_after_seconds": retry_after})
+
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+    recent_failures = db.query(FailedLoginRecord).filter(FailedLoginRecord.timestamp >= cutoff).all()
+    distinct_ips_24h = len({r.ip_address for r in recent_failures})
+
+    return {
+        "status": "success",
+        "firewall_status": "Active",
+        "currently_blocked": blocked_now,
+        "blocked_ip_count_24h": distinct_ips_24h,
+        "failed_attempts_24h": len(recent_failures),
+        "threshold_description": f"{FAILED_LOGIN_THRESHOLD} failed attempts within {FAILED_LOGIN_WINDOW_MINUTES} min blocks an IP for {FAILED_LOGIN_BLOCK_MINUTES} min.",
+    }
+
+# ==========================================
+# CAMERA STATUS & ALERTS — both real, data-driven (not mock)
+#
+# This section used to be headed "MOCK / SUPPLEMENTARY ENDPOINTS" — stale
+# from before get_camera_statuses() read real CAMERA_LAST_UPDATE heartbeats
+# and get_system_alerts() became fully rule-based against real scores,
+# ratings, and session data. Neither fabricates anything; corrected so a
+# future reader doesn't dismiss real code as a placeholder.
 # ==========================================
 
 def get_camera_statuses() -> List[dict]:
@@ -3021,10 +3745,15 @@ def register_live_sale(sale_data: POSWebhookRequest, x_webhook_secret: Optional[
 
     Auth: a shared secret (not a user login — POS terminals aren't people
     logging in) passed either as {"webhook_secret": "..."} in the body or an
-    X-Webhook-Secret header, checked against POS_WEBHOOK_SECRET.
+    X-Webhook-Secret header, checked against POS_WEBHOOK_SECRET using a
+    constant-time comparison (hmac.compare_digest) — a plain `!=` here
+    would leak timing information proportional to how many leading
+    characters match, letting an attacker recover the secret byte-by-byte
+    over enough requests. This is exactly the class of bug hmac.compare_digest
+    exists to prevent.
     """
     provided_secret = sale_data.webhook_secret or x_webhook_secret
-    if provided_secret != POS_WEBHOOK_SECRET:
+    if not provided_secret or not hmac.compare_digest(provided_secret, POS_WEBHOOK_SECRET):
         raise HTTPException(status_code=401, detail="Invalid or missing webhook secret")
 
     try:

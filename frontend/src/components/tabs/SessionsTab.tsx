@@ -9,15 +9,26 @@ interface RegisteredUser {
 export default function SessionsTab() {
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [loading, setLoading] = useState(true);
+  // Distinct from "no accounts registered" — a 403 (wrong role) previously
+  // rendered identically to a genuinely empty table, which is misleading:
+  // this endpoint is Administrator-only server-side, so a permission
+  // failure and an empty database are two different situations that
+  // deserve two different messages. Matches the same pattern already used
+  // in DeviceHealthTab/LogsTab/BackupTab/SecurityTab/PermissionMgmtTab.
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     fetch('/api/backend/v1/admin/users', { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (isMounted && data.status === "success") setUsers(data.data || []);
+      .then(async (res) => {
+        if (res.status === 403) throw new Error("This screen is Administrator-only.");
+        if (!res.ok) throw new Error(`Request failed (${res.status}).`);
+        return res.json();
       })
-      .catch(err => console.error("Users fetch error:", err))
+      .then(data => {
+        if (isMounted && data.status === "success") { setUsers(data.data || []); setError(null); }
+      })
+      .catch(err => { console.error("Users fetch error:", err); if (isMounted) setError(err.message); })
       .finally(() => { if (isMounted) setLoading(false); });
     return () => { isMounted = false; };
   }, []);
@@ -43,6 +54,10 @@ export default function SessionsTab() {
           currently logged in or force-disconnect them yet.
         </span>
       </div>
+
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3 mb-4 text-xs text-rose-300">{error}</div>
+      )}
 
       <table className="w-full text-left text-sm text-slate-300 border border-slate-800 rounded-lg overflow-hidden">
         <thead className="bg-slate-950 text-xs text-slate-400">

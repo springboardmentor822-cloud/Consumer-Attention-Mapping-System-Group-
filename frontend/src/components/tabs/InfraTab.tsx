@@ -1,10 +1,19 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 
+interface LogEntry {
+  id: number;
+  timestamp: string;
+  level: string;
+  source: string;
+  message: string;
+}
+
 export default function InfraTab() {
   const [health, setHealth] = useState({ 
     cpu: 0, memUsed: 0, memTotal: 16, memPct: 0, latency: 0, uptime: '0h 0m' 
   });
+  const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -18,6 +27,9 @@ export default function InfraTab() {
               memUsed: data.data.memory_used_gb,
               memTotal: data.data.memory_total_gb,
               memPct: data.data.memory_percent,
+              // Real now — computed backend-side from the same rolling
+              // request-latency samples ApiPerformanceTab shows, not a
+              // random.randint() with no connection to anything.
               latency: data.data.latency_ms,
               uptime: data.data.uptime
             });
@@ -34,8 +46,30 @@ export default function InfraTab() {
     };
   }, []);
 
+  // Real recent activity — was previously 4 hardcoded static lines
+  // (including one falsely claiming "Connected to PostgreSQL", which also
+  // directly contradicted this project's real default of local SQLite).
+  // Reuses the same /dashboard/logs endpoint LogsTab is built on; safe to
+  // call here without extra role-checking since Hardware & Infrastructure
+  // is Administrator-only in the sidebar already, same as Logs itself.
+  useEffect(() => {
+    let isMounted = true;
+    const fetchRecentLogs = () => {
+      fetch('/api/backend/v1/dashboard/logs', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          if (isMounted && data.status === 'success') setRecentLogs((data.data || []).slice(0, 4));
+        })
+        .catch(err => console.error("Recent logs fetch error:", err));
+    };
+    fetchRecentLogs();
+    const interval = setInterval(fetchRecentLogs, 10000);
+    return () => { isMounted = false; clearInterval(interval); };
+  }, []);
+
   const getCpuColor = (load: number) => load > 85 ? 'text-rose-400' : load > 60 ? 'text-amber-400' : 'text-emerald-400';
   const getCpuBg = (load: number) => load > 85 ? 'bg-rose-400' : load > 60 ? 'bg-amber-400' : 'bg-emerald-400';
+  const levelColor = (level: string) => level === 'ERROR' ? 'text-rose-400' : level === 'WARN' ? 'text-amber-400' : 'text-emerald-400';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -97,14 +131,19 @@ export default function InfraTab() {
         <div className="bg-[#04080f] border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-400 h-48 overflow-hidden relative shadow-inner">
           <div className="absolute top-0 left-0 w-full px-4 py-2 bg-[#04080f] border-b border-slate-800 flex items-center z-10">
             <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px] flex items-center">
-              <span className="mr-2">📺</span> tail -f /var/log/visionretail.log
+              <span className="mr-2">📺</span> Recent Activity (real, from the audit log)
             </span>
           </div>
           <div className="mt-8 space-y-1.5 opacity-80">
-            <p><span className="text-emerald-400">[INFO]</span> System check initialized... Network stable.</p>
-            <p><span className="text-emerald-400">[INFO]</span> Connected to PostgreSQL and initialized PSUtil hardware monitors.</p>
-            <p><span className="text-emerald-400">[INFO]</span> API Request: GET /api/v1/dashboard/system-health - Status: 200 OK</p>
-            <p><span className="text-cyan-400">[DATA]</span> Successfully parsed supermarket_sales - Sheet1.csv</p>
+            {recentLogs.length === 0 ? (
+              <p className="text-slate-600">No audit log entries yet.</p>
+            ) : (
+              recentLogs.map((log) => (
+                <p key={log.id}>
+                  <span className={levelColor(log.level)}>[{log.level}]</span> {log.message}
+                </p>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -114,6 +114,17 @@ class _OSNetEmbedder:
         with self.inference_lock:
             features = self.extractor(crop_rgb)  # accepts an (H, W, C) ndarray directly
         vec = features.squeeze(0).cpu().numpy()
+        # EMBEDDING_DIM_OSNET was previously declared but never actually
+        # checked against anything — this is exactly the invariant
+        # extract_feature()'s "sticky tier failure" comment already worries
+        # about: a wrong-dimension vector silently written into
+        # GLOBAL_PROFILES would only surface later, as a confusing,
+        # silently-swallowed ValueError somewhere else in the tracking
+        # loop. Asserting it here, inside the try/except that already
+        # handles this tier failing, turns a documented risk into an
+        # actively-caught one instead of a latent one.
+        if vec.shape[0] != EMBEDDING_DIM_OSNET:
+            raise ValueError(f"OSNet returned a {vec.shape[0]}-dim vector, expected {EMBEDDING_DIM_OSNET}.")
         norm = np.linalg.norm(vec)
         return vec / norm if norm > 1e-10 else vec
 
@@ -171,6 +182,8 @@ class _MobileNetEmbedder:
         with self.inference_lock, torch.no_grad():
             features = self.model(tensor)
         vec = features.squeeze(0).cpu().numpy()
+        if vec.shape[0] != EMBEDDING_DIM_MOBILENET:
+            raise ValueError(f"MobileNet returned a {vec.shape[0]}-dim vector, expected {EMBEDDING_DIM_MOBILENET}.")
         norm = np.linalg.norm(vec)
         return vec / norm if norm > 1e-10 else vec
 

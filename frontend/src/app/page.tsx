@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Unified Wrapper Tabs
 import InventorySalesTab from '@/components/tabs/InventorySalesTab';
@@ -54,6 +54,10 @@ const getSidebarForRole = (role: string) => {
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Distinct from isProcessing (which guards the login/signup form submit) —
+  // this guards the one-time session check on mount, so the login screen
+  // doesn't flash for a split second before that check resolves.
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isLoginMode, setIsLoginMode] = useState(true);
   
   const [email, setEmail] = useState('');
@@ -64,6 +68,32 @@ export default function Home() {
   
   const [authError, setAuthError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Real session restoration — previously isAuthenticated was pure
+  // in-memory React state that only ever flipped to true via the login
+  // form's own success handler below. The backend's httpOnly cookie
+  // genuinely persists across a page refresh and is genuinely still
+  // checked server-side on every real API call, but nothing on this page
+  // ever asked "is there already a valid session?" — so a hard refresh
+  // always dropped back to the login screen even with a perfectly valid
+  // cookie still active, forcing an unnecessary re-login every time.
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/backend/auth/me', { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) return null; // 401 = no valid session, not an error to report
+        return res.json();
+      })
+      .then((data) => {
+        if (isMounted && data && data.status === 'success') {
+          setRole(data.role);
+          setIsAuthenticated(true);
+        }
+      })
+      .catch((err) => console.error('Session check failed:', err))
+      .finally(() => { if (isMounted) setIsCheckingSession(false); });
+    return () => { isMounted = false; };
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,9 +107,17 @@ export default function Home() {
       const response = await fetch(proxyEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password, role: isLoginMode ? 'unassigned' : role })
       });
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const textError = await response.text();
+        throw new Error(`Server error (${response.status}): ${textError.substring(0, 50)}...`);
+      }
       if (response.ok && (data.status === 'authenticated' || data.status === 'created')) {
         setRole(data.role);
         setIsAuthenticated(true);
@@ -106,6 +144,14 @@ export default function Home() {
     setEmail('');
     setPassword('');
   };
+
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+        <span className="text-cyan-400 font-mono text-sm animate-pulse">Checking session...</span>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -187,8 +233,13 @@ export default function Home() {
               <option value="yesterday">Yesterday</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
-              <option value="quarterly">This Quarter</option>
-              <option value="yearly">This Year</option>
+              {/* Was "quarterly"/"yearly" — didn't match any value main.py's
+                  filter_sales_df_by_time() (or real_wallclock_cutoff() for
+                  live camera data) actually checks for ("quarter"/"year"),
+                  so selecting either of these silently returned unfiltered,
+                  all-time data everywhere in the dashboard. */}
+              <option value="quarter">This Quarter</option>
+              <option value="year">This Year</option>
               <option value="all">All Time</option>
             </select>
           </div>
@@ -248,7 +299,7 @@ export default function Home() {
           {activeTab === 'Merchandising Analytics' && <MerchandisingAnalyticsTab timeFilter={timeFilter} />}
           {activeTab === 'Behavioral Metrics' && <BehavioralMetricsTab timeFilter={timeFilter} />}
           {activeTab === 'Campaign A/B' && <CampaignTab />}
-          {activeTab === 'Customer Journey' && <JourneyTab />}
+          {activeTab === 'Customer Journey' && <JourneyTab timeFilter={timeFilter} />}
           {activeTab === 'Micro-Level Shelves' && <ShelvesTab />}
           {activeTab === 'Recommendations' && <RecsTab />}
 

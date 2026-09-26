@@ -28,46 +28,79 @@ export default function ProductAnalyticsTab({ timeFilter = 'all' }: { timeFilter
   const [products, setProducts] = useState<Product[]>([]);
   const [scores, setScores] = useState<AttractivenessScore[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [recalcMessage, setRecalcMessage] = useState<string | null>(null);
+
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      const [prodRes, scoreRes] = await Promise.all([
+        fetch(`/api/backend/v1/dashboard/products?time_filter=${timeFilter}`, { credentials: 'include' }),
+        fetch(`/api/backend/v1/dashboard/attractiveness`, { credentials: 'include' })
+      ]);
+
+      const prodData = await prodRes.json();
+      const scoreData = await scoreRes.json();
+
+      if (prodData.status === "success") setProducts(prodData.data);
+      if (scoreData.status === "success") setScores(scoreData.data);
+    } catch (err) {
+      console.error("Failed to fetch product analytics:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
-
-    const fetchAllData = async () => {
-      setLoading(true);
-      try {
-        const [prodRes, scoreRes] = await Promise.all([
-          fetch(`/api/backend/v1/dashboard/products?time_filter=${timeFilter}`, { credentials: 'include' }),
-          fetch(`/api/backend/v1/dashboard/attractiveness`, { credentials: 'include' })
-        ]);
-        
-        const prodData = await prodRes.json();
-        const scoreData = await scoreRes.json();
-
-        if (isMounted) {
-          if (prodData.status === "success") setProducts(prodData.data);
-          if (scoreData.status === "success") setScores(scoreData.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch product analytics:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchAllData();
+    (async () => {
+      if (isMounted) await fetchAllData();
+    })();
     return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeFilter]);
+
+  // Scores otherwise only update on server startup or the 15-minute
+  // scheduler tick (calculate_and_store_scores) — this endpoint exists
+  // specifically so testing/demoing doesn't require waiting on that, but
+  // nothing called it anywhere in the UI until now.
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    setRecalcMessage(null);
+    try {
+      const res = await fetch('/api/backend/v1/dashboard/attractiveness/recalculate', { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      setRecalcMessage(data.message || (res.ok ? 'Recalculated.' : 'Recalculation failed.'));
+      if (res.ok && data.wrote_data) await fetchAllData();
+    } catch (err) {
+      setRecalcMessage('Could not reach the backend.');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   return (
     <div className="w-full min-w-0 space-y-6 animate-in fade-in duration-500">
       
       {/* 1. AI ATTRACTIVENESS SCORING LEADERBOARD */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg">
-        <div className="mb-6">
-          <h3 className="text-lg font-bold text-slate-200">AI Attractiveness Scoring</h3>
-          <p className="text-slate-400 text-sm mt-1">
-            Composite AI score based on Attention (35%), Interaction (25%), Pickup (20%), Conversion (15%), and Repeat (5%).
-          </p>
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-slate-200">AI Attractiveness Scoring</h3>
+            <p className="text-slate-400 text-sm mt-1">
+              Composite AI score based on Attention (35%), Interaction (25%), Pickup (20%), Conversion (15%), and Repeat (5%).
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <button
+              onClick={handleRecalculate}
+              disabled={isRecalculating}
+              className="bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 transition disabled:opacity-50"
+            >
+              {isRecalculating ? 'Recalculating…' : '↻ Recalculate Now'}
+            </button>
+            {recalcMessage && <p className="text-[10px] text-slate-400 max-w-xs text-right">{recalcMessage}</p>}
+          </div>
         </div>
 
         {loading ? (

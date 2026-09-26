@@ -1,3 +1,45 @@
+"""
+ml_engine.py — spatial mapping, clustering, and trajectory-smoothing
+utilities.
+
+STATUS, PLAINLY: as of this writing, NOTHING in main.py calls any function
+in this file. It's imported (defensively — see main.py's `import ml_engine`)
+but otherwise fully disconnected from the live pipeline. Documented here so
+this is a known, intentional gap rather than silently-dead code someone
+finds by accident later:
+
+1. get_homography_matrix() / map_to_floorplan() — REAL, correct
+   perspective-transform code (cv2.findHomography + cv2.perspectiveTransform),
+   but src_pts below are placeholder example coordinates, not a real
+   calibration. Wiring this in for real requires physically measuring, for
+   each of the 4 cameras, where 4 known floor-plan reference points
+   actually appear in that camera's image — data that doesn't exist
+   anywhere in this project and can't be fabricated here. Without it,
+   main.py's get_heatmap_data() uses a linear approximation instead
+   (bounding-box center scaled directly into the assigned zone's
+   rectangle — see the FRAME_W/FRAME_H normalization there). That's a
+   reasonable approximation for a roughly overhead or straight-on camera,
+   but it will distort real positions for any camera mounted at a
+   meaningful angle or with a wide field of view. If you get real
+   calibration points for your camera setup, this is where they'd plug in.
+
+2. classify_shopper_behavior() — a K-Means alternative to the rule-based
+   classifier main.py actually uses (_classify_shopper_segment(), which
+   also factors in real cross-camera Re-ID confirmation — see its
+   docstring). This function was superseded, not integrated, and is kept
+   here as reference/legacy rather than deleted outright.
+
+3. create_kalman_filter() — a real, correctly-configured constant-velocity
+   Kalman filter for smoothing YOLO bounding-box jitter frame-to-frame.
+   Unlike #1, this needs NO external calibration data — it's a genuinely
+   buildable improvement to dwell/pause timing precision. It wasn't wired
+   into stream_camera_frames()'s per-frame tracking loop because that loop
+   is a sensitive hot path multiple other features depend on directly
+   (dwell time, pause detection, session-completion buffering, and the
+   Re-ID/pose-detection cascade timing) — integrating it deserves its own
+   focused pass with room to verify it doesn't shift that timing, not a
+   drive-by addition alongside unrelated changes.
+"""
 import numpy as np
 import cv2
 from sklearn.cluster import KMeans

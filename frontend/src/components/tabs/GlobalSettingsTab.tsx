@@ -17,7 +17,12 @@ export default function GlobalSettingsTab({ role = 'Administrator' }: { role?: '
       <div className="flex-1 min-h-0 overflow-y-auto">
         {subTab === 'sys' && <SysSettingsTab />}
         {subTab === 'layout' && <StoreLayoutTab />}
-        {subTab === 'export' && <ExportTab role={role} />}
+        {/* Was <ExportTab role={role} /> — ExportTab takes no props at all;
+            it determines the signed-in role itself via /api/backend/auth/me.
+            The passed role prop did nothing (and likely a TS error under
+            strict prop-checking) — removed rather than adding a prop
+            ExportTab has no use for. */}
+        {subTab === 'export' && <ExportTab />}
       </div>
     </div>
   );
