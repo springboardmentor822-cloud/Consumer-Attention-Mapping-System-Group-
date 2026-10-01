@@ -349,7 +349,7 @@ export default function StoreManagerDashboard() {
   // Matches Admin dashboard's real Camera Health heartbeat check
   // (backend/app/api/admin.py HEARTBEAT_TIMEOUT_SECONDS=60) - is_active is
   // only a DB flag, it does not mean the camera is actually streaming.
-  const isCameraOnline = (c: { last_seen_at: string | null }) => {
+  const isCameraOnline = (c: Camera) => {
     if (!c.last_seen_at) return false;
     const secondsSinceHeartbeat = (Date.now() - new Date(c.last_seen_at).getTime()) / 1000;
     return secondsSinceHeartbeat < 60;
