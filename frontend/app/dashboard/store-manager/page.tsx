@@ -346,7 +346,16 @@ export default function StoreManagerDashboard() {
       : totalDwellSeconds;
   const avgDwellIsTrueAverage = totalDistinctForDwell > 0;
   const totalVisitors = zoneTrafficData.reduce((sum, z) => sum + z.distinct_visitors, 0);
-  const camerasOnline = cameras.filter((c) => c.is_active).length;
+  // Matches Admin dashboard's real Camera Health heartbeat check
+  // (backend/app/api/admin.py HEARTBEAT_TIMEOUT_SECONDS=60) - is_active is
+  // only a DB flag, it does not mean the camera is actually streaming.
+  const isCameraOnline = (c: { last_seen_at: string | null }) => {
+    if (!c.last_seen_at) return false;
+    const secondsSinceHeartbeat = (Date.now() - new Date(c.last_seen_at).getTime()) / 1000;
+    return secondsSinceHeartbeat < 60;
+  };
+
+  const camerasOnline = cameras.filter(isCameraOnline).length;
   // "Current customers" proxy — sum of each camera's live activity count.
   // Not a real headcount (see ACTIVITY_WINDOW_MS note above), just the
   // most honest thing derivable from the live stream right now.
@@ -467,10 +476,10 @@ export default function StoreManagerDashboard() {
                               <span className="text-sm font-medium">{cam.name}</span>
                               <span
                                 className={`text-xs ${
-                                  cam.is_active ? "text-emerald-500" : "text-destructive"
+                                  isCameraOnline(cam) ? "text-emerald-500" : "text-destructive"
                                 }`}
                               >
-                                {cam.is_active ? "Online" : "Offline"}
+                                {isCameraOnline(cam) ? "Online" : "Offline"}
                               </span>
                             </div>
                             <span className="text-xs text-muted-foreground">
