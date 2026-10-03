@@ -51,6 +51,7 @@ export type Camera = {
   name: string;
   source_path: string;
   is_active: boolean;
+  last_seen_at: string | null;
 };
 
 // NEW — for the dwell-time-by-shelf dashboard chart. Backed by
